@@ -9,6 +9,7 @@ struct wlr_scene_tree;
 
 struct hsdwl_view
 {
+	struct wl_list link;
 	struct hsdwl_server *server;
 	struct wlr_xdg_surface *xdg_surface;
 	struct wlr_scene_tree *scene_tree;

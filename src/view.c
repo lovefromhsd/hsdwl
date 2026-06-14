@@ -62,7 +62,6 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 
 	if (view->xdg_surface->initial_commit && view->xdg_surface->toplevel)
 	{
-		wlr_xdg_toplevel_set_fullscreen(view->xdg_surface->toplevel, true);
 		wlr_xdg_toplevel_set_activated(view->xdg_surface->toplevel, true);
 		wlr_xdg_surface_schedule_configure(view->xdg_surface);
 	}
@@ -74,6 +73,9 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
 	if (view->scene_tree)
 		view->scene_tree->node.data = NULL;
+	if (view->server->grabbed_view == view)
+		view->server->grabbed_view = NULL;
+	wl_list_remove(&view->link);
 	wl_list_remove(&view->commit.link);
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
@@ -95,6 +97,7 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	view->server = server;
 	view->xdg_surface = xdg_surface;
 	xdg_surface->data = view;
+	wl_list_insert(&server->views, &view->link);
 
 	view->map.notify = view_handle_map;
 	wl_signal_add(&xdg_surface->surface->events.map, &view->map);

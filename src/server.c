@@ -178,6 +178,9 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	}
 
 	wl_list_init(&server->keyboards);
+	wl_list_init(&server->views);
+	server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
+	server->grabbed_view = NULL;
 
 	if (!pointer_init(server))
 	{

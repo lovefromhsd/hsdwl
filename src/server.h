@@ -17,6 +17,14 @@ struct wlr_seat;
 struct wlr_cursor;
 struct wlr_xcursor_manager;
 
+struct hsdwl_view;
+
+enum hsdwl_cursor_mode
+{
+	HSDWL_CURSOR_PASSTHROUGH,
+	HSDWL_CURSOR_MOVE,
+};
+
 struct hsdwl_server
 {
 	struct wl_display *display;
@@ -31,6 +39,7 @@ struct hsdwl_server
 	struct wl_listener new_xdg_toplevel;
 	struct wl_listener new_input;
 	struct wl_list keyboards;
+	struct wl_list views;
 	struct wlr_cursor *cursor;
 	struct wlr_xcursor_manager *cursor_mgr;
 	struct wl_listener cursor_motion;
@@ -41,6 +50,12 @@ struct hsdwl_server
 	struct wl_listener request_cursor;
 	struct wl_listener request_set_selection;
 	struct wl_listener pointer_focus_change;
+	enum hsdwl_cursor_mode cursor_mode;
+	struct hsdwl_view *grabbed_view;
+	double grab_x;
+	double grab_y;
+	int grab_view_x;
+	int grab_view_y;
 	const char *socket;
 	pid_t child_pid;
 };
