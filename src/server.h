@@ -14,6 +14,8 @@ struct wlr_scene;
 struct wlr_scene_output_layout;
 struct wlr_output_layout;
 struct wlr_seat;
+struct wlr_cursor;
+struct wlr_xcursor_manager;
 
 struct hsdwl_server
 {
@@ -29,6 +31,16 @@ struct hsdwl_server
 	struct wl_listener new_xdg_toplevel;
 	struct wl_listener new_input;
 	struct wl_list keyboards;
+	struct wlr_cursor *cursor;
+	struct wlr_xcursor_manager *cursor_mgr;
+	struct wl_listener cursor_motion;
+	struct wl_listener cursor_motion_absolute;
+	struct wl_listener cursor_button;
+	struct wl_listener cursor_axis;
+	struct wl_listener cursor_frame;
+	struct wl_listener request_cursor;
+	struct wl_listener request_set_selection;
+	struct wl_listener pointer_focus_change;
 	const char *socket;
 	pid_t child_pid;
 };

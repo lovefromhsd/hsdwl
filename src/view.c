@@ -19,7 +19,10 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 		view->scene_tree = wlr_scene_xdg_surface_create(
 			&view->server->scene->tree, view->xdg_surface);
 		if (view->scene_tree)
+		{
+			view->scene_tree->node.data = view;
 			wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+		}
 	}
 
 	if (view->xdg_surface->toplevel)
@@ -69,6 +72,8 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
+	if (view->scene_tree)
+		view->scene_tree->node.data = NULL;
 	wl_list_remove(&view->commit.link);
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);

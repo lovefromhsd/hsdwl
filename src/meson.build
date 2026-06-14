@@ -4,4 +4,5 @@ hsdwl_src = files(
   'view.c',
   'input.c',
   'output.c',
+  'pointer.c',
 )

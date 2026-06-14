@@ -3,6 +3,7 @@
 #include "server.h"
 #include "input.h"
 #include "output.h"
+#include "pointer.h"
 #include "view.h"
 
 #include <errno.h>
@@ -17,11 +18,13 @@
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_subcompositor.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
@@ -132,6 +135,23 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	server->scene_layout = wlr_scene_attach_output_layout(
 		server->scene, server->output_layout);
 
+	server->cursor = wlr_cursor_create();
+	if (!server->cursor)
+	{
+		wlr_log(WLR_ERROR, "wlr_cursor_create failed");
+		return false;
+	}
+	wlr_cursor_attach_output_layout(server->cursor,
+		server->output_layout);
+
+	server->cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
+	if (!server->cursor_mgr)
+	{
+		wlr_log(WLR_ERROR, "wlr_xcursor_manager_create failed");
+		return false;
+	}
+	wlr_xcursor_manager_load(server->cursor_mgr, 1);
+
 	server->new_output.notify = output_handle_new;
 	wl_signal_add(&server->backend->events.new_output,
 		&server->new_output);
@@ -159,6 +179,12 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 
 	wl_list_init(&server->keyboards);
 
+	if (!pointer_init(server))
+	{
+		wlr_log(WLR_ERROR, "pointer_init failed");
+		return false;
+	}
+
 	return true;
 }
 
@@ -170,6 +196,16 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 		waitpid(server->child_pid, &status, 0);
 		server->child_pid = 0;
 	}
+	wl_list_remove(&server->cursor_motion.link);
+	wl_list_remove(&server->cursor_motion_absolute.link);
+	wl_list_remove(&server->cursor_button.link);
+	wl_list_remove(&server->cursor_axis.link);
+	wl_list_remove(&server->cursor_frame.link);
+	wl_list_remove(&server->request_cursor.link);
+	wl_list_remove(&server->pointer_focus_change.link);
+	wl_list_remove(&server->request_set_selection.link);
+	wlr_xcursor_manager_destroy(server->cursor_mgr);
+	wlr_cursor_destroy(server->cursor);
 	wlr_xwayland_destroy(NULL);
 	wl_display_destroy(server->display);
 }

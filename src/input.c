@@ -1,4 +1,7 @@
+#define _GNU_SOURCE
+
 #include "input.h"
+#include "pointer.h"
 #include "server.h"
 
 #include <stdlib.h>
@@ -106,7 +109,8 @@ static void input_keyboard_create(struct hsdwl_server *server,
 	wl_list_insert(&server->keyboards, &keyboard->link);
 
 	wlr_seat_set_keyboard(server->seat, wlr_keyboard);
-	wlr_seat_set_capabilities(server->seat, WL_SEAT_CAPABILITY_KEYBOARD);
+	wlr_seat_set_capabilities(server->seat,
+		WL_SEAT_CAPABILITY_KEYBOARD | WL_SEAT_CAPABILITY_POINTER);
 }
 
 void input_handle_new(struct wl_listener *listener, void *data)
@@ -119,6 +123,9 @@ void input_handle_new(struct wl_listener *listener, void *data)
 	{
 	case WLR_INPUT_DEVICE_KEYBOARD:
 		input_keyboard_create(server, device);
+		break;
+	case WLR_INPUT_DEVICE_POINTER:
+		pointer_handle_new(server, device);
 		break;
 	default:
 		break;
