@@ -2,6 +2,7 @@
 
 #include "server.h"
 #include "input.h"
+#include "layer-shell.h"
 #include "output.h"
 #include "output-management.h"
 #include "pointer.h"
@@ -154,6 +155,11 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
+	server->layer_trees[0] = wlr_scene_tree_create(
+		&server->scene->tree);
+	server->layer_trees[1] = wlr_scene_tree_create(
+		&server->scene->tree);
+
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
 		server->workspaces[i] = wlr_scene_tree_create(
@@ -169,6 +175,11 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	server->current_workspace = 0;
 	wlr_scene_node_set_enabled(
 		&server->workspaces[0]->node, true);
+
+	server->layer_trees[2] = wlr_scene_tree_create(
+		&server->scene->tree);
+	server->layer_trees[3] = wlr_scene_tree_create(
+		&server->scene->tree);
 
 	server->cursor = wlr_cursor_create();
 	if (!server->cursor)
@@ -228,6 +239,15 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
+	wl_list_init(&server->layer_surfaces);
+	server->focused_layer = NULL;
+
+	if (!layer_shell_init(server))
+	{
+		wlr_log(WLR_ERROR, "layer_shell_init failed");
+		return false;
+	}
+
 	return true;
 }
 
@@ -245,6 +265,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wlr_cursor_destroy(server->cursor);
 	hsdwl_xwayland_finish(server);
 	output_manager_finish(server);
+	wl_list_remove(&server->new_layer_surface.link);
 	hsdwl_config_finish(&server->config);
 	wl_display_destroy(server->display);
 }

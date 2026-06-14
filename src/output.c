@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include "layer-shell.h"
 #include "output.h"
 #include "output-management.h"
 #include "server.h"
@@ -36,6 +37,7 @@ static void output_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&output->link);
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->destroy.link);
+	layer_shell_rearrange(output->server);
 	free(output);
 }
 
@@ -79,4 +81,5 @@ void output_handle_new(struct wl_listener *listener, void *data)
 		layout_output, scene_output);
 
 	output_manager_update(server);
+	layer_shell_rearrange(server);
 }

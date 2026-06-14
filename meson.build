@@ -17,9 +17,12 @@ xkbcommon = dependency('xkbcommon')
 
 subdir('src')
 
+hsdwl_inc = include_directories('src')
+
 executable(
     'hsdwl',
     hsdwl_src,
+    include_directories: hsdwl_inc,
     dependencies: [
         wlroots,
         wayland_server,

@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
+#define WLR_USE_UNSTABLE
 
+#include "layer-shell.h"
 #include "pointer.h"
 #include "server.h"
 #include "view.h"
@@ -9,6 +11,7 @@
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
@@ -326,6 +329,60 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 					wlr_seat_keyboard_notify_enter(
 						server->seat,
 						surf, NULL, 0, NULL);
+			}
+		}
+		else
+		{
+			double sx2, sy2;
+			struct wlr_scene_node *node =
+				wlr_scene_node_at(
+					&server->scene->tree.node,
+					server->cursor->x,
+					server->cursor->y, &sx2, &sy2);
+			if (node && node->type
+					== WLR_SCENE_NODE_BUFFER)
+			{
+				struct wlr_scene_buffer *sb =
+					wlr_scene_buffer_from_node(
+						node);
+				struct wlr_scene_surface *ss =
+					wlr_scene_surface_try_from_buffer(
+						sb);
+				if (ss)
+				{
+					struct wlr_surface *surf =
+						ss->surface;
+					struct hsdwl_layer_surface
+						*layer;
+					wl_list_for_each(layer,
+						&server->layer_surfaces,
+						link)
+					{
+						if (layer->layer_surface
+								->surface != surf)
+							continue;
+						if (!layer->scene_tree
+							|| !layer->scene_tree
+								->node.enabled)
+							continue;
+						if (layer->layer_surface
+							->current
+							.keyboard_interactive
+							== 0)
+							continue;
+						struct wlr_keyboard *kb3
+							= wlr_seat_get_keyboard(
+								server->seat);
+						if (kb3)
+							wlr_seat_keyboard_notify_enter(
+								server->seat,
+								surf, NULL,
+								0, NULL);
+						server->focused_layer
+							= layer;
+						break;
+					}
+				}
 			}
 		}
 		return;

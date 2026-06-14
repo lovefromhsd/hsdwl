@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include "layer-shell.h"
 #include "view.h"
 #include "server.h"
 
@@ -52,6 +53,8 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view)
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 {
+	server->focused_layer = NULL;
+
 	if (!view)
 	{
 		wlr_seat_keyboard_clear_focus(server->seat);
