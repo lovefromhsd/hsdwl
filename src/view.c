@@ -4,7 +4,6 @@
 #include "server.h"
 
 #include <stdlib.h>
-#include <time.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_shell.h>

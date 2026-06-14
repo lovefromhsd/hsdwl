@@ -63,36 +63,26 @@ bool binding_dispatch(struct hsdwl_server *server,
 	{
 		if (!mods_match(b, kb)) continue;
 
-		bool key_ok = false;
-		if (b->keycode != 0)
-			key_ok = (event->keycode == b->keycode);
-		else if (b->sym != XKB_KEY_NoSymbol)
-			key_ok = (sym == b->sym);
-		else
+		switch (b->action)
 		{
-			switch (b->action)
-			{
-			case HSDWL_ACTION_CYCLE_FOCUS:
-			case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
-				key_ok = (sym == XKB_KEY_Tab);
-				break;
-			case HSDWL_ACTION_SPAWN:
-				key_ok = (sym == XKB_KEY_Return);
-				break;
-			case HSDWL_ACTION_QUIT:
-				key_ok = (sym == XKB_KEY_Escape);
-				break;
-			case HSDWL_ACTION_SWITCH_WORKSPACE:
-			case HSDWL_ACTION_MOVE_TO_WORKSPACE:
-				if (b->arg >= 1 && b->arg <= 9)
-					key_ok = (event->keycode == (uint32_t)(KEY_1 + (b->arg - 1)));
-				break;
-			default:
-				break;
-			}
+		case HSDWL_ACTION_CYCLE_FOCUS:
+		case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
+			if (sym != XKB_KEY_Tab) continue;
+			break;
+		case HSDWL_ACTION_SPAWN:
+			if (sym != XKB_KEY_Return) continue;
+			break;
+		case HSDWL_ACTION_QUIT:
+			if (sym != XKB_KEY_Escape) continue;
+			break;
+		case HSDWL_ACTION_SWITCH_WORKSPACE:
+		case HSDWL_ACTION_MOVE_TO_WORKSPACE:
+			if (b->arg < 1 || b->arg > 9) continue;
+			if (event->keycode != (uint32_t)(KEY_1 + (b->arg - 1))) continue;
+			break;
+		default:
+			continue;
 		}
-
-		if (!key_ok) continue;
 
 		switch (b->action)
 		{

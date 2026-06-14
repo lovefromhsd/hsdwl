@@ -7,6 +7,14 @@
 #include <pwd.h>
 #include "config.h"
 
+#define HSDWL_MAX_VARS 64
+
+struct config_var
+{
+	char key[64];
+	char val[256];
+};
+
 static const char *default_config_text =
 	"cursor_size = 24\n"
 	"keyboard_repeat_rate = 25\n"
@@ -77,15 +85,38 @@ static int parse_action(const char *s)
 	return HSDWL_ACTION_NONE;
 }
 
-static void resolve_mod_key_token(char *mods, const char *mod_key)
+static int var_key_len_desc(const void *a, const void *b)
 {
-	char *p;
-	while ((p = strstr(mods, "mod_key"))) {
-		size_t mklen = strlen(mod_key);
-		size_t rest = strlen(p + 7) + 1;
-		memmove(p + mklen, p + 7, rest);
-		memcpy(p, mod_key, mklen);
+	const struct config_var *va = a, *vb = b;
+	int la = (int)strlen(va->key);
+	int lb = (int)strlen(vb->key);
+	if (la > lb) return -1;
+	if (la < lb) return 1;
+	return 0;
+}
+
+static void resolve_vars(char *mods, struct config_var *vars, int nv)
+{
+	qsort(vars, nv, sizeof(vars[0]), var_key_len_desc);
+	for (int i = 0; i < nv; i++) {
+		size_t klen = strlen(vars[i].key);
+		size_t vlen = strlen(vars[i].val);
+		if (klen == 0) continue;
+		char *p;
+		while ((p = strstr(mods, vars[i].key))) {
+			size_t rest = strlen(p + klen) + 1;
+			memmove(p + vlen, p + klen, rest);
+			memcpy(p, vars[i].val, vlen);
+		}
 	}
+}
+
+static char *trim_tail(char *s)
+{
+	char *end = s + strlen(s);
+	while (end > s && isspace((unsigned char)*(end-1))) end--;
+	*end = '\0';
+	return s;
 }
 
 bool hsdwl_config_load(struct hsdwl_config *cfg)
@@ -93,12 +124,21 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	memset(cfg, 0, sizeof(*cfg));
 	wl_list_init(&cfg->bindings);
 
+	struct config_var vars[HSDWL_MAX_VARS];
+	int num_vars = 0;
+
 	cfg->cursor_size = 24;
 	cfg->keyboard_repeat_rate = 25;
 	cfg->keyboard_repeat_delay = 600;
 	cfg->edge_threshold = 10;
 	cfg->min_window_size = 50;
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
+
+	if (num_vars < HSDWL_MAX_VARS) {
+		snprintf(vars[num_vars].key, sizeof(vars[0].key), "mod_key");
+		snprintf(vars[num_vars].val, sizeof(vars[0].val), "%s", cfg->mod_key);
+		num_vars++;
+	}
 
 	char *path = config_path();
 	FILE *f = fopen(path, "re");
@@ -120,17 +160,16 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 
 		if (strncmp(s, "bind = ", 7) == 0) {
 			char *rest = s + 7;
-			char mods_k[128];
+			char mods_k[1024];
 			char action_part[1024];
-			if (sscanf(rest, "%127[^,], %1023[^\n]", mods_k, action_part) < 2)
+			if (sscanf(rest, "%1023[^,], %1023[^\n]", mods_k, action_part) < 2)
 				continue;
 
-			/* remove trailing spaces from mods_k */
-			char *end = mods_k + strlen(mods_k);
-			while (end > mods_k && isspace((unsigned char)*(end-1))) end--;
-			*end = '\0';
+			/* trim trailing spaces from mods_k */
+			trim_tail(mods_k);
 
-			resolve_mod_key_token(mods_k, cfg->mod_key);
+			/* resolve any config variable references in mods */
+			resolve_vars(mods_k, vars, num_vars);
 
 			/* strip last +-separated part (the key name) from mods */
 			char *last_plus = strrchr(mods_k, '+');
@@ -142,27 +181,18 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			struct hsdwl_binding *b = calloc(1, sizeof(*b));
 			if (!b) continue;
 			snprintf(b->mods, sizeof(b->mods), "%s", mods_k);
-			b->keycode = 0;
-			b->sym = XKB_KEY_NoSymbol;
 
-			/* check if action_part starts with a known action */
 			char action_str[64];
 			int action_arg = 0;
 			sscanf(action_part, "%63[^,],%d", action_str, &action_arg);
-			/* trim trailing spaces from action_str */
-			char *ap = action_str + strlen(action_str);
-			while (ap > action_str && isspace((unsigned char)*(ap-1))) ap--;
-			*ap = '\0';
+			trim_tail(action_str);
 
 			b->action = parse_action(action_str);
 			if (b->action != HSDWL_ACTION_NONE) {
 				b->arg = action_arg;
 			} else {
 				b->action = HSDWL_ACTION_SPAWN;
-				/* trim trailing spaces from action_part for command */
-				ap = action_part + strlen(action_part);
-				while (ap > action_part && isspace((unsigned char)*(ap-1))) ap--;
-				*ap = '\0';
+				trim_tail(action_part);
 				snprintf(b->command, sizeof(b->command), "%s", action_part);
 			}
 
@@ -173,6 +203,8 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 		char key[64];
 		char val[256];
 		if (sscanf(s, "%63[^=] = %255s", key, val) < 2) continue;
+
+		trim_tail(key);
 
 		if (strcmp(key, "cursor_size") == 0)
 			cfg->cursor_size = atoi(val);
@@ -186,6 +218,23 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			cfg->min_window_size = atoi(val);
 		else if (strcmp(key, "mod_key") == 0)
 			snprintf(cfg->mod_key, sizeof(cfg->mod_key), "%.31s", val);
+
+		/* store every key=value pair in var table for bind resolution */
+		if (num_vars < HSDWL_MAX_VARS) {
+			int found = 0;
+			for (int i = 0; i < num_vars; i++) {
+				if (strcmp(vars[i].key, key) == 0) {
+					snprintf(vars[i].val, sizeof(vars[0].val), "%s", val);
+					found = 1;
+					break;
+				}
+			}
+			if (!found) {
+				snprintf(vars[num_vars].key, sizeof(vars[0].key), "%s", key);
+				snprintf(vars[num_vars].val, sizeof(vars[0].val), "%s", val);
+				num_vars++;
+			}
+		}
 	}
 
 	free(line);

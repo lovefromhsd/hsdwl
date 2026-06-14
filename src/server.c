@@ -8,8 +8,6 @@
 
 #include <signal.h>
 #include <stdlib.h>
-#include <string.h>
-#include <time.h>
 #include <unistd.h>
 #include <wlr/backend.h>
 #include <wlr/render/allocator.h>

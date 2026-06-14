@@ -7,14 +7,10 @@
 #include "server.h"
 #include "view.h"
 
-#include <linux/input-event-codes.h>
 #include <stdlib.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_seat.h>
-#include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/util/log.h>
-#include <xkbcommon/xkbcommon.h>
 
 static void keyboard_handle_modifiers(struct wl_listener *listener, void *data)
 {

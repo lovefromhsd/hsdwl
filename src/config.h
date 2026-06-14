@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 #include <wayland-server-core.h>
-#include <xkbcommon/xkbcommon.h>
 
 enum hsdwl_action
 {
@@ -19,12 +18,10 @@ enum hsdwl_action
 struct hsdwl_binding
 {
 	struct wl_list link;
-	uint32_t keycode;
-	xkb_keysym_t sym;
 	char mods[128];
 	enum hsdwl_action action;
 	int arg;
-	char command[256];
+	char command[1024];
 };
 
 struct hsdwl_config
