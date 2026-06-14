@@ -23,6 +23,7 @@ enum hsdwl_cursor_mode
 {
 	HSDWL_CURSOR_PASSTHROUGH,
 	HSDWL_CURSOR_MOVE,
+	HSDWL_CURSOR_RESIZE,
 };
 
 struct hsdwl_server
@@ -56,6 +57,9 @@ struct hsdwl_server
 	double grab_y;
 	int grab_view_x;
 	int grab_view_y;
+	uint32_t resize_edges;
+	int grab_geom_width;
+	int grab_geom_height;
 	const char *socket;
 	pid_t child_pid;
 };

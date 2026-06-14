@@ -3,11 +3,13 @@
 #include "input.h"
 #include "pointer.h"
 #include "server.h"
+#include "view.h"
 
 #include <stdlib.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -47,16 +49,34 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
-		if (sym == XKB_KEY_Return)
+		bool alt = xkb_state_mod_name_is_active(
+			wlr_keyboard->xkb_state, "Mod1",
+			XKB_STATE_MODS_EFFECTIVE);
+
+		if (alt && sym == XKB_KEY_Tab)
 		{
-			bool alt = xkb_state_mod_name_is_active(
-				wlr_keyboard->xkb_state, "Mod1",
-				XKB_STATE_MODS_EFFECTIVE);
-			if (alt)
+			struct wlr_surface *focused =
+				server->seat->keyboard_state.focused_surface;
+			struct hsdwl_view *current = NULL;
+			struct hsdwl_view *v;
+			wl_list_for_each(v, &server->views, link)
 			{
-				hsdwl_server_spawn_client(server);
-				return;
+				if (v->xdg_surface
+						&& v->xdg_surface->surface == focused)
+				{
+					current = v;
+					break;
+				}
 			}
+			view_focus(server,
+				view_next(server, current));
+			return;
+		}
+
+		if (alt && sym == XKB_KEY_Return)
+		{
+			hsdwl_server_spawn_client(server);
+			return;
 		}
 
 		if (handle_keybinding(server, sym))

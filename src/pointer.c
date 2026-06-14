@@ -32,6 +32,38 @@ static struct hsdwl_view *view_at(struct hsdwl_server *server,
 	return NULL;
 }
 
+static uint32_t determine_resize_edges(struct hsdwl_view *view,
+		double cursor_x, double cursor_y)
+{
+	int wx = view->scene_tree->node.x;
+	int wy = view->scene_tree->node.y;
+	int ww = view->xdg_surface->toplevel->current.width;
+	int wh = view->xdg_surface->toplevel->current.height;
+
+	if (ww < 1 || wh < 1)
+		return XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
+
+	double rx = cursor_x - wx;
+	double ry = cursor_y - wy;
+
+#define EDGE_THRESHOLD 10
+	uint32_t edges = XDG_TOPLEVEL_RESIZE_EDGE_NONE;
+	if (rx < EDGE_THRESHOLD)
+		edges |= XDG_TOPLEVEL_RESIZE_EDGE_LEFT;
+	if (rx > ww - EDGE_THRESHOLD)
+		edges |= XDG_TOPLEVEL_RESIZE_EDGE_RIGHT;
+	if (ry < EDGE_THRESHOLD)
+		edges |= XDG_TOPLEVEL_RESIZE_EDGE_TOP;
+	if (ry > wh - EDGE_THRESHOLD)
+		edges |= XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM;
+#undef EDGE_THRESHOLD
+
+	if (edges == XDG_TOPLEVEL_RESIZE_EDGE_NONE)
+		edges = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
+
+	return edges;
+}
+
 static void process_cursor_motion(struct hsdwl_server *server, uint32_t time)
 {
 	double sx, sy;
@@ -62,6 +94,77 @@ static void process_cursor_motion(struct hsdwl_server *server, uint32_t time)
 	}
 }
 
+static void apply_resize(struct hsdwl_server *server)
+{
+	if (!server->grabbed_view || !server->grabbed_view->scene_tree
+			|| !server->grabbed_view->xdg_surface->toplevel)
+		return;
+
+	double dx = server->cursor->x - server->grab_x;
+	double dy = server->cursor->y - server->grab_y;
+
+	int new_x = server->grab_view_x;
+	int new_y = server->grab_view_y;
+	int new_w = server->grab_geom_width;
+	int new_h = server->grab_geom_height;
+
+	if (server->resize_edges & XDG_TOPLEVEL_RESIZE_EDGE_RIGHT)
+		new_w = server->grab_geom_width + (int)dx;
+	if (server->resize_edges & XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM)
+		new_h = server->grab_geom_height + (int)dy;
+	if (server->resize_edges & XDG_TOPLEVEL_RESIZE_EDGE_LEFT)
+	{
+		new_w = server->grab_geom_width - (int)dx;
+		if (new_w < 50)
+			new_w = 50;
+		new_x = server->grab_view_x
+			+ (server->grab_geom_width - new_w);
+	}
+	if (server->resize_edges & XDG_TOPLEVEL_RESIZE_EDGE_TOP)
+	{
+		new_h = server->grab_geom_height - (int)dy;
+		if (new_h < 50)
+			new_h = 50;
+		new_y = server->grab_view_y
+			+ (server->grab_geom_height - new_h);
+	}
+
+	if (new_w < 50) new_w = 50;
+	if (new_h < 50) new_h = 50;
+
+	wlr_scene_node_set_position(
+		&server->grabbed_view->scene_tree->node,
+		new_x, new_y);
+	wlr_xdg_toplevel_set_size(
+		server->grabbed_view->xdg_surface->toplevel,
+		new_w, new_h);
+}
+
+static bool handle_grab_motion(struct hsdwl_server *server)
+{
+	if (!server->grabbed_view || !server->grabbed_view->scene_tree)
+		return false;
+
+	switch (server->cursor_mode)
+	{
+	case HSDWL_CURSOR_MOVE:
+	{
+		double dx = server->cursor->x - server->grab_x;
+		double dy = server->cursor->y - server->grab_y;
+		wlr_scene_node_set_position(
+			&server->grabbed_view->scene_tree->node,
+			server->grab_view_x + (int)dx,
+			server->grab_view_y + (int)dy);
+		return true;
+	}
+	case HSDWL_CURSOR_RESIZE:
+		apply_resize(server);
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void server_cursor_motion(struct wl_listener *listener, void *data)
 {
 	struct hsdwl_server *server = wl_container_of(
@@ -70,18 +173,8 @@ static void server_cursor_motion(struct wl_listener *listener, void *data)
 	wlr_cursor_move(server->cursor, &event->pointer->base,
 		event->delta_x, event->delta_y);
 
-	if (server->cursor_mode == HSDWL_CURSOR_MOVE
-			&& server->grabbed_view
-			&& server->grabbed_view->scene_tree)
-	{
-		double dx = server->cursor->x - server->grab_x;
-		double dy = server->cursor->y - server->grab_y;
-		wlr_scene_node_set_position(
-			&server->grabbed_view->scene_tree->node,
-			server->grab_view_x + (int)dx,
-			server->grab_view_y + (int)dy);
+	if (handle_grab_motion(server))
 		return;
-	}
 
 	process_cursor_motion(server, event->time_msec);
 }
@@ -95,18 +188,8 @@ static void server_cursor_motion_absolute(
 	wlr_cursor_warp_absolute(server->cursor, &event->pointer->base,
 		event->x, event->y);
 
-	if (server->cursor_mode == HSDWL_CURSOR_MOVE
-			&& server->grabbed_view
-			&& server->grabbed_view->scene_tree)
-	{
-		double dx = server->cursor->x - server->grab_x;
-		double dy = server->cursor->y - server->grab_y;
-		wlr_scene_node_set_position(
-			&server->grabbed_view->scene_tree->node,
-			server->grab_view_x + (int)dx,
-			server->grab_view_y + (int)dy);
+	if (handle_grab_motion(server))
 		return;
-	}
 
 	process_cursor_motion(server, event->time_msec);
 }
@@ -146,6 +229,39 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			}
 		}
 
+		if (alt && event->button == BTN_RIGHT)
+		{
+			double sx, sy;
+			struct hsdwl_view *view = view_at(server,
+				server->cursor->x, server->cursor->y, &sx, &sy);
+			if (view && view->scene_tree
+					&& view->xdg_surface->toplevel)
+			{
+				server->cursor_mode = HSDWL_CURSOR_RESIZE;
+				server->grabbed_view = view;
+				server->grab_x = server->cursor->x;
+				server->grab_y = server->cursor->y;
+				server->grab_view_x =
+					view->scene_tree->node.x;
+				server->grab_view_y =
+					view->scene_tree->node.y;
+				server->grab_geom_width =
+					view->xdg_surface->toplevel
+						->current.width;
+				server->grab_geom_height =
+					view->xdg_surface->toplevel
+						->current.height;
+				server->resize_edges = determine_resize_edges(
+					view, server->cursor->x,
+					server->cursor->y);
+				wlr_scene_node_raise_to_top(
+					&view->scene_tree->node);
+				wlr_cursor_set_xcursor(server->cursor,
+					server->cursor_mgr, "move");
+				return;
+			}
+		}
+
 		wlr_seat_pointer_notify_button(server->seat,
 			event->time_msec, event->button, event->state);
 
@@ -173,7 +289,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 		return;
 	}
 
-	if (server->cursor_mode == HSDWL_CURSOR_MOVE)
+	if (server->cursor_mode == HSDWL_CURSOR_MOVE
+			|| server->cursor_mode == HSDWL_CURSOR_RESIZE)
 	{
 		server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 		server->grabbed_view = NULL;

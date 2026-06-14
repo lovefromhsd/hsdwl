@@ -39,6 +39,53 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 	}
 }
 
+void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
+{
+	if (!view || !view->scene_tree || !view->xdg_surface
+			|| !view->xdg_surface->configured)
+		return;
+
+	struct hsdwl_view *v;
+	wl_list_for_each(v, &server->views, link)
+	{
+		if (!v->xdg_surface || !v->xdg_surface->configured)
+			continue;
+		bool active = (v == view);
+		wlr_xdg_toplevel_set_activated(
+			v->xdg_surface->toplevel, active);
+		wlr_xdg_surface_schedule_configure(v->xdg_surface);
+	}
+
+	wlr_scene_node_raise_to_top(&view->scene_tree->node);
+	struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);
+	if (kb)
+	{
+		wlr_seat_keyboard_notify_enter(server->seat,
+			view->xdg_surface->surface, NULL, 0, NULL);
+	}
+}
+
+struct hsdwl_view *view_next(struct hsdwl_server *server,
+		struct hsdwl_view *current)
+{
+	struct hsdwl_view *first = NULL;
+	struct hsdwl_view *v;
+	bool found = false;
+	wl_list_for_each(v, &server->views, link)
+	{
+		if (!v->scene_tree || !v->xdg_surface
+				|| !v->xdg_surface->configured)
+			continue;
+		if (!first)
+			first = v;
+		if (found)
+			return v;
+		if (v == current)
+			found = true;
+	}
+	return first;
+}
+
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
 	(void)data;
@@ -50,7 +97,9 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 		wlr_xdg_toplevel_set_activated(view->xdg_surface->toplevel, false);
 		wlr_xdg_surface_schedule_configure(view->xdg_surface);
 	}
-	wlr_seat_keyboard_clear_focus(view->server->seat);
+	if (view->server->grabbed_view == view)
+		view->server->grabbed_view = NULL;
+	view_focus(view->server, view_next(view->server, view));
 }
 
 static void view_handle_commit(struct wl_listener *listener, void *data)
