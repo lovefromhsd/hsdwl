@@ -23,5 +23,7 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view);
 struct hsdwl_view *view_next(struct hsdwl_server *server,
 		struct hsdwl_view *current);
+struct hsdwl_view *view_prev(struct hsdwl_server *server,
+		struct hsdwl_view *current);
 
 #endif

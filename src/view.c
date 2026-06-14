@@ -86,6 +86,27 @@ struct hsdwl_view *view_next(struct hsdwl_server *server,
 	return first;
 }
 
+struct hsdwl_view *view_prev(struct hsdwl_server *server,
+		struct hsdwl_view *current)
+{
+	struct hsdwl_view *last = NULL;
+	struct hsdwl_view *v;
+	bool found = false;
+	wl_list_for_each_reverse(v, &server->views, link)
+	{
+		if (!v->scene_tree || !v->xdg_surface
+				|| !v->xdg_surface->configured)
+			continue;
+		if (!last)
+			last = v;
+		if (found)
+			return v;
+		if (v == current)
+			found = true;
+	}
+	return last;
+}
+
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
 	(void)data;

@@ -68,8 +68,12 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 					break;
 				}
 			}
+			bool shift = xkb_state_mod_name_is_active(
+				wlr_keyboard->xkb_state, "Shift",
+				XKB_STATE_MODS_EFFECTIVE);
 			view_focus(server,
-				view_next(server, current));
+				shift ? view_prev(server, current)
+				      : view_next(server, current));
 			return;
 		}
 

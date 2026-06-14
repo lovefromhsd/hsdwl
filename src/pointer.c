@@ -37,8 +37,8 @@ static uint32_t determine_resize_edges(struct hsdwl_view *view,
 {
 	int wx = view->scene_tree->node.x;
 	int wy = view->scene_tree->node.y;
-	int ww = view->xdg_surface->toplevel->current.width;
-	int wh = view->xdg_surface->toplevel->current.height;
+	int ww = view->xdg_surface->geometry.width;
+	int wh = view->xdg_surface->geometry.height;
 
 	if (ww < 1 || wh < 1)
 		return XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
@@ -246,11 +246,9 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				server->grab_view_y =
 					view->scene_tree->node.y;
 				server->grab_geom_width =
-					view->xdg_surface->toplevel
-						->current.width;
+					view->xdg_surface->geometry.width;
 				server->grab_geom_height =
-					view->xdg_surface->toplevel
-						->current.height;
+					view->xdg_surface->geometry.height;
 				server->resize_edges = determine_resize_edges(
 					view, server->cursor->x,
 					server->cursor->y);
