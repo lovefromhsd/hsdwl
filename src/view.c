@@ -8,6 +8,7 @@
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
+#include <wlr/xwayland.h>
 
 static void view_handle_map(struct wl_listener *listener, void *data)
 {
@@ -40,6 +41,15 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 	}
 }
 
+struct wlr_surface *view_get_surface(struct hsdwl_view *view)
+{
+	return view->xdg_surface
+		? view->xdg_surface->surface
+		: view->xwayland_surface
+			? view->xwayland_surface->surface
+			: NULL;
+}
+
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 {
 	if (!view)
@@ -47,28 +57,46 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 		wlr_seat_keyboard_clear_focus(server->seat);
 		return;
 	}
-	if (!view->scene_tree || !view->xdg_surface
-			|| !view->xdg_surface->configured)
+	if (!view->scene_tree)
 		return;
 
 	struct hsdwl_view *v;
 	wl_list_for_each(v, &server->views, link)
 	{
-		if (!v->xdg_surface || !v->xdg_surface->configured)
-			continue;
 		bool active = (v == view);
-		wlr_xdg_toplevel_set_activated(
-			v->xdg_surface->toplevel, active);
-		wlr_xdg_surface_schedule_configure(v->xdg_surface);
+		if (v->xdg_surface && v->xdg_surface->configured)
+		{
+			wlr_xdg_toplevel_set_activated(
+				v->xdg_surface->toplevel, active);
+			wlr_xdg_surface_schedule_configure(v->xdg_surface);
+		}
+		if (v->xwayland_surface)
+		{
+			wlr_xwayland_surface_activate(
+				v->xwayland_surface, active);
+		}
 	}
 
 	wlr_scene_node_raise_to_top(&view->scene_tree->node);
 	struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);
 	if (kb)
 	{
-		wlr_seat_keyboard_notify_enter(server->seat,
-			view->xdg_surface->surface, NULL, 0, NULL);
+		struct wlr_surface *s = view_get_surface(view);
+		if (s)
+			wlr_seat_keyboard_notify_enter(server->seat,
+				s, NULL, 0, NULL);
 	}
+}
+
+static bool view_is_usable(struct hsdwl_view *v)
+{
+	if (!v->scene_tree)
+		return false;
+	if (v->xdg_surface && v->xdg_surface->configured)
+		return true;
+	if (v->xwayland_surface && v->xwayland_surface->surface)
+		return true;
+	return false;
 }
 
 struct hsdwl_view *view_next(struct hsdwl_server *server,
@@ -79,8 +107,7 @@ struct hsdwl_view *view_next(struct hsdwl_server *server,
 	bool found = false;
 	wl_list_for_each(v, &server->views, link)
 	{
-		if (!v->scene_tree || !v->xdg_surface
-				|| !v->xdg_surface->configured)
+		if (!view_is_usable(v))
 			continue;
 		if (!first)
 			first = v;
@@ -100,8 +127,7 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 	bool found = false;
 	wl_list_for_each_reverse(v, &server->views, link)
 	{
-		if (!v->scene_tree || !v->xdg_surface
-				|| !v->xdg_surface->configured)
+		if (!view_is_usable(v))
 			continue;
 		if (!last)
 			last = v;
@@ -119,7 +145,7 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
 	if (view->scene_tree)
 		wlr_scene_node_set_enabled(&view->scene_tree->node, false);
-	if (view->xdg_surface->toplevel)
+	if (view->xdg_surface && view->xdg_surface->toplevel)
 	{
 		wlr_xdg_toplevel_set_activated(view->xdg_surface->toplevel, false);
 		wlr_xdg_surface_schedule_configure(view->xdg_surface);

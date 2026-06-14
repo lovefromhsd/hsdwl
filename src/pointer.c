@@ -15,6 +15,7 @@
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
+#include <wlr/xwayland.h>
 #include <xkbcommon/xkbcommon.h>
 
 static struct hsdwl_view *view_at(struct hsdwl_server *server,
@@ -37,8 +38,17 @@ static uint32_t determine_resize_edges(struct hsdwl_server *server,
 {
 	int wx = view->scene_tree->node.x;
 	int wy = view->scene_tree->node.y;
-	int ww = view->xdg_surface->geometry.width;
-	int wh = view->xdg_surface->geometry.height;
+	int ww, wh;
+	if (view->xdg_surface)
+	{
+		ww = view->xdg_surface->geometry.width;
+		wh = view->xdg_surface->geometry.height;
+	}
+	else
+	{
+		ww = view->xwayland_surface->width;
+		wh = view->xwayland_surface->height;
+	}
 
 	if (ww < 1 || wh < 1)
 		return XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
@@ -95,8 +105,10 @@ static void process_cursor_motion(struct hsdwl_server *server, uint32_t time)
 
 static void apply_resize(struct hsdwl_server *server)
 {
-	if (!server->grabbed_view || !server->grabbed_view->scene_tree
-			|| !server->grabbed_view->xdg_surface->toplevel)
+	if (!server->grabbed_view || !server->grabbed_view->scene_tree)
+		return;
+	if (!server->grabbed_view->xdg_surface
+			&& !server->grabbed_view->xwayland_surface)
 		return;
 
 	double dx = server->cursor->x - server->grab_x;
@@ -136,9 +148,18 @@ static void apply_resize(struct hsdwl_server *server)
 	wlr_scene_node_set_position(
 		&server->grabbed_view->scene_tree->node,
 		new_x, new_y);
-	wlr_xdg_toplevel_set_size(
-		server->grabbed_view->xdg_surface->toplevel,
-		new_w, new_h);
+	if (server->grabbed_view->xdg_surface)
+	{
+		wlr_xdg_toplevel_set_size(
+			server->grabbed_view->xdg_surface->toplevel,
+			new_w, new_h);
+	}
+	else
+	{
+		wlr_xwayland_surface_configure(
+			server->grabbed_view->xwayland_surface,
+			new_x, new_y, new_w, new_h);
+	}
 }
 
 static bool handle_grab_motion(struct hsdwl_server *server)
@@ -237,7 +258,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			struct hsdwl_view *view = view_at(server,
 				server->cursor->x, server->cursor->y, &sx, &sy);
 			if (view && view->scene_tree
-					&& view->xdg_surface->toplevel)
+					&& (view->xdg_surface
+						|| view->xwayland_surface))
 			{
 				server->cursor_mode = HSDWL_CURSOR_RESIZE;
 				server->grabbed_view = view;
@@ -270,20 +292,30 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			server->cursor->x, server->cursor->y, &sx, &sy);
 		if (view)
 		{
-			wlr_xdg_toplevel_set_activated(
-				view->xdg_surface->toplevel, true);
-			wlr_xdg_surface_schedule_configure(
-				view->xdg_surface);
+			if (view->xdg_surface)
+			{
+				wlr_xdg_toplevel_set_activated(
+					view->xdg_surface->toplevel, true);
+				wlr_xdg_surface_schedule_configure(
+					view->xdg_surface);
+			}
+			if (view->xwayland_surface)
+			{
+				wlr_xwayland_surface_activate(
+					view->xwayland_surface, true);
+			}
 			wlr_scene_node_raise_to_top(
 				&view->scene_tree->node);
 			struct wlr_keyboard *kb2 =
 				wlr_seat_get_keyboard(server->seat);
 			if (kb2)
 			{
-				wlr_seat_keyboard_notify_enter(
-					server->seat,
-					view->xdg_surface->surface,
-					NULL, 0, NULL);
+				struct wlr_surface *surf =
+					view_get_surface(view);
+				if (surf)
+					wlr_seat_keyboard_notify_enter(
+						server->seat,
+						surf, NULL, 0, NULL);
 			}
 		}
 		return;

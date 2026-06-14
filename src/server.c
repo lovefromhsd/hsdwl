@@ -5,6 +5,7 @@
 #include "output.h"
 #include "pointer.h"
 #include "view.h"
+#include "xwayland.h"
 
 #include <signal.h>
 #include <stdlib.h>
@@ -122,7 +123,8 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
-	wlr_compositor_create(server->display, 6, server->renderer);
+	server->compositor = wlr_compositor_create(
+		server->display, 6, server->renderer);
 	wlr_subcompositor_create(server->display);
 	wlr_data_device_manager_create(server->display);
 
@@ -207,6 +209,12 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
+	if (!hsdwl_xwayland_init(server))
+	{
+		wlr_log(WLR_ERROR, "hsdwl_xwayland_init failed");
+		return false;
+	}
+
 	return true;
 }
 
@@ -222,7 +230,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wl_list_remove(&server->request_set_selection.link);
 	wlr_xcursor_manager_destroy(server->cursor_mgr);
 	wlr_cursor_destroy(server->cursor);
-	wlr_xwayland_destroy(NULL);
+	hsdwl_xwayland_finish(server);
 	hsdwl_config_finish(&server->config);
 	wl_display_destroy(server->display);
 }

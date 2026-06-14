@@ -7,4 +7,5 @@ hsdwl_src = files(
   'input.c',
   'output.c',
   'pointer.c',
+  'xwayland.c',
 )

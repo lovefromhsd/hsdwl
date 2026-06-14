@@ -13,6 +13,7 @@
 #define HSDWL_NUM_WORKSPACES 9
 
 struct wlr_backend;
+struct wlr_compositor;
 struct wlr_renderer;
 struct wlr_allocator;
 struct wlr_scene;
@@ -22,6 +23,7 @@ struct wlr_output_layout;
 struct wlr_seat;
 struct wlr_cursor;
 struct wlr_xcursor_manager;
+struct wlr_xwayland;
 
 struct hsdwl_view;
 
@@ -36,6 +38,7 @@ struct hsdwl_server
 {
 	struct wl_display *display;
 	struct wlr_backend *backend;
+	struct wlr_compositor *compositor;
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
 	struct hsdwl_config config;
@@ -45,6 +48,7 @@ struct hsdwl_server
 	struct wlr_seat *seat;
 	struct wl_listener new_output;
 	struct wl_listener new_xdg_toplevel;
+	struct wl_listener new_xwayland_surface;
 	struct wl_listener new_input;
 	struct wl_list keyboards;
 	struct wl_list views;
@@ -69,6 +73,7 @@ struct hsdwl_server
 	int grab_geom_height;
 	struct wlr_scene_tree *workspaces[HSDWL_NUM_WORKSPACES];
 	size_t current_workspace;
+	struct wlr_xwayland *xwayland;
 	const char *socket;
 };
 
