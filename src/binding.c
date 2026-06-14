@@ -67,13 +67,9 @@ bool binding_dispatch(struct hsdwl_server *server,
 		{
 		case HSDWL_ACTION_CYCLE_FOCUS:
 		case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
-			if (sym != XKB_KEY_Tab) continue;
-			break;
 		case HSDWL_ACTION_SPAWN:
-			if (sym != XKB_KEY_Return) continue;
-			break;
 		case HSDWL_ACTION_QUIT:
-			if (sym != XKB_KEY_Escape) continue;
+			if (sym != b->keysym) continue;
 			break;
 		case HSDWL_ACTION_SWITCH_WORKSPACE:
 		case HSDWL_ACTION_MOVE_TO_WORKSPACE:

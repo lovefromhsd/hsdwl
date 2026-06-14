@@ -2,6 +2,7 @@
 #define HSDWL_CONFIG_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <wayland-server-core.h>
 
 enum hsdwl_action
@@ -20,6 +21,7 @@ struct hsdwl_binding
 	struct wl_list link;
 	char mods[128];
 	enum hsdwl_action action;
+	uint32_t keysym;
 	int arg;
 	char command[1024];
 };

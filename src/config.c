@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
 #include <stdio.h>
+#include <xkbcommon/xkbcommon.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -172,8 +173,17 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			/* resolve any config variable references in mods */
 			resolve_vars(mods_k, vars, num_vars);
 
-			/* strip last +-separated part (the key name) from mods */
+			/* capture key name before stripping it */
 			char *last_plus = strrchr(mods_k, '+');
+			const char *key_name = last_plus
+				? last_plus + 1 : mods_k;
+
+			/* trim trailing spaces from key name */
+			char key_name_buf[64];
+			snprintf(key_name_buf, sizeof(key_name_buf), "%s", key_name);
+			trim_tail(key_name_buf);
+
+			/* strip last +-separated part (the key name) from mods */
 			if (last_plus)
 				*last_plus = '\0';
 			else
@@ -182,6 +192,13 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			struct hsdwl_binding *b = calloc(1, sizeof(*b));
 			if (!b) continue;
 			snprintf(b->mods, sizeof(b->mods), "%s", mods_k);
+			b->keysym = xkb_keysym_from_name(key_name_buf,
+				XKB_KEYSYM_CASE_INSENSITIVE);
+			if (b->keysym == XKB_KEY_NoSymbol)
+			{
+				free(b);
+				continue;
+			}
 
 			char action_str[64];
 			int action_arg = 0;
