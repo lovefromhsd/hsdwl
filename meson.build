@@ -15,9 +15,11 @@ wlroots = dependency('wlroots-0.20')
 wayland_server = dependency('wayland-server')
 xkbcommon = dependency('xkbcommon')
 
+subdir('src')
+
 executable(
     'hsdwl',
-    'main.c',
+    hsdwl_src,
     dependencies: [
         wlroots,
         wayland_server,
