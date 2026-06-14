@@ -269,10 +269,20 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 					view->scene_tree->node.x;
 				server->grab_view_y =
 					view->scene_tree->node.y;
-				server->grab_geom_width =
-					view->xdg_surface->geometry.width;
-				server->grab_geom_height =
-					view->xdg_surface->geometry.height;
+				if (view->xdg_surface)
+				{
+					server->grab_geom_width =
+						view->xdg_surface->geometry.width;
+					server->grab_geom_height =
+						view->xdg_surface->geometry.height;
+				}
+				else
+				{
+					server->grab_geom_width =
+						view->xwayland_surface->width;
+					server->grab_geom_height =
+						view->xwayland_surface->height;
+				}
 				server->resize_edges = determine_resize_edges(server,
 					view, server->cursor->x,
 					server->cursor->y);
