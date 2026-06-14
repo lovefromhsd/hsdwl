@@ -32,6 +32,7 @@ struct hsdwl_config
 	int edge_threshold;
 	int min_window_size;
 	char mod_key[32];
+	char kb_layout[128];
 	struct wl_list bindings;
 };
 

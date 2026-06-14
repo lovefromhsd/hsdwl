@@ -65,7 +65,10 @@ static void input_keyboard_create(struct hsdwl_server *server,
 	keyboard->server = server;
 	keyboard->wlr_keyboard = wlr_keyboard;
 
-	struct xkb_rule_names rules = {0};
+	struct xkb_rule_names rules = {
+		.layout = server->config.kb_layout[0]
+			? server->config.kb_layout : NULL,
+	};
 	struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 	if (!context)
 	{

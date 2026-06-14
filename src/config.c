@@ -22,6 +22,7 @@ static const char *default_config_text =
 	"edge_threshold = 10\n"
 	"min_window_size = 50\n"
 	"mod_key = Mod1\n"
+	"kb_layout = us\n"
 	"\n"
 	"bind = mod_key+Return, foot\n"
 	"bind = mod_key+Escape, quit\n"
@@ -218,6 +219,8 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			cfg->min_window_size = atoi(val);
 		else if (strcmp(key, "mod_key") == 0)
 			snprintf(cfg->mod_key, sizeof(cfg->mod_key), "%.31s", val);
+		else if (strcmp(key, "kb_layout") == 0)
+			snprintf(cfg->kb_layout, sizeof(cfg->kb_layout), "%.127s", val);
 
 		/* store every key=value pair in var table for bind resolution */
 		if (num_vars < HSDWL_MAX_VARS) {
