@@ -7,8 +7,12 @@
 #include "view.h"
 #include "xwayland.h"
 
+#include <pwd.h>
 #include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <wlr/backend.h>
 #include <wlr/render/allocator.h>
@@ -273,6 +277,43 @@ int hsdwl_server_run(struct hsdwl_server *server)
 
 	wlr_log(WLR_INFO, "running on wayland display: %s", server->socket);
 	setenv("WAYLAND_DISPLAY", server->socket, true);
+
+	char autostart_path[1024];
+	const char *xdg = getenv("XDG_CONFIG_HOME");
+	if (xdg && xdg[0])
+		snprintf(autostart_path, sizeof(autostart_path),
+			"%s/hsdwl/autostart.sh", xdg);
+	else
+	{
+		const char *home = getenv("HOME");
+		if (!home)
+		{
+			struct passwd *pw = getpwuid(getuid());
+			if (!pw)
+				home = "/";
+			else
+				home = pw->pw_dir;
+		}
+		snprintf(autostart_path, sizeof(autostart_path),
+			"%s/.config/hsdwl/autostart.sh", home);
+	}
+
+	if (access(autostart_path, F_OK) != 0)
+	{
+		FILE *f = fopen(autostart_path, "w");
+		if (f)
+		{
+			fprintf(f, "#!/bin/sh\n");
+			fclose(f);
+			chmod(autostart_path, 0700);
+		}
+	}
+
+	if (fork() == 0)
+	{
+		execl("/bin/sh", "sh", autostart_path, NULL);
+		_exit(EXIT_FAILURE);
+	}
 
 	wl_display_run(server->display);
 
