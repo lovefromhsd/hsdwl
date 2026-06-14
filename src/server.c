@@ -56,6 +56,45 @@ int hsdwl_server_spawn_client(struct hsdwl_server *server)
 	_exit(EXIT_FAILURE);
 }
 
+void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
+{
+	if (ws >= HSDWL_NUM_WORKSPACES
+			|| ws == server->current_workspace)
+		return;
+
+	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
+		wlr_scene_node_set_enabled(
+			&server->workspaces[i]->node, i == ws);
+	server->current_workspace = ws;
+
+	struct hsdwl_view *v;
+	struct hsdwl_view *next = NULL;
+	wl_list_for_each(v, &server->views, link)
+	{
+		if (!v->scene_tree || !v->xdg_surface
+				|| !v->xdg_surface->configured)
+			continue;
+		if (v->scene_tree->node.parent
+				!= server->workspaces[ws])
+			continue;
+		next = v;
+		break;
+	}
+	view_focus(server, next);
+}
+
+void hsdwl_server_move_to_workspace(struct hsdwl_server *server,
+		struct hsdwl_view *view, size_t ws)
+{
+	if (ws >= HSDWL_NUM_WORKSPACES || !view
+			|| !view->scene_tree)
+		return;
+
+	wlr_scene_node_reparent(&view->scene_tree->node,
+		server->workspaces[ws]);
+	hsdwl_server_switch_workspace(server, ws);
+}
+
 static int sig[2];
 static struct wl_event_loop *event_loop;
 
@@ -134,6 +173,22 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	server->output_layout = wlr_output_layout_create(server->display);
 	server->scene_layout = wlr_scene_attach_output_layout(
 		server->scene, server->output_layout);
+
+	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
+	{
+		server->workspaces[i] = wlr_scene_tree_create(
+			&server->scene->tree);
+		if (!server->workspaces[i])
+		{
+			wlr_log(WLR_ERROR, "wlr_scene_tree_create failed");
+			return false;
+		}
+		wlr_scene_node_set_enabled(
+			&server->workspaces[i]->node, false);
+	}
+	server->current_workspace = 0;
+	wlr_scene_node_set_enabled(
+		&server->workspaces[0]->node, true);
 
 	server->cursor = wlr_cursor_create();
 	if (!server->cursor)

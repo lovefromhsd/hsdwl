@@ -4,13 +4,17 @@
 #define WLR_USE_UNSTABLE
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <signal.h>
 #include <wayland-server-core.h>
+
+#define HSDWL_NUM_WORKSPACES 9
 
 struct wlr_backend;
 struct wlr_renderer;
 struct wlr_allocator;
 struct wlr_scene;
+struct wlr_scene_tree;
 struct wlr_scene_output_layout;
 struct wlr_output_layout;
 struct wlr_seat;
@@ -60,6 +64,8 @@ struct hsdwl_server
 	uint32_t resize_edges;
 	int grab_geom_width;
 	int grab_geom_height;
+	struct wlr_scene_tree *workspaces[HSDWL_NUM_WORKSPACES];
+	size_t current_workspace;
 	const char *socket;
 	pid_t child_pid;
 };
@@ -68,5 +74,8 @@ bool hsdwl_server_init(struct hsdwl_server *server);
 void hsdwl_server_destroy(struct hsdwl_server *server);
 int hsdwl_server_run(struct hsdwl_server *server);
 int hsdwl_server_spawn_client(struct hsdwl_server *server);
+void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws);
+void hsdwl_server_move_to_workspace(struct hsdwl_server *server,
+		struct hsdwl_view *view, size_t ws);
 
 #endif

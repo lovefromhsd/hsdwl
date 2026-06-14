@@ -5,6 +5,7 @@
 #include "server.h"
 #include "view.h"
 
+#include <linux/input-event-codes.h>
 #include <stdlib.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
@@ -80,6 +81,36 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 		if (alt && sym == XKB_KEY_Return)
 		{
 			hsdwl_server_spawn_client(server);
+			return;
+		}
+
+		if (alt && event->keycode >= KEY_1
+				&& event->keycode <= KEY_9)
+		{
+			size_t ws = event->keycode - KEY_1;
+			bool shift = xkb_state_mod_name_is_active(
+				wlr_keyboard->xkb_state, "Shift",
+				XKB_STATE_MODS_EFFECTIVE);
+			if (shift)
+			{
+				struct wlr_surface *focused =
+					server->seat->keyboard_state.focused_surface;
+				struct hsdwl_view *v;
+				wl_list_for_each(v, &server->views, link)
+				{
+					if (v->xdg_surface
+							&& v->xdg_surface->surface == focused)
+					{
+						hsdwl_server_move_to_workspace(
+							server, v, ws);
+						break;
+					}
+				}
+			}
+			else
+			{
+				hsdwl_server_switch_workspace(server, ws);
+			}
 			return;
 		}
 

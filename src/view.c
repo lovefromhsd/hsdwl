@@ -17,7 +17,9 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 	if (!view->scene_tree)
 	{
 		view->scene_tree = wlr_scene_xdg_surface_create(
-			&view->server->scene->tree, view->xdg_surface);
+			view->server->workspaces[
+				view->server->current_workspace],
+			view->xdg_surface);
 		if (view->scene_tree)
 		{
 			view->scene_tree->node.data = view;
@@ -41,7 +43,12 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 {
-	if (!view || !view->scene_tree || !view->xdg_surface
+	if (!view)
+	{
+		wlr_seat_keyboard_clear_focus(server->seat);
+		return;
+	}
+	if (!view->scene_tree || !view->xdg_surface
 			|| !view->xdg_surface->configured)
 		return;
 
