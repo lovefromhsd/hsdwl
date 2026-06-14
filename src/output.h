@@ -7,6 +7,7 @@ struct hsdwl_server;
 
 struct hsdwl_output
 {
+	struct wl_list link;
 	struct wl_listener frame;
 	struct wl_listener destroy;
 	struct wlr_output *wlr_output;

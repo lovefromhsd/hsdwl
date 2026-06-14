@@ -5,6 +5,7 @@ hsdwl_src = files(
   'server.c',
   'view.c',
   'input.c',
+  'output-management.c',
   'output.c',
   'pointer.c',
   'xwayland.c',

@@ -3,6 +3,7 @@
 #include "server.h"
 #include "input.h"
 #include "output.h"
+#include "output-management.h"
 #include "pointer.h"
 #include "view.h"
 #include "xwayland.h"
@@ -143,6 +144,16 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	server->scene_layout = wlr_scene_attach_output_layout(
 		server->scene, server->output_layout);
 
+	wl_list_init(&server->keyboards);
+	wl_list_init(&server->views);
+	wl_list_init(&server->outputs);
+
+	if (!output_manager_init(server))
+	{
+		wlr_log(WLR_ERROR, "output_manager_init failed");
+		return false;
+	}
+
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
 		server->workspaces[i] = wlr_scene_tree_create(
@@ -202,8 +213,6 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
-	wl_list_init(&server->keyboards);
-	wl_list_init(&server->views);
 	server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 	server->grabbed_view = NULL;
 
@@ -235,6 +244,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wlr_xcursor_manager_destroy(server->cursor_mgr);
 	wlr_cursor_destroy(server->cursor);
 	hsdwl_xwayland_finish(server);
+	output_manager_finish(server);
 	hsdwl_config_finish(&server->config);
 	wl_display_destroy(server->display);
 }

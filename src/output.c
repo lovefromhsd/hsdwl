@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "output.h"
+#include "output-management.h"
 #include "server.h"
 
 #include <stdlib.h>
@@ -32,6 +33,7 @@ static void output_handle_destroy(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_output *output = wl_container_of(listener, output, destroy);
+	wl_list_remove(&output->link);
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->destroy.link);
 	free(output);
@@ -60,6 +62,7 @@ void output_handle_new(struct wl_listener *listener, void *data)
 		return;
 	output->wlr_output = wlr_output;
 	output->server = server;
+	wl_list_insert(&server->outputs, &output->link);
 
 	output->frame.notify = output_handle_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
@@ -74,4 +77,6 @@ void output_handle_new(struct wl_listener *listener, void *data)
 		server->output_layout, wlr_output, 0, 0);
 	wlr_scene_output_layout_add_output(server->scene_layout,
 		layout_output, scene_output);
+
+	output_manager_update(server);
 }
