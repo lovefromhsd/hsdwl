@@ -51,7 +51,7 @@ int hsdwl_server_spawn_client(struct hsdwl_server *server)
 	dup2(dev_null, STDERR_FILENO);
 	close(dev_null);
 
-	const char *cmd[] = {"foot", NULL};
+	const char *cmd[] = {server->config.terminal, NULL};
 	execvp(cmd[0], (char *const *)cmd);
 	_exit(EXIT_FAILURE);
 }
@@ -128,6 +128,8 @@ static int signal_event(int fd, uint32_t mask, void *data)
 
 bool hsdwl_server_init(struct hsdwl_server *server)
 {
+	hsdwl_config_load(&server->config);
+
 	server->display = wl_display_create();
 	if (!server->display)
 	{
@@ -199,7 +201,8 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wlr_cursor_attach_output_layout(server->cursor,
 		server->output_layout);
 
-	server->cursor_mgr = wlr_xcursor_manager_create(NULL, 24);
+	server->cursor_mgr = wlr_xcursor_manager_create(NULL,
+		server->config.cursor_size);
 	if (!server->cursor_mgr)
 	{
 		wlr_log(WLR_ERROR, "wlr_xcursor_manager_create failed");

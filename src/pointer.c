@@ -32,8 +32,8 @@ static struct hsdwl_view *view_at(struct hsdwl_server *server,
 	return NULL;
 }
 
-static uint32_t determine_resize_edges(struct hsdwl_view *view,
-		double cursor_x, double cursor_y)
+static uint32_t determine_resize_edges(struct hsdwl_server *server,
+		struct hsdwl_view *view, double cursor_x, double cursor_y)
 {
 	int wx = view->scene_tree->node.x;
 	int wy = view->scene_tree->node.y;
@@ -46,17 +46,16 @@ static uint32_t determine_resize_edges(struct hsdwl_view *view,
 	double rx = cursor_x - wx;
 	double ry = cursor_y - wy;
 
-#define EDGE_THRESHOLD 10
+	int t = server->config.edge_threshold;
 	uint32_t edges = XDG_TOPLEVEL_RESIZE_EDGE_NONE;
-	if (rx < EDGE_THRESHOLD)
+	if (rx < t)
 		edges |= XDG_TOPLEVEL_RESIZE_EDGE_LEFT;
-	if (rx > ww - EDGE_THRESHOLD)
+	if (rx > ww - t)
 		edges |= XDG_TOPLEVEL_RESIZE_EDGE_RIGHT;
-	if (ry < EDGE_THRESHOLD)
+	if (ry < t)
 		edges |= XDG_TOPLEVEL_RESIZE_EDGE_TOP;
-	if (ry > wh - EDGE_THRESHOLD)
+	if (ry > wh - t)
 		edges |= XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM;
-#undef EDGE_THRESHOLD
 
 	if (edges == XDG_TOPLEVEL_RESIZE_EDGE_NONE)
 		edges = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
@@ -115,22 +114,24 @@ static void apply_resize(struct hsdwl_server *server)
 	if (server->resize_edges & XDG_TOPLEVEL_RESIZE_EDGE_LEFT)
 	{
 		new_w = server->grab_geom_width - (int)dx;
-		if (new_w < 50)
-			new_w = 50;
+		if (new_w < server->config.min_window_size)
+			new_w = server->config.min_window_size;
 		new_x = server->grab_view_x
 			+ (server->grab_geom_width - new_w);
 	}
 	if (server->resize_edges & XDG_TOPLEVEL_RESIZE_EDGE_TOP)
 	{
 		new_h = server->grab_geom_height - (int)dy;
-		if (new_h < 50)
-			new_h = 50;
+		if (new_h < server->config.min_window_size)
+			new_h = server->config.min_window_size;
 		new_y = server->grab_view_y
 			+ (server->grab_geom_height - new_h);
 	}
 
-	if (new_w < 50) new_w = 50;
-	if (new_h < 50) new_h = 50;
+	if (new_w < server->config.min_window_size)
+		new_w = server->config.min_window_size;
+	if (new_h < server->config.min_window_size)
+		new_h = server->config.min_window_size;
 
 	wlr_scene_node_set_position(
 		&server->grabbed_view->scene_tree->node,
@@ -204,7 +205,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 	{
 		struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);
 		bool alt = kb && xkb_state_mod_name_is_active(
-			kb->xkb_state, "Mod1", XKB_STATE_MODS_EFFECTIVE);
+			kb->xkb_state, server->config.mod_key,
+			XKB_STATE_MODS_EFFECTIVE);
 
 		if (alt && event->button == BTN_LEFT)
 		{
@@ -249,7 +251,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 					view->xdg_surface->geometry.width;
 				server->grab_geom_height =
 					view->xdg_surface->geometry.height;
-				server->resize_edges = determine_resize_edges(
+				server->resize_edges = determine_resize_edges(server,
 					view, server->cursor->x,
 					server->cursor->y);
 				wlr_scene_node_raise_to_top(

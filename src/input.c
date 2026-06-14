@@ -51,7 +51,7 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
 		bool alt = xkb_state_mod_name_is_active(
-			wlr_keyboard->xkb_state, "Mod1",
+			wlr_keyboard->xkb_state, server->config.mod_key,
 			XKB_STATE_MODS_EFFECTIVE);
 
 		if (alt && sym == XKB_KEY_Tab)
@@ -164,7 +164,9 @@ static void input_keyboard_create(struct hsdwl_server *server,
 	wlr_keyboard_set_keymap(wlr_keyboard, keymap);
 	xkb_keymap_unref(keymap);
 	xkb_context_unref(context);
-	wlr_keyboard_set_repeat_info(wlr_keyboard, 25, 600);
+	wlr_keyboard_set_repeat_info(wlr_keyboard,
+		server->config.keyboard_repeat_rate,
+		server->config.keyboard_repeat_delay);
 
 	keyboard->modifiers.notify = keyboard_handle_modifiers;
 	wl_signal_add(&wlr_keyboard->events.modifiers, &keyboard->modifiers);

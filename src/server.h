@@ -8,6 +8,8 @@
 #include <signal.h>
 #include <wayland-server-core.h>
 
+#include "config.h"
+
 #define HSDWL_NUM_WORKSPACES 9
 
 struct wlr_backend;
@@ -36,6 +38,7 @@ struct hsdwl_server
 	struct wlr_backend *backend;
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
+	struct hsdwl_config config;
 	struct wlr_scene *scene;
 	struct wlr_scene_output_layout *scene_layout;
 	struct wlr_output_layout *output_layout;
