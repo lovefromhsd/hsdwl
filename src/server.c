@@ -6,12 +6,9 @@
 #include "pointer.h"
 #include "view.h"
 
-#include <errno.h>
-#include <fcntl.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 #include <wlr/backend.h>
@@ -28,33 +25,6 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
-
-int hsdwl_server_spawn_client(struct hsdwl_server *server)
-{
-	pid_t pid = fork();
-	if (pid < 0)
-	{
-		wlr_log(WLR_ERROR, "fork failed: %s", strerror(errno));
-		return -1;
-	}
-	if (pid > 0)
-	{
-		server->child_pid = pid;
-		return 0;
-	}
-
-	int dev_null = open("/dev/null", O_RDWR);
-	if (dev_null < 0)
-		_exit(EXIT_FAILURE);
-	dup2(dev_null, STDIN_FILENO);
-	dup2(dev_null, STDOUT_FILENO);
-	dup2(dev_null, STDERR_FILENO);
-	close(dev_null);
-
-	const char *cmd[] = {server->config.terminal, NULL};
-	execvp(cmd[0], (char *const *)cmd);
-	_exit(EXIT_FAILURE);
-}
 
 void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 {
@@ -116,13 +86,6 @@ static int signal_event(int fd, uint32_t mask, void *data)
 	}
 	struct hsdwl_server *server = data;
 	wl_display_terminate(server->display);
-	if (server->child_pid > 0)
-	{
-		kill(server->child_pid, SIGTERM);
-		int status;
-		waitpid(server->child_pid, &status, 0);
-		server->child_pid = 0;
-	}
 	return 1;
 }
 
@@ -251,12 +214,6 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 
 void hsdwl_server_destroy(struct hsdwl_server *server)
 {
-	if (server->child_pid > 0)
-	{
-		int status;
-		waitpid(server->child_pid, &status, 0);
-		server->child_pid = 0;
-	}
 	wl_list_remove(&server->cursor_motion.link);
 	wl_list_remove(&server->cursor_motion_absolute.link);
 	wl_list_remove(&server->cursor_button.link);
@@ -310,8 +267,6 @@ int hsdwl_server_run(struct hsdwl_server *server)
 
 	wlr_log(WLR_INFO, "running on wayland display: %s", server->socket);
 	setenv("WAYLAND_DISPLAY", server->socket, true);
-
-	hsdwl_server_spawn_client(server);
 
 	wl_display_run(server->display);
 

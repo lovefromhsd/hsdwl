@@ -12,7 +12,7 @@ enum hsdwl_action
 	HSDWL_ACTION_MOVE_TO_WORKSPACE,
 	HSDWL_ACTION_CYCLE_FOCUS,
 	HSDWL_ACTION_CYCLE_FOCUS_REVERSE,
-	HSDWL_ACTION_SPAWN_TERMINAL,
+	HSDWL_ACTION_SPAWN,
 	HSDWL_ACTION_QUIT,
 };
 
@@ -24,11 +24,11 @@ struct hsdwl_binding
 	char mods[128];
 	enum hsdwl_action action;
 	int arg;
+	char command[256];
 };
 
 struct hsdwl_config
 {
-	char terminal[256];
 	int cursor_size;
 	int keyboard_repeat_rate;
 	int keyboard_repeat_delay;

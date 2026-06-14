@@ -76,7 +76,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 			case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
 				key_ok = (sym == XKB_KEY_Tab);
 				break;
-			case HSDWL_ACTION_SPAWN_TERMINAL:
+			case HSDWL_ACTION_SPAWN:
 				key_ok = (sym == XKB_KEY_Return);
 				break;
 			case HSDWL_ACTION_QUIT:
@@ -96,10 +96,10 @@ bool binding_dispatch(struct hsdwl_server *server,
 
 		switch (b->action)
 		{
-		case HSDWL_ACTION_SPAWN_TERMINAL:
+		case HSDWL_ACTION_SPAWN:
 			if (fork() == 0)
 			{
-				execl("/bin/sh", "sh", "-c", server->config.terminal, NULL);
+				execl("/bin/sh", "sh", "-c", b->command, NULL);
 				exit(EXIT_FAILURE);
 			}
 			return true;

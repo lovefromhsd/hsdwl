@@ -70,13 +70,11 @@ struct hsdwl_server
 	struct wlr_scene_tree *workspaces[HSDWL_NUM_WORKSPACES];
 	size_t current_workspace;
 	const char *socket;
-	pid_t child_pid;
 };
 
 bool hsdwl_server_init(struct hsdwl_server *server);
 void hsdwl_server_destroy(struct hsdwl_server *server);
 int hsdwl_server_run(struct hsdwl_server *server);
-int hsdwl_server_spawn_client(struct hsdwl_server *server);
 void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws);
 void hsdwl_server_move_to_workspace(struct hsdwl_server *server,
 		struct hsdwl_view *view, size_t ws);

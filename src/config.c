@@ -8,7 +8,6 @@
 #include "config.h"
 
 static const char *default_config_text =
-	"terminal = foot\n"
 	"cursor_size = 24\n"
 	"keyboard_repeat_rate = 25\n"
 	"keyboard_repeat_delay = 600\n"
@@ -16,7 +15,7 @@ static const char *default_config_text =
 	"min_window_size = 50\n"
 	"mod_key = Mod1\n"
 	"\n"
-	"bind = mod_key+Return, spawn_terminal\n"
+	"bind = mod_key+Return, foot\n"
 	"bind = mod_key+Escape, quit\n"
 	"bind = mod_key+Tab, cycle_focus\n"
 	"bind = mod_key+Shift+Tab, cycle_focus_reverse\n"
@@ -70,7 +69,6 @@ static char *config_path(void)
 
 static int parse_action(const char *s)
 {
-	if (strcmp(s, "spawn_terminal") == 0) return HSDWL_ACTION_SPAWN_TERMINAL;
 	if (strcmp(s, "quit") == 0) return HSDWL_ACTION_QUIT;
 	if (strcmp(s, "cycle_focus") == 0) return HSDWL_ACTION_CYCLE_FOCUS;
 	if (strcmp(s, "cycle_focus_reverse") == 0) return HSDWL_ACTION_CYCLE_FOCUS_REVERSE;
@@ -100,7 +98,6 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	cfg->keyboard_repeat_delay = 600;
 	cfg->edge_threshold = 10;
 	cfg->min_window_size = 50;
-	snprintf(cfg->terminal, sizeof(cfg->terminal), "foot");
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
 
 	char *path = config_path();
@@ -124,17 +121,13 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 		if (strncmp(s, "bind = ", 7) == 0) {
 			char *rest = s + 7;
 			char mods_k[128];
-			char action_str[64];
-			int arg = 0;
-			int matched = sscanf(rest, "%127[^,], %63[^,],%d", mods_k, action_str, &arg);
-			if (matched < 2) continue;
+			char action_part[1024];
+			if (sscanf(rest, "%127[^,], %1023[^\n]", mods_k, action_part) < 2)
+				continue;
 
-			/* remove trailing spaces from mods_k and action_str */
+			/* remove trailing spaces from mods_k */
 			char *end = mods_k + strlen(mods_k);
 			while (end > mods_k && isspace((unsigned char)*(end-1))) end--;
-			*end = '\0';
-			end = action_str + strlen(action_str);
-			while (end > action_str && isspace((unsigned char)*(end-1))) end--;
 			*end = '\0';
 
 			resolve_mod_key_token(mods_k, cfg->mod_key);
@@ -149,12 +142,29 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			struct hsdwl_binding *b = calloc(1, sizeof(*b));
 			if (!b) continue;
 			snprintf(b->mods, sizeof(b->mods), "%s", mods_k);
-			b->action = parse_action(action_str);
-			b->arg = arg;
-
-			/* figure out key matching — store keycode 0 sym 0 for non-number */
 			b->keycode = 0;
 			b->sym = XKB_KEY_NoSymbol;
+
+			/* check if action_part starts with a known action */
+			char action_str[64];
+			int action_arg = 0;
+			sscanf(action_part, "%63[^,],%d", action_str, &action_arg);
+			/* trim trailing spaces from action_str */
+			char *ap = action_str + strlen(action_str);
+			while (ap > action_str && isspace((unsigned char)*(ap-1))) ap--;
+			*ap = '\0';
+
+			b->action = parse_action(action_str);
+			if (b->action != HSDWL_ACTION_NONE) {
+				b->arg = action_arg;
+			} else {
+				b->action = HSDWL_ACTION_SPAWN;
+				/* trim trailing spaces from action_part for command */
+				ap = action_part + strlen(action_part);
+				while (ap > action_part && isspace((unsigned char)*(ap-1))) ap--;
+				*ap = '\0';
+				snprintf(b->command, sizeof(b->command), "%s", action_part);
+			}
 
 			wl_list_insert(&cfg->bindings, &b->link);
 			continue;
@@ -164,9 +174,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 		char val[256];
 		if (sscanf(s, "%63[^=] = %255s", key, val) < 2) continue;
 
-		if (strcmp(key, "terminal") == 0)
-			snprintf(cfg->terminal, sizeof(cfg->terminal), "%.255s", val);
-		else if (strcmp(key, "cursor_size") == 0)
+		if (strcmp(key, "cursor_size") == 0)
 			cfg->cursor_size = atoi(val);
 		else if (strcmp(key, "keyboard_repeat_rate") == 0)
 			cfg->keyboard_repeat_rate = atoi(val);
