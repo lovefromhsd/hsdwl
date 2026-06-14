@@ -268,6 +268,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wlr_xcursor_manager_destroy(server->cursor_mgr);
 	wlr_cursor_destroy(server->cursor);
 	wlr_xwayland_destroy(NULL);
+	hsdwl_config_finish(&server->config);
 	wl_display_destroy(server->display);
 }
 

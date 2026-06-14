@@ -1,4 +1,5 @@
 hsdwl_src = files(
+  'binding.c',
   'config.c',
   'main.c',
   'server.c',

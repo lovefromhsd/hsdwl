@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
+#define WLR_USE_UNSTABLE
 
+#include "binding.h"
 #include "input.h"
 #include "pointer.h"
 #include "server.h"
@@ -24,97 +26,18 @@ static void keyboard_handle_modifiers(struct wl_listener *listener, void *data)
 		&keyboard->wlr_keyboard->modifiers);
 }
 
-static bool handle_keybinding(struct hsdwl_server *server, xkb_keysym_t sym)
-{
-	switch (sym)
-	{
-	case XKB_KEY_Escape:
-		wl_display_terminate(server->display);
-		return true;
-	default:
-		return false;
-	}
-}
-
 static void keyboard_handle_key(struct wl_listener *listener, void *data)
 {
-	struct hsdwl_keyboard *keyboard = wl_container_of(listener, keyboard, key);
+	struct hsdwl_keyboard *keyboard = wl_container_of(
+		listener, keyboard, key);
 	struct hsdwl_server *server = keyboard->server;
 	struct wlr_keyboard_key_event *event = data;
 	struct wlr_keyboard *wlr_keyboard = keyboard->wlr_keyboard;
 	struct wlr_seat *seat = server->seat;
 
-	uint32_t keycode = event->keycode + 8;
-	xkb_keysym_t sym = xkb_state_key_get_one_sym(
-		wlr_keyboard->xkb_state, keycode);
-
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
-		bool alt = xkb_state_mod_name_is_active(
-			wlr_keyboard->xkb_state, server->config.mod_key,
-			XKB_STATE_MODS_EFFECTIVE);
-
-		if (alt && sym == XKB_KEY_Tab)
-		{
-			struct wlr_surface *focused =
-				server->seat->keyboard_state.focused_surface;
-			struct hsdwl_view *current = NULL;
-			struct hsdwl_view *v;
-			wl_list_for_each(v, &server->views, link)
-			{
-				if (v->xdg_surface
-						&& v->xdg_surface->surface == focused)
-				{
-					current = v;
-					break;
-				}
-			}
-			bool shift = xkb_state_mod_name_is_active(
-				wlr_keyboard->xkb_state, "Shift",
-				XKB_STATE_MODS_EFFECTIVE);
-			view_focus(server,
-				shift ? view_prev(server, current)
-				      : view_next(server, current));
-			return;
-		}
-
-		if (alt && sym == XKB_KEY_Return)
-		{
-			hsdwl_server_spawn_client(server);
-			return;
-		}
-
-		if (alt && event->keycode >= KEY_1
-				&& event->keycode <= KEY_9)
-		{
-			size_t ws = event->keycode - KEY_1;
-			bool shift = xkb_state_mod_name_is_active(
-				wlr_keyboard->xkb_state, "Shift",
-				XKB_STATE_MODS_EFFECTIVE);
-			if (shift)
-			{
-				struct wlr_surface *focused =
-					server->seat->keyboard_state.focused_surface;
-				struct hsdwl_view *v;
-				wl_list_for_each(v, &server->views, link)
-				{
-					if (v->xdg_surface
-							&& v->xdg_surface->surface == focused)
-					{
-						hsdwl_server_move_to_workspace(
-							server, v, ws);
-						break;
-					}
-				}
-			}
-			else
-			{
-				hsdwl_server_switch_workspace(server, ws);
-			}
-			return;
-		}
-
-		if (handle_keybinding(server, sym))
+		if (binding_dispatch(server, wlr_keyboard, event))
 			return;
 	}
 
