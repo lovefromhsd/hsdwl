@@ -63,5 +63,6 @@ struct hsdwl_server
 bool hsdwl_server_init(struct hsdwl_server *server);
 void hsdwl_server_destroy(struct hsdwl_server *server);
 int hsdwl_server_run(struct hsdwl_server *server);
+int hsdwl_server_spawn_client(struct hsdwl_server *server);
 
 #endif

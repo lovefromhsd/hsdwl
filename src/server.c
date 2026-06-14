@@ -29,7 +29,7 @@
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
 
-static int spawn_client(struct hsdwl_server *server)
+int hsdwl_server_spawn_client(struct hsdwl_server *server)
 {
 	pid_t pid = fork();
 	if (pid < 0)
@@ -252,7 +252,7 @@ int hsdwl_server_run(struct hsdwl_server *server)
 	wlr_log(WLR_INFO, "running on wayland display: %s", server->socket);
 	setenv("WAYLAND_DISPLAY", server->socket, true);
 
-	spawn_client(server);
+	hsdwl_server_spawn_client(server);
 
 	wl_display_run(server->display);
 

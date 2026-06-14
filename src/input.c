@@ -47,6 +47,18 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
+		if (sym == XKB_KEY_Return)
+		{
+			bool alt = xkb_state_mod_name_is_active(
+				wlr_keyboard->xkb_state, "Mod1",
+				XKB_STATE_MODS_EFFECTIVE);
+			if (alt)
+			{
+				hsdwl_server_spawn_client(server);
+				return;
+			}
+		}
+
 		if (handle_keybinding(server, sym))
 			return;
 	}
