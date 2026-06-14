@@ -26,6 +26,7 @@
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_subcompositor.h>
+#include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
@@ -152,6 +153,16 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	if (!output_manager_init(server))
 	{
 		wlr_log(WLR_ERROR, "output_manager_init failed");
+		return false;
+	}
+
+	server->xdg_output_manager =
+		wlr_xdg_output_manager_v1_create(
+			server->display, server->output_layout);
+	if (!server->xdg_output_manager)
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_xdg_output_manager_v1_create failed");
 		return false;
 	}
 

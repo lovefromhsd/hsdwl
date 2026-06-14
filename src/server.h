@@ -24,6 +24,7 @@ struct wlr_seat;
 struct wlr_cursor;
 struct wlr_xcursor_manager;
 struct wlr_output_manager_v1;
+struct wlr_xdg_output_manager_v1;
 struct wlr_xwayland;
 struct wlr_layer_shell_v1;
 
@@ -82,6 +83,7 @@ struct hsdwl_server
 	size_t current_workspace;
 	struct wlr_xwayland *xwayland;
 	struct wlr_output_manager_v1 *output_manager;
+	struct wlr_xdg_output_manager_v1 *xdg_output_manager;
 	struct wlr_layer_shell_v1 *layer_shell;
 	struct wlr_scene_tree *layer_trees[4];
 	struct wl_listener new_layer_surface;
