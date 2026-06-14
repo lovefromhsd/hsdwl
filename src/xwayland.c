@@ -66,9 +66,17 @@ static void xwayland_view_handle_surface_unmap(
 static void xwayland_view_handle_surface_commit(
 		struct wl_listener *listener, void *data)
 {
+	(void)listener;
 	(void)data;
-	struct hsdwl_view *view = wl_container_of(listener, view, commit);
-	if (view->scene_tree)
+}
+
+static void xwayland_view_handle_set_geometry(
+		struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_view *view = wl_container_of(
+		listener, view, set_geometry);
+	if (view->scene_tree && view->xwayland_surface)
 	{
 		wlr_scene_node_set_position(
 			&view->scene_tree->node,
@@ -135,6 +143,7 @@ static void xwayland_view_handle_destroy(
 	wl_list_remove(&view->associate.link);
 	wl_list_remove(&view->dissociate.link);
 	wl_list_remove(&view->request_configure.link);
+	wl_list_remove(&view->set_geometry.link);
 	wl_list_remove(&view->destroy.link);
 	if (view->xwayland_surface)
 	{
@@ -171,6 +180,10 @@ static void xwayland_handle_new_surface(
 		xwayland_view_handle_request_configure;
 	wl_signal_add(&xsurface->events.request_configure,
 		&view->request_configure);
+	view->set_geometry.notify =
+		xwayland_view_handle_set_geometry;
+	wl_signal_add(&xsurface->events.set_geometry,
+		&view->set_geometry);
 	view->destroy.notify = xwayland_view_handle_destroy;
 	wl_signal_add(&xsurface->events.destroy,
 		&view->destroy);

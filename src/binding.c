@@ -44,8 +44,8 @@ static struct hsdwl_view *focused_view(struct hsdwl_server *server)
 	struct hsdwl_view *v;
 	wl_list_for_each(v, &server->views, link)
 	{
-		if (v->xdg_surface
-				&& v->xdg_surface->surface == focused)
+		struct wlr_surface *surf = view_get_surface(v);
+		if (surf == focused)
 			return v;
 	}
 	return NULL;
