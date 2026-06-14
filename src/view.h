@@ -16,6 +16,7 @@ struct hsdwl_view
 	struct wlr_xdg_surface *xdg_surface;
 	struct wlr_xwayland_surface *xwayland_surface;
 	struct wlr_scene_tree *scene_tree;
+	bool associated;
 	struct wl_listener map;
 	struct wl_listener unmap;
 	struct wl_listener destroy;

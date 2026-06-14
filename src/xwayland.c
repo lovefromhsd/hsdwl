@@ -101,6 +101,7 @@ static void xwayland_view_handle_associate(
 	view->commit.notify = xwayland_view_handle_surface_commit;
 	wl_signal_add(&xsurface->surface->events.commit,
 		&view->commit);
+	view->associated = true;
 }
 
 static void xwayland_view_handle_dissociate(
@@ -108,6 +109,13 @@ static void xwayland_view_handle_dissociate(
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, dissociate);
+	if (view->associated)
+	{
+		wl_list_remove(&view->map.link);
+		wl_list_remove(&view->unmap.link);
+		wl_list_remove(&view->commit.link);
+		view->associated = false;
+	}
 	view->xwayland_surface = NULL;
 }
 
@@ -145,7 +153,7 @@ static void xwayland_view_handle_destroy(
 	wl_list_remove(&view->request_configure.link);
 	wl_list_remove(&view->set_geometry.link);
 	wl_list_remove(&view->destroy.link);
-	if (view->xwayland_surface)
+	if (view->associated)
 	{
 		wl_list_remove(&view->map.link);
 		wl_list_remove(&view->unmap.link);
