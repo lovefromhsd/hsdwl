@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <stdarg.h>
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
 #include <wlr/render/allocator.h>
@@ -18,6 +19,8 @@
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_shm.h>
+#include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
@@ -33,9 +36,10 @@ struct hsdwl_server
 	struct wlr_output_layout *output_layout;
 	struct wlr_seat *seat;
 	struct wl_listener new_output;
-	struct wl_listener new_xdg_surface;
+	struct wl_listener new_xdg_toplevel;
 	struct wl_listener new_input;
 	struct wl_list keyboards;
+	const char *socket;
 	pid_t child_pid;
 };
 
@@ -55,7 +59,8 @@ struct hsdwl_view
 	struct wl_listener map;
 	struct wl_listener unmap;
 	struct wl_listener destroy;
-	struct wl_listener request_fullscreen;
+	struct wl_listener commit;
+	const char *app_id;
 };
 
 struct hsdwl_keyboard
@@ -159,6 +164,7 @@ static void server_new_keyboard(struct hsdwl_server *server, struct wlr_input_de
 	wl_list_insert(&server->keyboards, &keyboard->link);
 
 	wlr_seat_set_keyboard(server->seat, wlr_keyboard);
+	wlr_seat_set_capabilities(server->seat, WL_SEAT_CAPABILITY_KEYBOARD);
 }
 
 static void server_new_input(struct wl_listener *listener, void *data)
@@ -242,42 +248,73 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, map);
-	wlr_scene_node_set_enabled(&view->scene_tree->node, true);
-	wlr_xdg_toplevel_set_fullscreen(view->xdg_surface->toplevel, NULL);
+	if (!view->scene_tree)
+	{
+		view->scene_tree = wlr_scene_xdg_surface_create(&view->server->scene->tree, view->xdg_surface);
+		if (view->scene_tree)
+		{
+			wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+		}
+	}
+
+	if (view->xdg_surface->toplevel)
+	{
+		wlr_xdg_toplevel_set_activated(view->xdg_surface->toplevel, true);
+		wlr_xdg_surface_schedule_configure(view->xdg_surface);
+	}
+
+	struct wlr_keyboard *kb = wlr_seat_get_keyboard(view->server->seat);
+	if (kb)
+	{
+		wlr_seat_keyboard_notify_enter(view->server->seat, view->xdg_surface->surface, NULL, 0, NULL);
+	}
 }
 
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
-	wlr_scene_node_set_enabled(&view->scene_tree->node, false);
+	if (view->scene_tree)
+		wlr_scene_node_set_enabled(&view->scene_tree->node, false);
+	if (view->xdg_surface->toplevel)
+	{
+		wlr_xdg_toplevel_set_activated(view->xdg_surface->toplevel, false);
+		wlr_xdg_surface_schedule_configure(view->xdg_surface);
+	}
+	wlr_seat_keyboard_clear_focus(view->server->seat);
 }
 
-static void view_handle_request_fullscreen(struct wl_listener *listener, void *data)
+static void view_handle_commit(struct wl_listener *listener, void *data)
 {
 	(void)data;
-	struct hsdwl_view *view = wl_container_of(listener, view, request_fullscreen);
-	wlr_xdg_toplevel_set_fullscreen(view->xdg_surface->toplevel, NULL);
+	struct hsdwl_view *view = wl_container_of(listener, view, commit);
+	if (!view->xdg_surface)
+		return;
+
+	if (view->xdg_surface->initial_commit && view->xdg_surface->toplevel)
+	{
+		wlr_xdg_toplevel_set_fullscreen(view->xdg_surface->toplevel, true);
+		wlr_xdg_toplevel_set_activated(view->xdg_surface->toplevel, true);
+		wlr_xdg_surface_schedule_configure(view->xdg_surface);
+	}
 }
 
 static void view_handle_destroy(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
+	wl_list_remove(&view->commit.link);
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
 	wl_list_remove(&view->destroy.link);
-	wl_list_remove(&view->request_fullscreen.link);
 	free(view);
 }
 
-static void server_new_xdg_surface(struct wl_listener *listener, void *data)
+static void server_new_xdg_toplevel(struct wl_listener *listener, void *data)
 {
-	struct hsdwl_server *server = wl_container_of(listener, server, new_xdg_surface);
-	struct wlr_xdg_surface *xdg_surface = data;
-
-	if (xdg_surface->role != WLR_XDG_SURFACE_ROLE_TOPLEVEL)
-		return;
+	struct hsdwl_server *server = wl_container_of(listener, server, new_xdg_toplevel);
+	struct wlr_xdg_toplevel *toplevel = data;
+	struct wlr_xdg_surface *xdg_surface = toplevel->base;
 
 	struct hsdwl_view *view = calloc(1, sizeof(*view));
 	if (!view)
@@ -285,37 +322,20 @@ static void server_new_xdg_surface(struct wl_listener *listener, void *data)
 
 	view->server = server;
 	view->xdg_surface = xdg_surface;
-
-	view->scene_tree = wlr_scene_xdg_surface_create(&server->scene->tree, xdg_surface);
-	if (!view->scene_tree)
-	{
-		free(view);
-		return;
-	}
-
-	wlr_scene_node_set_enabled(&view->scene_tree->node, false);
+	xdg_surface->data = view;
 
 	view->map.notify = view_handle_map;
 	wl_signal_add(&xdg_surface->surface->events.map, &view->map);
 	view->unmap.notify = view_handle_unmap;
 	wl_signal_add(&xdg_surface->surface->events.unmap, &view->unmap);
-	view->request_fullscreen.notify = view_handle_request_fullscreen;
-	wl_signal_add(&xdg_surface->toplevel->events.request_fullscreen, &view->request_fullscreen);
+	view->commit.notify = view_handle_commit;
+	wl_signal_add(&xdg_surface->surface->events.commit, &view->commit);
 	view->destroy.notify = view_handle_destroy;
 	wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
 }
 
-static void spawn_xterm(struct hsdwl_server *server)
+static void spawn_client(struct hsdwl_server *server)
 {
-	const char *socket = wl_display_add_socket_auto(server->display);
-	if (!socket)
-	{
-		wlr_log(WLR_ERROR, "%s", "failed to add wayland socket");
-		return;
-	}
-
-	setenv("WAYLAND_DISPLAY", socket, true);
-
 	pid_t pid = fork();
 	if (pid < 0)
 	{
@@ -325,8 +345,11 @@ static void spawn_xterm(struct hsdwl_server *server)
 
 	if (pid == 0)
 	{
-		execlp("xterm", "xterm", NULL);
-		wlr_log(WLR_ERROR, "%s", "execlp xterm failed");
+		setenv("WAYLAND_DISPLAY", server->socket, true);
+		unsetenv("WAYLAND_SOCKET");
+		execlp("foot", "foot", NULL);
+		execlp("weston-terminal", "weston-terminal", NULL);
+		wlr_log(WLR_ERROR, "%s", "execlp foot failed");
 		_exit(1);
 	}
 
@@ -346,7 +369,7 @@ int main(int argc, char *argv[])
 {
 	(void)argc;
 	(void)argv;
-	wlr_log_init(WLR_DEBUG, NULL);
+	wlr_log_init(WLR_INFO, NULL);
 
 	struct hsdwl_server server = {0};
 	wl_list_init(&server.keyboards);
@@ -381,7 +404,9 @@ int main(int argc, char *argv[])
 		return 1;
 
 	wlr_compositor_create(server.display, 5, server.renderer);
+	wlr_subcompositor_create(server.display);
 	wlr_data_device_manager_create(server.display);
+	wlr_renderer_init_wl_shm(server.renderer, server.display);
 
 	server.new_output.notify = server_new_output;
 	wl_signal_add(&server.backend->events.new_output, &server.new_output);
@@ -390,12 +415,19 @@ int main(int argc, char *argv[])
 	wl_signal_add(&server.backend->events.new_input, &server.new_input);
 
 	struct wlr_xdg_shell *xdg_shell = wlr_xdg_shell_create(server.display, 3);
-	server.new_xdg_surface.notify = server_new_xdg_surface;
-	wl_signal_add(&xdg_shell->events.new_surface, &server.new_xdg_surface);
+	server.new_xdg_toplevel.notify = server_new_xdg_toplevel;
+	wl_signal_add(&xdg_shell->events.new_toplevel, &server.new_xdg_toplevel);
 
 	server.seat = wlr_seat_create(server.display, "seat0");
 	if (!server.seat)
 		return 1;
+
+	server.socket = wl_display_add_socket_auto(server.display);
+	if (!server.socket)
+	{
+		wlr_log(WLR_ERROR, "%s", "failed to add wayland socket");
+		return 1;
+	}
 
 	signal(SIGCHLD, handle_signal);
 
@@ -405,7 +437,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	spawn_xterm(&server);
+	spawn_client(&server);
 
 	wlr_log(WLR_INFO, "%s", "hsdwl compositor running");
 

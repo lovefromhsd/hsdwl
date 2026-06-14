@@ -11,7 +11,7 @@ project(
     ],
 )
 
-wlroots = dependency('wlroots-0.20', version: '== 0.20.0')
+wlroots = dependency('wlroots-0.20')
 wayland_server = dependency('wayland-server')
 xkbcommon = dependency('xkbcommon')
 
