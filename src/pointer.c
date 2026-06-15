@@ -237,7 +237,10 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			double sx, sy;
 			struct hsdwl_view *view = view_at(server,
 				server->cursor->x, server->cursor->y, &sx, &sy);
-			if (view && view->scene_tree)
+			if (view && view->scene_tree
+					&& !(view->xwayland_surface
+						&& view->xwayland_surface
+							->override_redirect))
 			{
 				server->cursor_mode = HSDWL_CURSOR_MOVE;
 				server->grabbed_view = view;
@@ -263,7 +266,10 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				server->cursor->x, server->cursor->y, &sx, &sy);
 			if (view && view->scene_tree
 					&& (view->xdg_surface
-						|| view->xwayland_surface))
+						|| view->xwayland_surface)
+					&& !(view->xwayland_surface
+						&& view->xwayland_surface
+							->override_redirect))
 			{
 				server->cursor_mode = HSDWL_CURSOR_RESIZE;
 				server->grabbed_view = view;
@@ -412,6 +418,13 @@ static void seat_request_cursor(struct wl_listener *listener, void *data)
 		server->seat->pointer_state.focused_client;
 	if (focused == event->seat_client)
 	{
+		if (!event->surface
+				|| !wlr_surface_has_buffer(event->surface))
+		{
+			wlr_cursor_set_xcursor(server->cursor,
+				server->cursor_mgr, "default");
+			return;
+		}
 		wlr_cursor_set_surface(server->cursor, event->surface,
 			event->hotspot_x, event->hotspot_y);
 	}

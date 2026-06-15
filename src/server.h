@@ -87,6 +87,7 @@ struct hsdwl_server
 	struct wlr_xdg_output_manager_v1 *xdg_output_manager;
 	struct wlr_layer_shell_v1 *layer_shell;
 	struct wlr_scene_tree *layer_trees[4];
+	struct wlr_scene_tree *override_tree;
 	struct wl_listener new_layer_surface;
 	struct wl_list layer_surfaces;
 	struct hsdwl_layer_surface *focused_layer;

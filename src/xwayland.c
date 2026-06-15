@@ -9,6 +9,7 @@
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
 
@@ -23,9 +24,12 @@ static void xwayland_view_handle_surface_map(
 	if (!view->scene_tree)
 	{
 		int bw = view->server->config.border_width;
-		view->scene_tree = wlr_scene_tree_create(
-			view->server->workspaces[
-				view->server->current_workspace]);
+		struct wlr_scene_tree *parent =
+			xsurface->override_redirect
+			? view->server->override_tree
+			: view->server->workspaces[
+				view->server->current_workspace];
+		view->scene_tree = wlr_scene_tree_create(parent);
 		if (!view->scene_tree)
 		{
 			wlr_log(WLR_ERROR,
@@ -33,6 +37,9 @@ static void xwayland_view_handle_surface_map(
 			return;
 		}
 		view->scene_tree->node.data = view;
+		if (xsurface->override_redirect)
+			wlr_scene_node_raise_to_top(
+				&view->scene_tree->node);
 
 		view->content_tree = wlr_scene_tree_create(
 			view->scene_tree);
@@ -50,7 +57,9 @@ static void xwayland_view_handle_surface_map(
 			return;
 		}
 		wlr_scene_node_set_position(
-			&view->content_tree->node, bw, bw);
+			&view->content_tree->node,
+			xsurface->override_redirect ? 0 : bw,
+			xsurface->override_redirect ? 0 : bw);
 		view_borders_create(view);
 	}
 
@@ -245,6 +254,17 @@ bool hsdwl_xwayland_init(struct hsdwl_server *server)
 	}
 
 	wlr_xwayland_set_seat(server->xwayland, server->seat);
+
+	struct wlr_xcursor *xcursor = wlr_xcursor_manager_get_xcursor(
+		server->cursor_mgr, "left_ptr", 1);
+	if (xcursor && xcursor->images[0]) {
+		struct wlr_xcursor_image *img = xcursor->images[0];
+		struct wlr_buffer *buf = wlr_xcursor_image_get_buffer(img);
+		if (buf) {
+			wlr_xwayland_set_cursor(server->xwayland, buf,
+				img->hotspot_x, img->hotspot_y);
+		}
+	}
 
 	server->new_xwayland_surface.notify =
 		xwayland_handle_new_surface;

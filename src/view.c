@@ -206,9 +206,7 @@ static bool view_is_usable(struct hsdwl_view *v)
 	if (v->xdg_surface && v->xdg_surface->configured)
 		return true;
 	if (v->xwayland_surface && v->xwayland_surface->surface
-			&& (!v->xwayland_surface->override_redirect
-				|| wlr_xwayland_surface_override_redirect_wants_focus(
-					v->xwayland_surface)))
+			&& !v->xwayland_surface->override_redirect)
 		return true;
 	return false;
 }
@@ -321,6 +319,9 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 void view_close(struct hsdwl_view *view)
 {
 	if (!view)
+		return;
+	if (view->xwayland_surface
+			&& view->xwayland_surface->override_redirect)
 		return;
 	if (view->xdg_surface && view->xdg_surface->toplevel)
 		wlr_xdg_toplevel_send_close(view->xdg_surface->toplevel);

@@ -263,6 +263,14 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wlr_scene_node_set_enabled(
 		&server->workspaces[0]->node, true);
 
+	server->override_tree = wlr_scene_tree_create(
+		&server->scene->tree);
+	if (!server->override_tree)
+	{
+		wlr_log(WLR_ERROR, "wlr_scene_tree_create failed");
+		return false;
+	}
+
 	server->layer_trees[2] = wlr_scene_tree_create(
 		&server->scene->tree);
 	server->layer_trees[3] = wlr_scene_tree_create(
