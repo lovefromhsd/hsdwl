@@ -4,13 +4,165 @@
 #include "view.h"
 #include "server.h"
 
+#include <cairo.h>
+#include <drm_fourcc.h>
+#include <pango/pango.h>
+#include <pango/pangocairo.h>
 #include <stdlib.h>
+#include <string.h>
+#include <wlr/interfaces/wlr_buffer.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
+
+/* ── custom wlr_buffer wrapping a cairo-rendered pixel buffer ── */
+
+struct title_buffer
+{
+	struct wlr_buffer base;
+	unsigned char *data;
+	int width, height, stride;
+	uint32_t format;
+};
+
+static void title_buffer_destroy(struct wlr_buffer *wbuffer)
+{
+	struct title_buffer *buf = wl_container_of(wbuffer, buf, base);
+	free(buf->data);
+	free(buf);
+}
+
+static bool title_buffer_get_shm(struct wlr_buffer *wbuffer,
+		struct wlr_shm_attributes *attribs)
+{
+	struct title_buffer *buf = wl_container_of(wbuffer, buf, base);
+	*attribs = (struct wlr_shm_attributes){
+		.fd = -1,
+		.format = buf->format,
+		.width = buf->width,
+		.height = buf->height,
+		.stride = buf->stride,
+		.offset = 0,
+	};
+	return true;
+}
+
+static bool title_buffer_begin_data_ptr_access(
+		struct wlr_buffer *wbuffer, uint32_t flags,
+		void **data, uint32_t *format, size_t *stride)
+{
+	(void)flags;
+	struct title_buffer *buf = wl_container_of(wbuffer, buf, base);
+	*data = buf->data;
+	*format = buf->format;
+	*stride = buf->stride;
+	return true;
+}
+
+static void title_buffer_end_data_ptr_access(struct wlr_buffer *wbuffer)
+{
+	(void)wbuffer;
+}
+
+static const struct wlr_buffer_impl title_buffer_impl = {
+	.destroy = title_buffer_destroy,
+	.get_shm = title_buffer_get_shm,
+	.begin_data_ptr_access = title_buffer_begin_data_ptr_access,
+	.end_data_ptr_access = title_buffer_end_data_ptr_access,
+};
+
+static struct title_buffer *title_buffer_create(
+		int width, int height)
+{
+	struct title_buffer *buf = calloc(1, sizeof(*buf));
+	if (!buf) return NULL;
+	buf->width = width;
+	buf->height = height;
+	buf->stride = width * 4;
+	buf->format = DRM_FORMAT_ARGB8888;
+	buf->data = calloc(1, (size_t)height * buf->stride);
+	if (!buf->data)
+	{
+		free(buf);
+		return NULL;
+	}
+	wlr_buffer_init(&buf->base, &title_buffer_impl, width, height);
+	return buf;
+}
+
+/* ── titlebar text rendering ── */
+
+void titlebar_text_update(struct hsdwl_view *view)
+{
+	if (!view->title_text_buf || !view->titlebar_rect)
+		return;
+	int tb_h = view->server->config.titlebar_height;
+	if (tb_h < 1)
+		return;
+
+	struct wlr_scene_rect *r = view->titlebar_rect;
+	int tw = r->width;
+	int th = r->height;
+	if (tw < 4 || th < 4)
+		return;
+	const char *title = view->cached_title[0]
+		? view->cached_title : "Untitled";
+
+	/* render text with pango/cairo */
+	cairo_surface_t *surf = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, tw, th);
+	cairo_t *cr = cairo_create(surf);
+
+	PangoLayout *layout = pango_cairo_create_layout(cr);
+	pango_layout_set_text(layout, title, -1);
+	PangoFontDescription *font = pango_font_description_from_string(
+		"sans-serif 12");
+	pango_layout_set_font_description(layout, font);
+
+	/* white text */
+	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	cairo_move_to(cr, 4, 0);
+	pango_cairo_show_layout(cr, layout);
+
+	pango_font_description_free(font);
+	g_object_unref(layout);
+	cairo_destroy(cr);
+
+	int w = cairo_image_surface_get_width(surf);
+	int h = cairo_image_surface_get_height(surf);
+	const unsigned char *src = cairo_image_surface_get_data(surf);
+
+	struct title_buffer *tbuf = title_buffer_create(w, h);
+	if (!tbuf)
+	{
+		cairo_surface_destroy(surf);
+		return;
+	}
+	memcpy(tbuf->data, src, (size_t)h * tbuf->stride);
+
+	cairo_surface_destroy(surf);
+
+	wlr_scene_buffer_set_buffer(view->title_text_buf, &tbuf->base);
+	wlr_buffer_drop(&tbuf->base);
+}
+
+static void view_handle_set_title(struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_view *view = wl_container_of(listener, view, set_title);
+	if (view->xdg_surface && view->xdg_surface->toplevel
+			&& view->xdg_surface->toplevel->title)
+	{
+		strncpy(view->cached_title,
+			view->xdg_surface->toplevel->title,
+			sizeof(view->cached_title) - 1);
+		view->cached_title[sizeof(view->cached_title) - 1] = '\0';
+	}
+	titlebar_text_update(view);
+}
 
 static void view_handle_map(struct wl_listener *listener, void *data)
 {
@@ -20,6 +172,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 	if (!view->scene_tree)
 	{
 		int bw = view->server->config.border_width;
+		int tb = view->server->config.titlebar_height;
 		view->scene_tree = wlr_scene_tree_create(
 			view->server->workspaces[
 				view->server->current_workspace]);
@@ -31,7 +184,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 		if (!view->content_tree)
 			return;
 		wlr_scene_node_set_position(
-			&view->content_tree->node, bw, bw);
+			&view->content_tree->node, bw, bw + tb);
 		view_borders_create(view);
 		wlr_scene_node_set_enabled(
 			&view->scene_tree->node, true);
@@ -51,6 +204,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 		}
 	}
 
+	titlebar_text_update(view);
 	view_focus(view->server, view);
 }
 
@@ -76,6 +230,14 @@ void view_borders_create(struct hsdwl_view *view)
 			view->scene_tree, 1, 1,
 			cfg->border_color);
 	}
+	if (cfg->titlebar_height > 0 && !view->titlebar_rect)
+	{
+		view->titlebar_rect = wlr_scene_rect_create(
+			view->scene_tree, 1, cfg->titlebar_height,
+			cfg->titlebar_color);
+		view->title_text_buf = wlr_scene_buffer_create(
+			view->scene_tree, NULL);
+	}
 	view_borders_update(view);
 }
 
@@ -100,6 +262,8 @@ void view_borders_update(struct hsdwl_view *view)
 	if (cw < 1 || ch < 1)
 		return;
 	int bw = view->server->config.border_width;
+	int tb = view->server->config.titlebar_height;
+	if (tb < 0) tb = 0;
 	if (bw < 1)
 	{
 		for (int i = 0; i < 4; i++)
@@ -107,6 +271,8 @@ void view_borders_update(struct hsdwl_view *view)
 				&view->border_rects[i]->node, false);
 		return;
 	}
+
+	int total_h = tb + ch;
 	wlr_scene_rect_set_size(
 		view->border_rects[0], cw + bw * 2, bw);
 	wlr_scene_node_set_position(
@@ -114,15 +280,28 @@ void view_borders_update(struct hsdwl_view *view)
 	wlr_scene_rect_set_size(
 		view->border_rects[1], cw + bw * 2, bw);
 	wlr_scene_node_set_position(
-		&view->border_rects[1]->node, 0, ch + bw);
+		&view->border_rects[1]->node, 0, bw + total_h);
 	wlr_scene_rect_set_size(
-		view->border_rects[2], bw, ch);
+		view->border_rects[2], bw, total_h);
 	wlr_scene_node_set_position(
 		&view->border_rects[2]->node, 0, bw);
 	wlr_scene_rect_set_size(
-		view->border_rects[3], bw, ch);
+		view->border_rects[3], bw, total_h);
 	wlr_scene_node_set_position(
 		&view->border_rects[3]->node, cw + bw, bw);
+
+	if (view->titlebar_rect)
+	{
+		wlr_scene_rect_set_size(
+			view->titlebar_rect, cw, tb);
+		wlr_scene_node_set_position(
+			&view->titlebar_rect->node, bw, bw);
+	}
+	if (view->title_text_buf)
+	{
+		wlr_scene_node_set_position(
+			&view->title_text_buf->node, bw + 4, bw + 2);
+	}
 }
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
@@ -186,6 +365,14 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			if (v->border_rects[i])
 				wlr_scene_rect_set_color(
 					v->border_rects[i], color);
+		}
+		if (v->titlebar_rect)
+		{
+			float *tcolor = active
+				? server->config.titlebar_color_focused
+				: server->config.titlebar_color;
+			wlr_scene_rect_set_color(
+				v->titlebar_rect, tcolor);
 		}
 	}
 
@@ -312,6 +499,7 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&view->commit.link);
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
+	wl_list_remove(&view->set_title.link);
 	wl_list_remove(&view->destroy.link);
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
@@ -355,4 +543,13 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	wl_signal_add(&xdg_surface->surface->events.commit, &view->commit);
 	view->destroy.notify = view_handle_destroy;
 	wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
+	view->set_title.notify = view_handle_set_title;
+	wl_signal_add(&xdg_surface->toplevel->events.set_title,
+		&view->set_title);
+	if (xdg_surface->toplevel->title)
+	{
+		strncpy(view->cached_title, xdg_surface->toplevel->title,
+			sizeof(view->cached_title) - 1);
+		view->cached_title[sizeof(view->cached_title) - 1] = '\0';
+	}
 }

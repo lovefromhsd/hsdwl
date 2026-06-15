@@ -14,6 +14,9 @@ project(
 wlroots = dependency('wlroots-0.20')
 wayland_server = dependency('wayland-server')
 xkbcommon = dependency('xkbcommon')
+pango = dependency('pango')
+pangocairo = dependency('pangocairo')
+cairo = dependency('cairo')
 
 subdir('src')
 
@@ -27,6 +30,9 @@ executable(
         wlroots,
         wayland_server,
         xkbcommon,
+        pango,
+        pangocairo,
+        cairo,
     ],
     install: true,
 )

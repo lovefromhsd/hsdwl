@@ -37,6 +37,9 @@ struct hsdwl_config
 	int border_width;
 	float border_color[4];
 	float border_color_focused[4];
+	int titlebar_height;
+	float titlebar_color[4];
+	float titlebar_color_focused[4];
 	char mod_key[32];
 	char kb_layout[128];
 	struct wl_list bindings;

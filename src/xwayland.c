@@ -6,6 +6,7 @@
 #include "view.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
@@ -25,6 +26,8 @@ static void xwayland_view_handle_surface_map(
 	if (!view->scene_tree)
 	{
 		int bw = view->server->config.border_width;
+		int tb = view->server->config.titlebar_height;
+		if (tb < 0) tb = 0;
 		struct wlr_scene_tree *parent =
 			xsurface->override_redirect
 			? view->server->override_tree
@@ -60,12 +63,14 @@ static void xwayland_view_handle_surface_map(
 		wlr_scene_node_set_position(
 			&view->content_tree->node,
 			xsurface->override_redirect ? 0 : bw,
-			xsurface->override_redirect ? 0 : bw);
+			xsurface->override_redirect ? 0 : (bw + tb));
 		view_borders_create(view);
 	}
 	else
 	{
 		int bw = view->server->config.border_width;
+		int tb = view->server->config.titlebar_height;
+		if (tb < 0) tb = 0;
 		wlr_scene_node_destroy(&view->content_tree->node);
 		view->content_tree = wlr_scene_tree_create(
 			view->scene_tree);
@@ -85,9 +90,10 @@ static void xwayland_view_handle_surface_map(
 		wlr_scene_node_set_position(
 			&view->content_tree->node,
 			xsurface->override_redirect ? 0 : bw,
-			xsurface->override_redirect ? 0 : bw);
+			xsurface->override_redirect ? 0 : (bw + tb));
 	}
 
+	titlebar_text_update(view);
 	wlr_scene_node_set_position(
 		&view->scene_tree->node, xsurface->x, xsurface->y);
 	wlr_scene_node_set_enabled(
@@ -233,6 +239,7 @@ static void xwayland_view_handle_destroy(
 	wl_list_remove(&view->dissociate.link);
 	wl_list_remove(&view->request_configure.link);
 	wl_list_remove(&view->set_geometry.link);
+	wl_list_remove(&view->set_title.link);
 	wl_list_remove(&view->destroy.link);
 	if (view->decoration_destroy.notify)
 		wl_list_remove(&view->decoration_destroy.link);
@@ -247,6 +254,23 @@ static void xwayland_view_handle_destroy(
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
 	free(view);
+}
+
+static void xwayland_view_handle_set_title(
+		struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_view *view = wl_container_of(listener, view, set_title);
+	fprintf(stderr, "TRACE: xwayland_view_handle_set_title view=%p\n", (void*)view);
+	fflush(stderr);
+	if (view->xwayland_surface && view->xwayland_surface->title)
+	{
+		strncpy(view->cached_title,
+			view->xwayland_surface->title,
+			sizeof(view->cached_title) - 1);
+		view->cached_title[sizeof(view->cached_title) - 1] = '\0';
+	}
+	titlebar_text_update(view);
 }
 
 static void xwayland_handle_new_surface(
@@ -291,6 +315,15 @@ static void xwayland_handle_new_surface(
 		xwayland_view_handle_set_geometry;
 	wl_signal_add(&xsurface->events.set_geometry,
 		&view->set_geometry);
+	view->set_title.notify = xwayland_view_handle_set_title;
+	wl_signal_add(&xsurface->events.set_title,
+		&view->set_title);
+	if (xsurface->title)
+	{
+		strncpy(view->cached_title, xsurface->title,
+			sizeof(view->cached_title) - 1);
+		view->cached_title[sizeof(view->cached_title) - 1] = '\0';
+	}
 	fprintf(stderr, "TRACE: xwayland_handle_new_surface adding destroy\n");
 	fflush(stderr);
 	view->destroy.notify = xwayland_view_handle_destroy;
