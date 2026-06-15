@@ -48,6 +48,11 @@ static void decoration_handle_destroy(
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(
 		listener, view, decoration_destroy);
+	wl_list_remove(&view->decoration_destroy.link);
+	if (view->decoration_request_mode.notify)
+		wl_list_remove(&view->decoration_request_mode.link);
+	wl_list_init(&view->decoration_destroy.link);
+	wl_list_init(&view->decoration_request_mode.link);
 	view->decoration = NULL;
 }
 

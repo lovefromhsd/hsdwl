@@ -179,17 +179,18 @@ static void xwayland_view_handle_destroy(
 	wl_list_remove(&view->request_configure.link);
 	wl_list_remove(&view->set_geometry.link);
 	wl_list_remove(&view->destroy.link);
+	wl_list_remove(&view->decoration_destroy.link);
+	wl_list_remove(&view->decoration_request_mode.link);
 	if (view->associated)
 	{
 		wl_list_remove(&view->map.link);
 		wl_list_remove(&view->unmap.link);
 		wl_list_remove(&view->commit.link);
 	}
-	if (view->decoration)
-	{
-		wl_list_remove(&view->decoration_destroy.link);
-		wl_list_remove(&view->decoration_request_mode.link);
-	}
+	for (int i = 0; i < 4; i++)
+		view->border_rects[i] = NULL;
+	view->content_tree = NULL;
+	view->scene_tree = NULL;
 	free(view);
 }
 

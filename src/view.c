@@ -131,6 +131,8 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 		struct hsdwl_view *v;
 		wl_list_for_each(v, &server->views, link)
 		{
+			if (!v->scene_tree || !v->scene_tree->node.enabled)
+				continue;
 			for (int i = 0; i < 4; i++)
 			{
 				if (v->border_rects[i])
@@ -147,6 +149,8 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 	struct hsdwl_view *v;
 	wl_list_for_each(v, &server->views, link)
 	{
+		if (!v->scene_tree || !v->scene_tree->node.enabled)
+			continue;
 		bool active = (v == view);
 		if (v->xdg_surface && v->xdg_surface->configured)
 		{
@@ -186,7 +190,7 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 
 static bool view_is_usable(struct hsdwl_view *v)
 {
-	if (!v->scene_tree)
+	if (!v->scene_tree || !v->scene_tree->node.enabled)
 		return false;
 	if (v->xdg_surface && v->xdg_surface->configured)
 		return true;
@@ -285,16 +289,17 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 		if (view->server->focused_views[i] == view)
 			view->server->focused_views[i] = NULL;
 	}
-	if (view->decoration)
-	{
-		wl_list_remove(&view->decoration_destroy.link);
-		wl_list_remove(&view->decoration_request_mode.link);
-	}
+	wl_list_remove(&view->decoration_destroy.link);
+	wl_list_remove(&view->decoration_request_mode.link);
 	wl_list_remove(&view->link);
 	wl_list_remove(&view->commit.link);
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
 	wl_list_remove(&view->destroy.link);
+	for (int i = 0; i < 4; i++)
+		view->border_rects[i] = NULL;
+	view->content_tree = NULL;
+	view->scene_tree = NULL;
 	free(view);
 }
 
