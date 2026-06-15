@@ -251,6 +251,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 					&view->scene_tree->node);
 				wlr_cursor_set_xcursor(server->cursor,
 					server->cursor_mgr, "move");
+				view_focus(server, view);
 				return;
 			}
 		}
@@ -293,6 +294,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 					&view->scene_tree->node);
 				wlr_cursor_set_xcursor(server->cursor,
 					server->cursor_mgr, "move");
+				view_focus(server, view);
 				return;
 			}
 		}

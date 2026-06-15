@@ -39,9 +39,6 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 
 	if (view->xdg_surface->toplevel)
 	{
-		wlr_xdg_toplevel_set_activated(
-			view->xdg_surface->toplevel, true);
-		wlr_xdg_surface_schedule_configure(view->xdg_surface);
 		if (view->decoration && !view->decoration_request_mode.notify)
 		{
 			view->decoration_request_mode.notify =
@@ -54,13 +51,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 		}
 	}
 
-	struct wlr_keyboard *kb = wlr_seat_get_keyboard(
-		view->server->seat);
-	if (kb)
-	{
-		wlr_seat_keyboard_notify_enter(view->server->seat,
-			view->xdg_surface->surface, NULL, 0, NULL);
-	}
+	view_focus(view->server, view);
 }
 
 struct wlr_surface *view_get_surface(struct hsdwl_view *view)
