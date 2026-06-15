@@ -160,7 +160,8 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 		if (!v->scene_tree || !v->scene_tree->node.enabled)
 			continue;
 		bool active = (v == view);
-		if (v->xdg_surface && v->xdg_surface->configured)
+		if (v->xdg_surface && v->xdg_surface->configured
+				&& v->xdg_surface->surface->buffer)
 		{
 			wlr_xdg_toplevel_set_activated(
 				v->xdg_surface->toplevel, active);
@@ -291,14 +292,17 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	fprintf(stderr, "TRACE: view_handle_destroy\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
-	if (view->scene_tree)
-		view->scene_tree->node.data = NULL;
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
 		if (view->server->focused_views[i] == view)
 			view->server->focused_views[i] = NULL;
+	}
+	if (view->scene_tree)
+	{
+		view->scene_tree->node.data = NULL;
+		wlr_scene_node_destroy(&view->scene_tree->node);
 	}
 	if (view->decoration_destroy.notify)
 		wl_list_remove(&view->decoration_destroy.link);
@@ -309,8 +313,6 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
 	wl_list_remove(&view->destroy.link);
-	for (int i = 0; i < 4; i++)
-		view->border_rects[i] = NULL;
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
 	free(view);

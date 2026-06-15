@@ -16,9 +16,10 @@
 static void xwayland_view_handle_surface_map(
 		struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: xwayland_view_handle_surface_map\n");
-	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, map);
+	fprintf(stderr, "TRACE: xwayland_view_handle_surface_map view=%p xsurface=%p\n", (void*)view, (void*)view->xwayland_surface);
+	fflush(stderr);
+	(void)data;
 	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
 
 	if (!view->scene_tree)
@@ -32,7 +33,7 @@ static void xwayland_view_handle_surface_map(
 		view->scene_tree = wlr_scene_tree_create(parent);
 		if (!view->scene_tree)
 		{
-			wlr_log(WLR_ERROR,
+			wlr_log(WLR_ERROR, "%s",
 				"wlr_scene_tree_create failed");
 			return;
 		}
@@ -45,14 +46,14 @@ static void xwayland_view_handle_surface_map(
 			view->scene_tree);
 		if (!view->content_tree)
 		{
-			wlr_log(WLR_ERROR,
+			wlr_log(WLR_ERROR, "%s",
 				"wlr_scene_tree_create failed");
 			return;
 		}
 		if (!wlr_scene_surface_create(view->content_tree,
 				xsurface->surface))
 		{
-			wlr_log(WLR_ERROR,
+			wlr_log(WLR_ERROR, "%s",
 				"wlr_scene_surface_create failed");
 			return;
 		}
@@ -76,9 +77,10 @@ static void xwayland_view_handle_surface_map(
 static void xwayland_view_handle_surface_unmap(
 		struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: xwayland_view_handle_surface_unmap\n");
-	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
+	fprintf(stderr, "TRACE: xwayland_view_handle_surface_unmap view=%p xsurface=%p\n", (void*)view, (void*)view->xwayland_surface);
+	fflush(stderr);
+	(void)data;
 	if (view->scene_tree)
 		wlr_scene_node_set_enabled(
 			&view->scene_tree->node, false);
@@ -119,10 +121,20 @@ static void xwayland_view_handle_set_geometry(
 static void xwayland_view_handle_associate(
 		struct wl_listener *listener, void *data)
 {
-	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, associate);
+	(void)data;
 	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
+	fprintf(stderr, "TRACE: xwayland_view_handle_associate view=%p xsurface=%p data=%p associated=%d\n", (void*)view, (void*)xsurface, data, view->associated);
+	fflush(stderr);
+	if (!xsurface)
+		return;
 
+	if (view->associated)
+	{
+		wl_list_remove(&view->map.link);
+		wl_list_remove(&view->unmap.link);
+		wl_list_remove(&view->commit.link);
+	}
 	view->map.notify = xwayland_view_handle_surface_map;
 	wl_signal_add(&xsurface->surface->events.map,
 		&view->map);
@@ -138,8 +150,11 @@ static void xwayland_view_handle_associate(
 static void xwayland_view_handle_dissociate(
 		struct wl_listener *listener, void *data)
 {
-	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, dissociate);
+	fprintf(stderr, "TRACE: xwayland_view_handle_dissociate view=%p xsurface=%p associated=%d\n", (void*)view, (void*)view->xwayland_surface, view->associated);
+	fflush(stderr);
+	(void)data;
+	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
 	if (view->associated)
 	{
 		wl_list_remove(&view->map.link);
@@ -147,7 +162,8 @@ static void xwayland_view_handle_dissociate(
 		wl_list_remove(&view->commit.link);
 		view->associated = false;
 	}
-	view->xwayland_surface = NULL;
+	if (xsurface)
+		xsurface->data = NULL;
 }
 
 static void xwayland_view_handle_request_configure(
@@ -172,17 +188,21 @@ static void xwayland_view_handle_request_configure(
 static void xwayland_view_handle_destroy(
 		struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: xwayland_view_handle_destroy\n");
-	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
-	if (view->scene_tree)
-		view->scene_tree->node.data = NULL;
+	fprintf(stderr, "TRACE: xwayland_view_handle_destroy view=%p xsurface=%p\n", (void*)view, (void*)view->xwayland_surface);
+	fflush(stderr);
+	(void)data;
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
 		if (view->server->focused_views[i] == view)
 			view->server->focused_views[i] = NULL;
+	}
+	if (view->scene_tree)
+	{
+		view->scene_tree->node.data = NULL;
+		wlr_scene_node_destroy(&view->scene_tree->node);
 	}
 	wl_list_remove(&view->link);
 	wl_list_remove(&view->associate.link);
@@ -200,8 +220,6 @@ static void xwayland_view_handle_destroy(
 		wl_list_remove(&view->unmap.link);
 		wl_list_remove(&view->commit.link);
 	}
-	for (int i = 0; i < 4; i++)
-		view->border_rects[i] = NULL;
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
 	free(view);
@@ -210,18 +228,30 @@ static void xwayland_view_handle_destroy(
 static void xwayland_handle_new_surface(
 		struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: xwayland_handle_new_surface\n");
+	fflush(stderr);
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, new_xwayland_surface);
 	struct wlr_xwayland_surface *xsurface = data;
 
 	struct hsdwl_view *view = calloc(1, sizeof(*view));
 	if (!view)
+	{
+		fprintf(stderr, "TRACE: xwayland_handle_new_surface calloc failed\n");
+		fflush(stderr);
 		return;
+	}
+
+	fprintf(stderr, "TRACE: xwayland_handle_new_surface view=%p xsurface=%p\n", (void*)view, (void*)xsurface);
+	fflush(stderr);
 
 	view->server = server;
 	view->xwayland_surface = xsurface;
 	xsurface->data = view;
 	wl_list_insert(&server->views, &view->link);
+
+	fprintf(stderr, "TRACE: xwayland_handle_new_surface inserted\n");
+	fflush(stderr);
 
 	view->associate.notify = xwayland_view_handle_associate;
 	wl_signal_add(&xsurface->events.associate,
@@ -237,9 +267,13 @@ static void xwayland_handle_new_surface(
 		xwayland_view_handle_set_geometry;
 	wl_signal_add(&xsurface->events.set_geometry,
 		&view->set_geometry);
+	fprintf(stderr, "TRACE: xwayland_handle_new_surface adding destroy\n");
+	fflush(stderr);
 	view->destroy.notify = xwayland_view_handle_destroy;
 	wl_signal_add(&xsurface->events.destroy,
 		&view->destroy);
+	fprintf(stderr, "TRACE: xwayland_handle_new_surface done\n");
+	fflush(stderr);
 }
 
 bool hsdwl_xwayland_init(struct hsdwl_server *server)
@@ -248,7 +282,7 @@ bool hsdwl_xwayland_init(struct hsdwl_server *server)
 		server->display, server->compositor, true);
 	if (!server->xwayland)
 	{
-		wlr_log(WLR_ERROR,
+		wlr_log(WLR_ERROR, "%s",
 			"wlr_xwayland_create failed");
 		return false;
 	}
