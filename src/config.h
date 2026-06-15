@@ -38,6 +38,7 @@ struct hsdwl_config
 	float border_color[4];
 	float border_color_focused[4];
 	int titlebar_height;
+	int titlebar_radius;
 	float titlebar_color[4];
 	float titlebar_color_focused[4];
 	char title_font[128];

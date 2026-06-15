@@ -63,7 +63,7 @@ static void xwayland_view_handle_surface_map(
 		wlr_scene_node_set_position(
 			&view->content_tree->node,
 			xsurface->override_redirect ? 0 : bw,
-			xsurface->override_redirect ? 0 : (bw + tb));
+			xsurface->override_redirect ? 0 : (tb > 0 ? tb : bw));
 		view_borders_create(view);
 	}
 	else
@@ -90,7 +90,7 @@ static void xwayland_view_handle_surface_map(
 		wlr_scene_node_set_position(
 			&view->content_tree->node,
 			xsurface->override_redirect ? 0 : bw,
-			xsurface->override_redirect ? 0 : (bw + tb));
+			xsurface->override_redirect ? 0 : (tb > 0 ? tb : bw));
 	}
 
 	titlebar_text_update(view);
@@ -145,6 +145,7 @@ static void xwayland_view_handle_set_geometry(
 			view->xwayland_surface->x,
 			view->xwayland_surface->y);
 		view_borders_update(view);
+		titlebar_text_update(view);
 	}
 }
 

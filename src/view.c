@@ -4,6 +4,7 @@
 #include "view.h"
 #include "server.h"
 
+#include <math.h>
 #include <cairo.h>
 #include <drm_fourcc.h>
 #include <pango/pango.h>
@@ -97,47 +98,77 @@ static struct title_buffer *title_buffer_create(
 
 void titlebar_text_update(struct hsdwl_view *view)
 {
-	if (!view->title_text_buf || !view->titlebar_rect)
+	if (!view->title_text_buf)
 		return;
 	int tb_h = view->server->config.titlebar_height;
 	if (tb_h < 1)
 		return;
 
-	struct wlr_scene_rect *r = view->titlebar_rect;
-	int tw = r->width;
-	int th = r->height;
+	struct hsdwl_config *cfg = &view->server->config;
+
+	int bw = cfg->border_width;
+	int tw = 0, th = tb_h;
+	if (view->xdg_surface && view->xdg_surface->configured)
+		tw = view->xdg_surface->geometry.width + 2 * bw;
+	else if (view->xwayland_surface)
+		tw = view->xwayland_surface->width + 2 * bw;
 	if (tw < 4 || th < 4)
 		return;
+
 	const char *title = view->cached_title[0]
 		? view->cached_title : "Untitled";
 
-	/* render text with pango/cairo */
+	bool focused = (view == view->server->focused_views[
+		view->server->current_workspace]);
+
 	cairo_surface_t *surf = cairo_image_surface_create(
 		CAIRO_FORMAT_ARGB32, tw, th);
 	cairo_t *cr = cairo_create(surf);
 
+	/* draw background with rounded top corners */
+	float *bg = focused
+		? cfg->titlebar_color_focused
+		: cfg->titlebar_color;
+	cairo_set_source_rgba(cr, bg[0], bg[1], bg[2], bg[3]);
+	int r = cfg->titlebar_radius;
+	if (r > th / 2)
+		r = th / 2;
+	if (r > 0)
+	{
+		cairo_move_to(cr, 0, r);
+		cairo_arc(cr, r, r, r, M_PI, 3 * M_PI_2);
+		cairo_arc(cr, tw - r, r, r, 3 * M_PI_2, 0);
+		cairo_line_to(cr, tw, th);
+		cairo_line_to(cr, 0, th);
+		cairo_close_path(cr);
+	}
+	else
+	{
+		cairo_rectangle(cr, 0, 0, tw, th);
+	}
+	cairo_fill(cr);
+
+	/* render text */
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 	pango_layout_set_text(layout, title, -1);
-	const char *weight = view->server->config.title_font_weight;
+	const char *weight = cfg->title_font_weight;
 	char font_desc[256];
 	if (weight && weight[0])
 		snprintf(font_desc, sizeof(font_desc), "%s %s %d",
-			view->server->config.title_font, weight,
-			view->server->config.title_font_size);
+			cfg->title_font, weight,
+			cfg->title_font_size);
 	else
 		snprintf(font_desc, sizeof(font_desc), "%s %d",
-			view->server->config.title_font,
-			view->server->config.title_font_size);
+			cfg->title_font,
+			cfg->title_font_size);
 	PangoFontDescription *font = pango_font_description_from_string(font_desc);
 	pango_layout_set_font_description(layout, font);
 
-	bool focused = (view == view->server->focused_views[
-		view->server->current_workspace]);
 	float *tc = focused
-		? view->server->config.title_text_color_focused
-		: view->server->config.title_text_color;
+		? cfg->title_text_color_focused
+		: cfg->title_text_color;
 	cairo_set_source_rgba(cr, tc[0], tc[1], tc[2], tc[3]);
-	cairo_move_to(cr, 4, 0);
+	cairo_move_to(cr, 4, 2);
 	pango_cairo_show_layout(cr, layout);
 
 	pango_font_description_free(font);
@@ -197,7 +228,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 		if (!view->content_tree)
 			return;
 		wlr_scene_node_set_position(
-			&view->content_tree->node, bw, bw + tb);
+			&view->content_tree->node, bw, tb > 0 ? tb : bw);
 		view_borders_create(view);
 		wlr_scene_node_set_enabled(
 			&view->scene_tree->node, true);
@@ -243,11 +274,8 @@ void view_borders_create(struct hsdwl_view *view)
 			view->scene_tree, 1, 1,
 			cfg->border_color);
 	}
-	if (cfg->titlebar_height > 0 && !view->titlebar_rect)
+	if (cfg->titlebar_height > 0 && !view->title_text_buf)
 	{
-		view->titlebar_rect = wlr_scene_rect_create(
-			view->scene_tree, 1, cfg->titlebar_height,
-			cfg->titlebar_color);
 		view->title_text_buf = wlr_scene_buffer_create(
 			view->scene_tree, NULL);
 	}
@@ -286,34 +314,49 @@ void view_borders_update(struct hsdwl_view *view)
 	}
 
 	int total_h = tb + ch;
-	wlr_scene_rect_set_size(
-		view->border_rects[0], cw + bw * 2, bw);
-	wlr_scene_node_set_position(
-		&view->border_rects[0]->node, 0, 0);
-	wlr_scene_rect_set_size(
-		view->border_rects[1], cw + bw * 2, bw);
-	wlr_scene_node_set_position(
-		&view->border_rects[1]->node, 0, bw + total_h);
-	wlr_scene_rect_set_size(
-		view->border_rects[2], bw, total_h);
-	wlr_scene_node_set_position(
-		&view->border_rects[2]->node, 0, bw);
-	wlr_scene_rect_set_size(
-		view->border_rects[3], bw, total_h);
-	wlr_scene_node_set_position(
-		&view->border_rects[3]->node, cw + bw, bw);
-
-	if (view->titlebar_rect)
+	if (tb > 0)
 	{
+		wlr_scene_node_set_enabled(
+			&view->border_rects[0]->node, false);
 		wlr_scene_rect_set_size(
-			view->titlebar_rect, cw, tb);
+			view->border_rects[1], cw + bw * 2, bw);
 		wlr_scene_node_set_position(
-			&view->titlebar_rect->node, bw, bw);
+			&view->border_rects[1]->node, 0, tb + ch);
+		wlr_scene_rect_set_size(
+			view->border_rects[2], bw, ch);
+		wlr_scene_node_set_position(
+			&view->border_rects[2]->node, 0, tb);
+		wlr_scene_rect_set_size(
+			view->border_rects[3], bw, ch);
+		wlr_scene_node_set_position(
+			&view->border_rects[3]->node, cw + bw, tb);
 	}
+	else
+	{
+		wlr_scene_node_set_enabled(
+			&view->border_rects[0]->node, true);
+		wlr_scene_rect_set_size(
+			view->border_rects[0], cw + bw * 2, bw);
+		wlr_scene_node_set_position(
+			&view->border_rects[0]->node, 0, 0);
+		wlr_scene_rect_set_size(
+			view->border_rects[1], cw + bw * 2, bw);
+		wlr_scene_node_set_position(
+			&view->border_rects[1]->node, 0, bw + total_h);
+		wlr_scene_rect_set_size(
+			view->border_rects[2], bw, total_h);
+		wlr_scene_node_set_position(
+			&view->border_rects[2]->node, 0, bw);
+		wlr_scene_rect_set_size(
+			view->border_rects[3], bw, total_h);
+		wlr_scene_node_set_position(
+			&view->border_rects[3]->node, cw + bw, bw);
+	}
+
 	if (view->title_text_buf)
 	{
 		wlr_scene_node_set_position(
-			&view->title_text_buf->node, bw + 4, bw + 2);
+			&view->title_text_buf->node, 0, 0);
 	}
 }
 
@@ -380,14 +423,6 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			if (v->border_rects[i])
 				wlr_scene_rect_set_color(
 					v->border_rects[i], color);
-		}
-		if (v->titlebar_rect)
-		{
-			float *tcolor = active
-				? server->config.titlebar_color_focused
-				: server->config.titlebar_color;
-			wlr_scene_rect_set_color(
-				v->titlebar_rect, tcolor);
 		}
 		titlebar_text_update(v);
 	}
@@ -488,6 +523,7 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 	}
 
 	view_borders_update(view);
+	titlebar_text_update(view);
 }
 
 static void view_handle_toplevel_destroy(struct wl_listener *listener, void *data)
