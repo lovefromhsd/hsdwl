@@ -46,7 +46,10 @@ static void xwayland_view_handle_surface_map(
 		&view->scene_tree->node, xsurface->x, xsurface->y);
 	wlr_scene_node_set_enabled(
 		&view->scene_tree->node, true);
-	view_focus(view->server, view);
+	if (!xsurface->override_redirect
+			|| wlr_xwayland_surface_override_redirect_wants_focus(
+				xsurface))
+		view_focus(view->server, view);
 }
 
 static void xwayland_view_handle_surface_unmap(
@@ -59,8 +62,12 @@ static void xwayland_view_handle_surface_unmap(
 			&view->scene_tree->node, false);
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
-	view_focus(view->server,
-		view_next(view->server, view));
+	if (!view->xwayland_surface
+			|| !view->xwayland_surface->override_redirect
+			|| wlr_xwayland_surface_override_redirect_wants_focus(
+				view->xwayland_surface))
+		view_focus(view->server,
+			view_next(view->server, view));
 }
 
 static void xwayland_view_handle_surface_commit(
@@ -147,6 +154,11 @@ static void xwayland_view_handle_destroy(
 		view->scene_tree->node.data = NULL;
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
+	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
+	{
+		if (view->server->focused_views[i] == view)
+			view->server->focused_views[i] = NULL;
+	}
 	wl_list_remove(&view->link);
 	wl_list_remove(&view->associate.link);
 	wl_list_remove(&view->dissociate.link);

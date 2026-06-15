@@ -80,6 +80,7 @@ struct hsdwl_server
 	int grab_geom_width;
 	int grab_geom_height;
 	struct wlr_scene_tree *workspaces[HSDWL_NUM_WORKSPACES];
+	struct hsdwl_view *focused_views[HSDWL_NUM_WORKSPACES];
 	size_t current_workspace;
 	struct wlr_xwayland *xwayland;
 	struct wlr_output_manager_v1 *output_manager;

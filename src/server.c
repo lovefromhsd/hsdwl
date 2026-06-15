@@ -38,23 +38,60 @@ void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 			|| ws == server->current_workspace)
 		return;
 
+	struct wlr_surface *focused_surface =
+		server->seat->keyboard_state.focused_surface;
+	struct hsdwl_view *v;
+	wl_list_for_each(v, &server->views, link)
+	{
+		if (view_get_surface(v) == focused_surface)
+		{
+			server->focused_views[server->current_workspace] = v;
+			break;
+		}
+	}
+
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 		wlr_scene_node_set_enabled(
 			&server->workspaces[i]->node, i == ws);
 	server->current_workspace = ws;
 
-	struct hsdwl_view *v;
-	struct hsdwl_view *next = NULL;
-	wl_list_for_each(v, &server->views, link)
+	struct hsdwl_view *next = server->focused_views[ws];
+	if (next)
 	{
-		if (!v->scene_tree || !v->xdg_surface
-				|| !v->xdg_surface->configured)
-			continue;
-		if (v->scene_tree->node.parent
-				!= server->workspaces[ws])
-			continue;
-		next = v;
-		break;
+		bool still_valid = false;
+		wl_list_for_each(v, &server->views, link)
+		{
+			if (v == next) { still_valid = true; break; }
+		}
+		if (!still_valid)
+			next = NULL;
+	}
+	if (next && (!next->scene_tree
+			|| next->scene_tree->node.parent
+				!= server->workspaces[ws]))
+		next = NULL;
+
+	if (!next)
+	{
+		wl_list_for_each(v, &server->views, link)
+		{
+			if (!v->scene_tree)
+				continue;
+			bool xdg_usable = v->xdg_surface
+				&& v->xdg_surface->configured;
+			bool xwayland_usable = v->xwayland_surface
+				&& v->xwayland_surface->surface
+				&& (!v->xwayland_surface->override_redirect
+					|| wlr_xwayland_surface_override_redirect_wants_focus(
+						v->xwayland_surface));
+			if (!xdg_usable && !xwayland_usable)
+				continue;
+			if (v->scene_tree->node.parent
+					!= server->workspaces[ws])
+				continue;
+			next = v;
+			break;
+		}
 	}
 	view_focus(server, next);
 }
@@ -182,6 +219,7 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		}
 		wlr_scene_node_set_enabled(
 			&server->workspaces[i]->node, false);
+		server->focused_views[i] = NULL;
 	}
 	server->current_workspace = 0;
 	wlr_scene_node_set_enabled(
