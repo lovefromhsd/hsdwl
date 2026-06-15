@@ -118,12 +118,25 @@ void titlebar_text_update(struct hsdwl_view *view)
 
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 	pango_layout_set_text(layout, title, -1);
-	PangoFontDescription *font = pango_font_description_from_string(
-		"sans-serif 12");
+	const char *weight = view->server->config.title_font_weight;
+	char font_desc[256];
+	if (weight && weight[0])
+		snprintf(font_desc, sizeof(font_desc), "%s %s %d",
+			view->server->config.title_font, weight,
+			view->server->config.title_font_size);
+	else
+		snprintf(font_desc, sizeof(font_desc), "%s %d",
+			view->server->config.title_font,
+			view->server->config.title_font_size);
+	PangoFontDescription *font = pango_font_description_from_string(font_desc);
 	pango_layout_set_font_description(layout, font);
 
-	/* white text */
-	cairo_set_source_rgba(cr, 1, 1, 1, 1);
+	bool focused = (view == view->server->focused_views[
+		view->server->current_workspace]);
+	float *tc = focused
+		? view->server->config.title_text_color_focused
+		: view->server->config.title_text_color;
+	cairo_set_source_rgba(cr, tc[0], tc[1], tc[2], tc[3]);
 	cairo_move_to(cr, 4, 0);
 	pango_cairo_show_layout(cr, layout);
 
@@ -327,12 +340,14 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 						v->border_rects[i],
 						server->config.border_color);
 			}
+			titlebar_text_update(v);
 		}
 		return;
 	}
 	if (!view->scene_tree)
 		return;
 
+	server->focused_views[server->current_workspace] = view;
 	struct hsdwl_view *v;
 	wl_list_for_each(v, &server->views, link)
 	{
@@ -374,6 +389,7 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_scene_rect_set_color(
 				v->titlebar_rect, tcolor);
 		}
+		titlebar_text_update(v);
 	}
 
 	wlr_scene_node_raise_to_top(&view->scene_tree->node);

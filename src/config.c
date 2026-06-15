@@ -51,6 +51,11 @@ static const char *default_config_text =
 	"titlebar_height = 24\n"
 	"titlebar_color = #333333\n"
 	"titlebar_color_focused = #335577\n"
+	"title_font = sans-serif\n"
+	"title_font_size = 12\n"
+	"title_font_weight = \n"
+	"title_text_color = #aaaaaa\n"
+	"title_text_color_focused = #ffffff\n"
 	"mod_key = Mod1\n"
 	"kb_layout = us\n"
 	"\n"
@@ -171,6 +176,11 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	cfg->titlebar_height = 24;
 	parse_hex_color("#333333", cfg->titlebar_color);
 	parse_hex_color("#335577", cfg->titlebar_color_focused);
+	snprintf(cfg->title_font, sizeof(cfg->title_font), "sans-serif");
+	cfg->title_font_size = 12;
+	cfg->title_font_weight[0] = '\0';
+	parse_hex_color("#aaaaaa", cfg->title_text_color);
+	parse_hex_color("#ffffff", cfg->title_text_color_focused);
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
 
 	if (num_vars < HSDWL_MAX_VARS) {
@@ -287,6 +297,17 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			parse_hex_color(val, cfg->titlebar_color);
 		else if (strcmp(key, "titlebar_color_focused") == 0)
 			parse_hex_color(val, cfg->titlebar_color_focused);
+		else if (strcmp(key, "title_font") == 0)
+			snprintf(cfg->title_font, sizeof(cfg->title_font), "%.127s", val);
+		else if (strcmp(key, "title_font_size") == 0)
+			cfg->title_font_size = atoi(val);
+		else if (strcmp(key, "title_font_weight") == 0)
+			snprintf(cfg->title_font_weight,
+				sizeof(cfg->title_font_weight), "%.63s", val);
+		else if (strcmp(key, "title_text_color") == 0)
+			parse_hex_color(val, cfg->title_text_color);
+		else if (strcmp(key, "title_text_color_focused") == 0)
+			parse_hex_color(val, cfg->title_text_color_focused);
 
 		/* store every key=value pair in var table for bind resolution */
 		if (num_vars < HSDWL_MAX_VARS) {
