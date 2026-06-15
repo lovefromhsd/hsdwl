@@ -63,6 +63,30 @@ static void xwayland_view_handle_surface_map(
 			xsurface->override_redirect ? 0 : bw);
 		view_borders_create(view);
 	}
+	else
+	{
+		int bw = view->server->config.border_width;
+		wlr_scene_node_destroy(&view->content_tree->node);
+		view->content_tree = wlr_scene_tree_create(
+			view->scene_tree);
+		if (!view->content_tree)
+		{
+			wlr_log(WLR_ERROR, "%s",
+				"wlr_scene_tree_create failed");
+			return;
+		}
+		if (!wlr_scene_surface_create(view->content_tree,
+				xsurface->surface))
+		{
+			wlr_log(WLR_ERROR, "%s",
+				"wlr_scene_surface_create failed");
+			return;
+		}
+		wlr_scene_node_set_position(
+			&view->content_tree->node,
+			xsurface->override_redirect ? 0 : bw,
+			xsurface->override_redirect ? 0 : bw);
+	}
 
 	wlr_scene_node_set_position(
 		&view->scene_tree->node, xsurface->x, xsurface->y);
