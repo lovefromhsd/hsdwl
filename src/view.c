@@ -318,6 +318,16 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	free(view);
 }
 
+void view_close(struct hsdwl_view *view)
+{
+	if (!view)
+		return;
+	if (view->xdg_surface && view->xdg_surface->toplevel)
+		wlr_xdg_toplevel_send_close(view->xdg_surface->toplevel);
+	else if (view->xwayland_surface)
+		wlr_xwayland_surface_close(view->xwayland_surface);
+}
+
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 {
 	struct hsdwl_server *server = wl_container_of(

@@ -44,5 +44,6 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 		struct hsdwl_view *current);
 struct wlr_surface *view_get_surface(struct hsdwl_view *view);
 void decoration_handle_request_mode(struct wl_listener *listener, void *data);
+void view_close(struct hsdwl_view *view);
 
 #endif

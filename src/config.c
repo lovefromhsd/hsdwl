@@ -72,7 +72,8 @@ static const char *default_config_text =
 	"bind = mod_key+Shift+6, move_to_workspace, 6\n"
 	"bind = mod_key+Shift+7, move_to_workspace, 7\n"
 	"bind = mod_key+Shift+8, move_to_workspace, 8\n"
-	"bind = mod_key+Shift+9, move_to_workspace, 9\n";
+	"bind = mod_key+Shift+9, move_to_workspace, 9\n"
+	"bind = mod_key+Q, close_focused\n";
 
 static void write_default_config(const char *path)
 {
@@ -110,6 +111,7 @@ static int parse_action(const char *s)
 	if (strcmp(s, "cycle_focus_reverse") == 0) return HSDWL_ACTION_CYCLE_FOCUS_REVERSE;
 	if (strcmp(s, "switch_workspace") == 0) return HSDWL_ACTION_SWITCH_WORKSPACE;
 	if (strcmp(s, "move_to_workspace") == 0) return HSDWL_ACTION_MOVE_TO_WORKSPACE;
+	if (strcmp(s, "close_focused") == 0) return HSDWL_ACTION_CLOSE_FOCUSED;
 	return HSDWL_ACTION_NONE;
 }
 

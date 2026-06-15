@@ -69,6 +69,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
 		case HSDWL_ACTION_SPAWN:
 		case HSDWL_ACTION_QUIT:
+		case HSDWL_ACTION_CLOSE_FOCUSED:
 			if (sym != b->keysym) continue;
 			break;
 		case HSDWL_ACTION_SWITCH_WORKSPACE:
@@ -92,6 +93,11 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_QUIT:
 			wl_display_terminate(server->display);
 			return true;
+		case HSDWL_ACTION_CLOSE_FOCUSED:
+		{
+			view_close(focused_view(server));
+			return true;
+		}
 		case HSDWL_ACTION_CYCLE_FOCUS:
 		{
 			struct hsdwl_view *cur = focused_view(server);
