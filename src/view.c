@@ -459,15 +459,23 @@ static bool view_is_usable(struct hsdwl_view *v)
 	return false;
 }
 
+static bool view_on_workspace(struct hsdwl_view *v,
+		struct wlr_scene_tree *ws)
+{
+	return v->scene_tree && v->scene_tree->node.parent == ws;
+}
+
 struct hsdwl_view *view_next(struct hsdwl_server *server,
 		struct hsdwl_view *current)
 {
+	struct wlr_scene_tree *ws =
+		server->workspaces[server->current_workspace];
 	struct hsdwl_view *first = NULL;
 	struct hsdwl_view *v;
 	bool found = false;
 	wl_list_for_each(v, &server->views, link)
 	{
-		if (!view_is_usable(v))
+		if (!view_is_usable(v) || !view_on_workspace(v, ws))
 			continue;
 		if (!first)
 			first = v;
@@ -482,12 +490,14 @@ struct hsdwl_view *view_next(struct hsdwl_server *server,
 struct hsdwl_view *view_prev(struct hsdwl_server *server,
 		struct hsdwl_view *current)
 {
+	struct wlr_scene_tree *ws =
+		server->workspaces[server->current_workspace];
 	struct hsdwl_view *last = NULL;
 	struct hsdwl_view *v;
 	bool found = false;
 	wl_list_for_each_reverse(v, &server->views, link)
 	{
-		if (!view_is_usable(v))
+		if (!view_is_usable(v) || !view_on_workspace(v, ws))
 			continue;
 		if (!last)
 			last = v;
