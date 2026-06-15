@@ -37,6 +37,7 @@ struct hsdwl_view
 	struct wl_listener request_configure;
 	struct wl_listener set_geometry;
 	struct wl_listener set_title;
+	struct wl_listener toplevel_destroy;
 };
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);

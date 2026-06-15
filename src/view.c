@@ -474,6 +474,16 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 	view_borders_update(view);
 }
 
+static void view_handle_toplevel_destroy(struct wl_listener *listener, void *data)
+{
+	fprintf(stderr, "TRACE: view_handle_toplevel_destroy\n");
+	(void)data;
+	struct hsdwl_view *view = wl_container_of(listener, view, toplevel_destroy);
+	wl_list_remove(&view->set_title.link);
+	wl_list_init(&view->set_title.link);
+	wl_list_remove(&view->toplevel_destroy.link);
+}
+
 static void view_handle_destroy(struct wl_listener *listener, void *data)
 {
 	fprintf(stderr, "TRACE: view_handle_destroy\n");
@@ -546,6 +556,9 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	view->set_title.notify = view_handle_set_title;
 	wl_signal_add(&xdg_surface->toplevel->events.set_title,
 		&view->set_title);
+	view->toplevel_destroy.notify = view_handle_toplevel_destroy;
+	wl_signal_add(&xdg_surface->toplevel->events.destroy,
+		&view->toplevel_destroy);
 	if (xdg_surface->toplevel->title)
 	{
 		strncpy(view->cached_title, xdg_surface->toplevel->title,
