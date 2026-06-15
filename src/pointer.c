@@ -310,33 +310,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				&& !wlr_xwayland_surface_override_redirect_wants_focus(
 					view->xwayland_surface);
 			if (!is_or)
-			{
-				if (view->xdg_surface)
-				{
-					wlr_xdg_toplevel_set_activated(
-						view->xdg_surface->toplevel, true);
-					wlr_xdg_surface_schedule_configure(
-						view->xdg_surface);
-				}
-				if (view->xwayland_surface)
-				{
-					wlr_xwayland_surface_activate(
-						view->xwayland_surface, true);
-				}
-				wlr_scene_node_raise_to_top(
-					&view->scene_tree->node);
-				struct wlr_keyboard *kb2 =
-					wlr_seat_get_keyboard(server->seat);
-				if (kb2)
-				{
-					struct wlr_surface *surf =
-						view_get_surface(view);
-					if (surf)
-						wlr_seat_keyboard_notify_enter(
-							server->seat,
-							surf, NULL, 0, NULL);
-				}
-			}
+				view_focus(server, view);
 		}
 		else
 		{

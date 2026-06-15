@@ -114,19 +114,19 @@ void view_borders_update(struct hsdwl_view *view)
 	wlr_scene_rect_set_size(
 		view->border_rects[0], cw + bw * 2, bw);
 	wlr_scene_node_set_position(
-		&view->border_rects[0]->node, -bw, -bw);
+		&view->border_rects[0]->node, 0, 0);
 	wlr_scene_rect_set_size(
 		view->border_rects[1], cw + bw * 2, bw);
 	wlr_scene_node_set_position(
-		&view->border_rects[1]->node, -bw, ch);
+		&view->border_rects[1]->node, 0, ch + bw);
 	wlr_scene_rect_set_size(
 		view->border_rects[2], bw, ch);
 	wlr_scene_node_set_position(
-		&view->border_rects[2]->node, -bw, 0);
+		&view->border_rects[2]->node, 0, bw);
 	wlr_scene_rect_set_size(
 		view->border_rects[3], bw, ch);
 	wlr_scene_node_set_position(
-		&view->border_rects[3]->node, cw, 0);
+		&view->border_rects[3]->node, cw + bw, bw);
 }
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
