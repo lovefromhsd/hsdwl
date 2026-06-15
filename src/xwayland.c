@@ -67,6 +67,7 @@ static void xwayland_view_handle_surface_map(
 static void xwayland_view_handle_surface_unmap(
 		struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: xwayland_view_handle_surface_unmap\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
 	if (view->scene_tree)
@@ -162,6 +163,7 @@ static void xwayland_view_handle_request_configure(
 static void xwayland_view_handle_destroy(
 		struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: xwayland_view_handle_destroy\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
 	if (view->scene_tree)
@@ -179,8 +181,10 @@ static void xwayland_view_handle_destroy(
 	wl_list_remove(&view->request_configure.link);
 	wl_list_remove(&view->set_geometry.link);
 	wl_list_remove(&view->destroy.link);
-	wl_list_remove(&view->decoration_destroy.link);
-	wl_list_remove(&view->decoration_request_mode.link);
+	if (view->decoration_destroy.notify)
+		wl_list_remove(&view->decoration_destroy.link);
+	if (view->decoration_request_mode.notify)
+		wl_list_remove(&view->decoration_request_mode.link);
 	if (view->associated)
 	{
 		wl_list_remove(&view->map.link);

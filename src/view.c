@@ -244,6 +244,7 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: view_handle_unmap\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
 	if (view->scene_tree)
@@ -278,6 +279,7 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 
 static void view_handle_destroy(struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: view_handle_destroy\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
 	if (view->scene_tree)
@@ -289,8 +291,10 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 		if (view->server->focused_views[i] == view)
 			view->server->focused_views[i] = NULL;
 	}
-	wl_list_remove(&view->decoration_destroy.link);
-	wl_list_remove(&view->decoration_request_mode.link);
+	if (view->decoration_destroy.notify)
+		wl_list_remove(&view->decoration_destroy.link);
+	if (view->decoration_request_mode.notify)
+		wl_list_remove(&view->decoration_request_mode.link);
 	wl_list_remove(&view->link);
 	wl_list_remove(&view->commit.link);
 	wl_list_remove(&view->map.link);
