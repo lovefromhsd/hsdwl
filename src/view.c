@@ -66,6 +66,9 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view)
 void view_borders_create(struct hsdwl_view *view)
 {
 	fprintf(stderr, "TRACE: view_borders_create\n");
+	if (view->xwayland_surface
+			&& view->xwayland_surface->override_redirect)
+		return;
 	struct hsdwl_config *cfg = &view->server->config;
 	for (int i = 0; i < 4; i++)
 	{
@@ -80,6 +83,8 @@ void view_borders_update(struct hsdwl_view *view)
 {
 	fprintf(stderr, "TRACE: view_borders_update\n");
 	if (!view->scene_tree || !view->content_tree)
+		return;
+	if (!view->border_rects[0])
 		return;
 	int cw = 0, ch = 0;
 	if (view->xdg_surface && view->xdg_surface->configured)
@@ -133,6 +138,9 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 		{
 			if (!v->scene_tree || !v->scene_tree->node.enabled)
 				continue;
+			if (v->xwayland_surface
+					&& v->xwayland_surface->override_redirect)
+				continue;
 			for (int i = 0; i < 4; i++)
 			{
 				if (v->border_rects[i])
@@ -166,6 +174,9 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_xwayland_surface_activate(
 				v->xwayland_surface, active);
 		}
+		if (v->xwayland_surface
+				&& v->xwayland_surface->override_redirect)
+			continue;
 		float *color = active
 			? server->config.border_color_focused
 			: server->config.border_color;
