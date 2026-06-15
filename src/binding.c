@@ -70,7 +70,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_SPAWN:
 		case HSDWL_ACTION_QUIT:
 		case HSDWL_ACTION_CLOSE_FOCUSED:
-			if (sym != b->keysym) continue;
+			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym)) continue;
 			break;
 		case HSDWL_ACTION_SWITCH_WORKSPACE:
 		case HSDWL_ACTION_MOVE_TO_WORKSPACE:
