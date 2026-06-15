@@ -28,9 +28,42 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_xcursor_manager.h>
+#include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
+
+void decoration_handle_request_mode(
+		struct wl_listener *listener, void *data)
+{
+	(void)listener;
+	struct wlr_xdg_toplevel_decoration_v1 *deco = data;
+	wlr_xdg_toplevel_decoration_v1_set_mode(deco,
+		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+}
+
+static void decoration_handle_destroy(
+		struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_view *view = wl_container_of(
+		listener, view, decoration_destroy);
+	view->decoration = NULL;
+}
+
+static void handle_new_toplevel_decoration(
+		struct wl_listener *listener, void *data)
+{
+	(void)listener;
+	struct wlr_xdg_toplevel_decoration_v1 *deco = data;
+	struct hsdwl_view *view = deco->toplevel->base->data;
+	if (!view)
+		return;
+	view->decoration = deco;
+	view->decoration_destroy.notify = decoration_handle_destroy;
+	wl_signal_add(&deco->events.destroy,
+		&view->decoration_destroy);
+}
 
 void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 {
@@ -281,6 +314,20 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		wlr_log(WLR_ERROR, "pointer_init failed");
 		return false;
 	}
+
+	struct wlr_xdg_decoration_manager_v1 *deco_mgr =
+		wlr_xdg_decoration_manager_v1_create(server->display);
+	if (!deco_mgr)
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_xdg_decoration_manager_v1_create failed");
+		return false;
+	}
+
+	static struct wl_listener deco_listener;
+	deco_listener.notify = handle_new_toplevel_decoration;
+	wl_signal_add(&deco_mgr->events.new_toplevel_decoration,
+		&deco_listener);
 
 	if (!hsdwl_xwayland_init(server))
 	{

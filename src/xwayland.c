@@ -15,12 +15,14 @@
 static void xwayland_view_handle_surface_map(
 		struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: xwayland_view_handle_surface_map\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, map);
 	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
 
 	if (!view->scene_tree)
 	{
+		int bw = view->server->config.border_width;
 		view->scene_tree = wlr_scene_tree_create(
 			view->server->workspaces[
 				view->server->current_workspace]);
@@ -30,16 +32,26 @@ static void xwayland_view_handle_surface_map(
 				"wlr_scene_tree_create failed");
 			return;
 		}
+		view->scene_tree->node.data = view;
 
-		if (!wlr_scene_surface_create(view->scene_tree,
+		view->content_tree = wlr_scene_tree_create(
+			view->scene_tree);
+		if (!view->content_tree)
+		{
+			wlr_log(WLR_ERROR,
+				"wlr_scene_tree_create failed");
+			return;
+		}
+		if (!wlr_scene_surface_create(view->content_tree,
 				xsurface->surface))
 		{
 			wlr_log(WLR_ERROR,
 				"wlr_scene_surface_create failed");
 			return;
 		}
-
-		view->scene_tree->node.data = view;
+		wlr_scene_node_set_position(
+			&view->content_tree->node, bw, bw);
+		view_borders_create(view);
 	}
 
 	wlr_scene_node_set_position(
@@ -80,6 +92,7 @@ static void xwayland_view_handle_surface_commit(
 static void xwayland_view_handle_set_geometry(
 		struct wl_listener *listener, void *data)
 {
+	fprintf(stderr, "TRACE: xwayland_view_handle_set_geometry\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(
 		listener, view, set_geometry);
@@ -89,6 +102,7 @@ static void xwayland_view_handle_set_geometry(
 			&view->scene_tree->node,
 			view->xwayland_surface->x,
 			view->xwayland_surface->y);
+		view_borders_update(view);
 	}
 }
 
@@ -170,6 +184,11 @@ static void xwayland_view_handle_destroy(
 		wl_list_remove(&view->map.link);
 		wl_list_remove(&view->unmap.link);
 		wl_list_remove(&view->commit.link);
+	}
+	if (view->decoration)
+	{
+		wl_list_remove(&view->decoration_destroy.link);
+		wl_list_remove(&view->decoration_request_mode.link);
 	}
 	free(view);
 }

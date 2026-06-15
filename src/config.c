@@ -10,6 +10,29 @@
 
 #define HSDWL_MAX_VARS 64
 
+static int parse_hex_color(const char *s, float color[4])
+{
+	if (!s || s[0] != '#')
+		return 0;
+	s++;
+	size_t len = strlen(s);
+	if (len != 6)
+		return 0;
+	char buf[3] = {0};
+	for (int i = 0; i < 3; i++)
+	{
+		buf[0] = s[i * 2];
+		buf[1] = s[i * 2 + 1];
+		char *end = NULL;
+		long v = strtol(buf, &end, 16);
+		if (*end != '\0')
+			return 0;
+		color[i] = v / 255.0f;
+	}
+	color[3] = 1.0f;
+	return 1;
+}
+
 struct config_var
 {
 	char key[64];
@@ -22,6 +45,9 @@ static const char *default_config_text =
 	"keyboard_repeat_delay = 600\n"
 	"edge_threshold = 10\n"
 	"min_window_size = 50\n"
+	"border_width = 2\n"
+	"border_color = #444444\n"
+	"border_color_focused = #5294e2\n"
 	"mod_key = Mod1\n"
 	"kb_layout = us\n"
 	"\n"
@@ -134,6 +160,9 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	cfg->keyboard_repeat_delay = 600;
 	cfg->edge_threshold = 10;
 	cfg->min_window_size = 50;
+	cfg->border_width = 2;
+	parse_hex_color("#444444", cfg->border_color);
+	parse_hex_color("#5294e2", cfg->border_color_focused);
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
 
 	if (num_vars < HSDWL_MAX_VARS) {
@@ -238,6 +267,12 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			snprintf(cfg->mod_key, sizeof(cfg->mod_key), "%.31s", val);
 		else if (strcmp(key, "kb_layout") == 0)
 			snprintf(cfg->kb_layout, sizeof(cfg->kb_layout), "%.127s", val);
+		else if (strcmp(key, "border_width") == 0)
+			cfg->border_width = atoi(val);
+		else if (strcmp(key, "border_color") == 0)
+			parse_hex_color(val, cfg->border_color);
+		else if (strcmp(key, "border_color_focused") == 0)
+			parse_hex_color(val, cfg->border_color_focused);
 
 		/* store every key=value pair in var table for bind resolution */
 		if (num_vars < HSDWL_MAX_VARS) {
