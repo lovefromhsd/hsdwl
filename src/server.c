@@ -28,6 +28,7 @@
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_xcursor_manager.h>
+#include <wlr/types/wlr_ext_data_control_v1.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
@@ -328,6 +329,13 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
+	if (!wlr_ext_data_control_manager_v1_create(server->display, 1))
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_ext_data_control_manager_v1_create failed");
+		return false;
+	}
+
 	struct wlr_xdg_decoration_manager_v1 *deco_mgr =
 		wlr_xdg_decoration_manager_v1_create(server->display);
 	if (!deco_mgr)
@@ -370,6 +378,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wl_list_remove(&server->request_cursor.link);
 	wl_list_remove(&server->pointer_focus_change.link);
 	wl_list_remove(&server->request_set_selection.link);
+	wl_list_remove(&server->request_set_primary_selection.link);
 	wlr_xcursor_manager_destroy(server->cursor_mgr);
 	wlr_cursor_destroy(server->cursor);
 	hsdwl_xwayland_finish(server);

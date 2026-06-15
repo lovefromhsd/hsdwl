@@ -15,6 +15,7 @@
 #include <wlr/types/wlr_pointer.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
@@ -451,6 +452,16 @@ static void seat_request_set_selection(struct wl_listener *listener, void *data)
 	wlr_seat_set_selection(server->seat, event->source, event->serial);
 }
 
+static void seat_request_set_primary_selection(
+		struct wl_listener *listener, void *data)
+{
+	struct hsdwl_server *server = wl_container_of(
+		listener, server, request_set_primary_selection);
+	struct wlr_seat_request_set_primary_selection_event *event = data;
+	wlr_seat_set_primary_selection(server->seat,
+		event->source, event->serial);
+}
+
 bool pointer_init(struct hsdwl_server *server)
 {
 	wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
@@ -484,6 +495,11 @@ bool pointer_init(struct hsdwl_server *server)
 		seat_request_set_selection;
 	wl_signal_add(&server->seat->events.request_set_selection,
 		&server->request_set_selection);
+	server->request_set_primary_selection.notify =
+		seat_request_set_primary_selection;
+	wl_signal_add(
+		&server->seat->events.request_set_primary_selection,
+		&server->request_set_primary_selection);
 
 	return true;
 }

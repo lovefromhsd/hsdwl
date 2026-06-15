@@ -66,6 +66,7 @@ struct hsdwl_server
 	struct wl_listener cursor_frame;
 	struct wl_listener request_cursor;
 	struct wl_listener request_set_selection;
+	struct wl_listener request_set_primary_selection;
 	struct wl_listener pointer_focus_change;
 	struct wl_listener output_manager_apply;
 	struct wl_listener output_manager_test;
