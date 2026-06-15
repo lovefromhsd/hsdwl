@@ -243,6 +243,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 						&& view->xwayland_surface
 							->override_redirect))
 			{
+				if (view->maximized)
+					view_maximize(server, view);
 				server->cursor_mode = HSDWL_CURSOR_MOVE;
 				server->grabbed_view = view;
 				server->grab_x = server->cursor->x;
@@ -272,6 +274,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 						&& view->xwayland_surface
 							->override_redirect))
 			{
+				if (view->maximized)
+					view_maximize(server, view);
 				server->cursor_mode = HSDWL_CURSOR_RESIZE;
 				server->grabbed_view = view;
 				server->grab_x = server->cursor->x;

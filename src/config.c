@@ -60,6 +60,7 @@ static const char *default_config_text =
 	"title_text_color_focused = #ffffff\n"
 	"mod_key = Mod1\n"
 	"kb_layout = us\n"
+	"smart_gaps = true\n"
 	"\n"
 	"bind = mod_key+Return, foot\n"
 	"bind = mod_key+Escape, quit\n"
@@ -83,7 +84,8 @@ static const char *default_config_text =
 	"bind = mod_key+Shift+7, move_to_workspace, 7\n"
 	"bind = mod_key+Shift+8, move_to_workspace, 8\n"
 	"bind = mod_key+Shift+9, move_to_workspace, 9\n"
-	"bind = mod_key+Q, close_focused\n";
+	"bind = mod_key+Q, close_focused\n"
+	"bind = mod_key+i, maximize\n";
 
 static void write_default_config(const char *path)
 {
@@ -122,6 +124,7 @@ static int parse_action(const char *s)
 	if (strcmp(s, "switch_workspace") == 0) return HSDWL_ACTION_SWITCH_WORKSPACE;
 	if (strcmp(s, "move_to_workspace") == 0) return HSDWL_ACTION_MOVE_TO_WORKSPACE;
 	if (strcmp(s, "close_focused") == 0) return HSDWL_ACTION_CLOSE_FOCUSED;
+	if (strcmp(s, "maximize") == 0) return HSDWL_ACTION_MAXIMIZE;
 	return HSDWL_ACTION_NONE;
 }
 
@@ -185,6 +188,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	parse_hex_color("#aaaaaa", cfg->title_text_color);
 	parse_hex_color("#ffffff", cfg->title_text_color_focused);
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
+	cfg->smart_gaps = true;
 
 	if (num_vars < HSDWL_MAX_VARS) {
 		snprintf(vars[num_vars].key, sizeof(vars[0].key), "mod_key");
@@ -311,6 +315,8 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			parse_hex_color(val, cfg->title_text_color);
 		else if (strcmp(key, "title_text_color_focused") == 0)
 			parse_hex_color(val, cfg->title_text_color_focused);
+		else if (strcmp(key, "smart_gaps") == 0)
+			cfg->smart_gaps = strcmp(val, "true") == 0;
 
 		/* store every key=value pair in var table for bind resolution */
 		if (num_vars < HSDWL_MAX_VARS) {

@@ -70,6 +70,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_SPAWN:
 		case HSDWL_ACTION_QUIT:
 		case HSDWL_ACTION_CLOSE_FOCUSED:
+		case HSDWL_ACTION_MAXIMIZE:
 			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym)) continue;
 			break;
 		case HSDWL_ACTION_SWITCH_WORKSPACE:
@@ -123,6 +124,12 @@ bool binding_dispatch(struct hsdwl_server *server,
 			if (cur && b->arg >= 1 && b->arg <= 9)
 				hsdwl_server_move_to_workspace(server,
 					cur, (size_t)(b->arg - 1));
+			return true;
+		}
+		case HSDWL_ACTION_MAXIMIZE:
+		{
+			struct hsdwl_view *cur = focused_view(server);
+			if (cur) view_maximize(server, cur);
 			return true;
 		}
 		default:

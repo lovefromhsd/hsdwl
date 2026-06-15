@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <wayland-server-core.h>
+#include <wlr/util/box.h>
 
 struct hsdwl_server;
 struct wlr_xdg_surface;
@@ -37,6 +38,8 @@ struct hsdwl_view
 	struct wl_listener set_geometry;
 	struct wl_listener set_title;
 	struct wl_listener toplevel_destroy;
+	bool maximized;
+	struct wlr_box saved_geometry;
 };
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);
@@ -51,5 +54,6 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view);
 void decoration_handle_request_mode(struct wl_listener *listener, void *data);
 void view_close(struct hsdwl_view *view);
 void titlebar_text_update(struct hsdwl_view *view);
+void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view);
 
 #endif

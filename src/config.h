@@ -15,6 +15,7 @@ enum hsdwl_action
 	HSDWL_ACTION_SPAWN,
 	HSDWL_ACTION_QUIT,
 	HSDWL_ACTION_CLOSE_FOCUSED,
+	HSDWL_ACTION_MAXIMIZE,
 };
 
 struct hsdwl_binding
@@ -48,6 +49,7 @@ struct hsdwl_config
 	float title_text_color_focused[4];
 	char mod_key[32];
 	char kb_layout[128];
+	bool smart_gaps;
 	struct wl_list bindings;
 };
 

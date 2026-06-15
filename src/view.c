@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wlr/interfaces/wlr_buffer.h>
+#include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
@@ -587,6 +589,176 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	free(view);
 }
 
+void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
+{
+	if (!view || !view->scene_tree)
+		return;
+
+	struct hsdwl_config *cfg = &server->config;
+
+	if (view->maximized)
+	{
+		wlr_scene_node_set_position(&view->scene_tree->node,
+			view->saved_geometry.x, view->saved_geometry.y);
+
+		if (view->xdg_surface && view->xdg_surface->configured)
+		{
+			wlr_xdg_toplevel_set_size(
+				view->xdg_surface->toplevel,
+				view->saved_geometry.width,
+				view->saved_geometry.height);
+		}
+		else if (view->xwayland_surface)
+		{
+			wlr_xwayland_surface_configure(
+				view->xwayland_surface,
+				view->saved_geometry.x,
+				view->saved_geometry.y,
+				view->saved_geometry.width,
+				view->saved_geometry.height);
+		}
+
+		for (int i = 0; i < 4; i++)
+		{
+			if (view->border_rects[i])
+				wlr_scene_node_set_enabled(
+					&view->border_rects[i]->node,
+					true);
+		}
+		if (view->title_text_buf)
+			wlr_scene_node_set_enabled(
+				&view->title_text_buf->node, true);
+
+		int bw = cfg->border_width;
+		int tb = cfg->titlebar_height > 0
+			? cfg->titlebar_height : bw;
+		if (view->content_tree)
+			wlr_scene_node_set_position(
+				&view->content_tree->node, bw, tb);
+
+		view->maximized = false;
+		view_borders_update(view);
+		titlebar_text_update(view);
+		return;
+	}
+
+	view->saved_geometry.x = view->scene_tree->node.x;
+	view->saved_geometry.y = view->scene_tree->node.y;
+
+	if (view->xdg_surface && view->xdg_surface->configured)
+	{
+		view->saved_geometry.width =
+			view->xdg_surface->geometry.width;
+		view->saved_geometry.height =
+			view->xdg_surface->geometry.height;
+	}
+	else if (view->xwayland_surface)
+	{
+		view->saved_geometry.width =
+			view->xwayland_surface->width;
+		view->saved_geometry.height =
+			view->xwayland_surface->height;
+	}
+	else
+	{
+		return;
+	}
+
+	struct wlr_output *wlr_output = wlr_output_layout_output_at(
+		server->output_layout,
+		view->saved_geometry.x +
+			view->saved_geometry.width / 2,
+		view->saved_geometry.y +
+			view->saved_geometry.height / 2);
+	if (!wlr_output)
+		return;
+
+	struct wlr_box output_box;
+	wlr_output_layout_get_box(server->output_layout,
+		wlr_output, &output_box);
+
+	int target_x = output_box.x;
+	int target_y = output_box.y;
+	int target_w = output_box.width;
+	int target_h = output_box.height;
+
+	if (cfg->smart_gaps)
+	{
+		wlr_scene_node_set_position(
+			&view->scene_tree->node,
+			target_x, target_y);
+		if (view->content_tree)
+			wlr_scene_node_set_position(
+				&view->content_tree->node, 0, 0);
+
+		for (int i = 0; i < 4; i++)
+		{
+			if (view->border_rects[i])
+				wlr_scene_node_set_enabled(
+					&view->border_rects[i]->node,
+					false);
+		}
+		if (view->title_text_buf)
+			wlr_scene_node_set_enabled(
+				&view->title_text_buf->node,
+				false);
+
+		if (view->xdg_surface &&
+				view->xdg_surface->configured)
+		{
+			wlr_xdg_toplevel_set_size(
+				view->xdg_surface->toplevel,
+				target_w, target_h);
+		}
+		else if (view->xwayland_surface)
+		{
+			wlr_xwayland_surface_configure(
+				view->xwayland_surface,
+				target_x, target_y,
+				target_w, target_h);
+		}
+	}
+	else
+	{
+		int bw = cfg->border_width;
+		int tb = cfg->titlebar_height;
+
+		wlr_scene_node_set_position(
+			&view->scene_tree->node,
+			target_x, target_y);
+		if (view->content_tree)
+			wlr_scene_node_set_position(
+				&view->content_tree->node,
+				bw, tb > 0 ? tb : bw);
+
+		int client_w = target_w - 2 * bw;
+		int client_h = target_h
+			- (tb > 0 ? tb : 0) - bw;
+		if (client_w < 1) client_w = 1;
+		if (client_h < 1) client_h = 1;
+
+		if (view->xdg_surface &&
+				view->xdg_surface->configured)
+		{
+			wlr_xdg_toplevel_set_size(
+				view->xdg_surface->toplevel,
+				client_w, client_h);
+		}
+		else if (view->xwayland_surface)
+		{
+			wlr_xwayland_surface_configure(
+				view->xwayland_surface,
+				target_x, target_y,
+				client_w, client_h);
+		}
+
+		view_borders_update(view);
+		titlebar_text_update(view);
+	}
+
+	view->maximized = true;
+}
+
 void view_close(struct hsdwl_view *view)
 {
 	if (!view)
@@ -613,6 +785,8 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 
 	view->server = server;
 	view->xdg_surface = xdg_surface;
+	view->maximized = false;
+	memset(&view->saved_geometry, 0, sizeof(view->saved_geometry));
 	xdg_surface->data = view;
 	wl_list_insert(&server->views, &view->link);
 
