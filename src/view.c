@@ -174,7 +174,7 @@ void titlebar_text_update(struct hsdwl_view *view)
 
 	PangoRectangle ink_r, log_r;
 	pango_layout_get_pixel_extents(layout, &ink_r, &log_r);
-	int baseline_y = (th - ink_r.height) / 2 - ink_r.y + 2;
+	int baseline_y = (th - ink_r.height) / 2 - ink_r.y + 1;
 	int text_x = (tw - log_r.width) / 2 - log_r.x;
 
 	cairo_move_to(cr, text_x, baseline_y);
