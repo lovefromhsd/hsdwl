@@ -100,14 +100,11 @@ void titlebar_text_update(struct hsdwl_view *view)
 {
 	if (!view->title_text_buf)
 		return;
-	int tb_h = view->server->config.titlebar_height;
-	if (tb_h < 1)
-		return;
 
 	struct hsdwl_config *cfg = &view->server->config;
 
 	int bw = cfg->border_width;
-	int tw = 0, th = tb_h;
+	int tw = 0, th = cfg->titlebar_height;
 	if (view->xdg_surface && view->xdg_surface->configured)
 		tw = view->xdg_surface->geometry.width + 2 * bw;
 	else if (view->xwayland_surface)
@@ -124,6 +121,12 @@ void titlebar_text_update(struct hsdwl_view *view)
 	cairo_surface_t *surf = cairo_image_surface_create(
 		CAIRO_FORMAT_ARGB32, tw, th);
 	cairo_t *cr = cairo_create(surf);
+
+	cairo_font_options_t *fo = cairo_font_options_create();
+	cairo_font_options_set_antialias(fo, CAIRO_ANTIALIAS_SUBPIXEL);
+	cairo_font_options_set_hint_style(fo, CAIRO_HINT_STYLE_SLIGHT);
+	cairo_set_font_options(cr, fo);
+	cairo_font_options_destroy(fo);
 
 	/* draw background with rounded top corners */
 	float *bg = focused
@@ -168,7 +171,13 @@ void titlebar_text_update(struct hsdwl_view *view)
 		? cfg->title_text_color_focused
 		: cfg->title_text_color;
 	cairo_set_source_rgba(cr, tc[0], tc[1], tc[2], tc[3]);
-	cairo_move_to(cr, 4, 2);
+
+	PangoRectangle ink_r, log_r;
+	pango_layout_get_pixel_extents(layout, &ink_r, &log_r);
+	int baseline_y = (th - ink_r.height) / 2 - ink_r.y + 2;
+	int text_x = (tw - log_r.width) / 2 - log_r.x;
+
+	cairo_move_to(cr, text_x, baseline_y);
 	pango_cairo_show_layout(cr, layout);
 
 	pango_font_description_free(font);
@@ -274,7 +283,7 @@ void view_borders_create(struct hsdwl_view *view)
 			view->scene_tree, 1, 1,
 			cfg->border_color);
 	}
-	if (cfg->titlebar_height > 0 && !view->title_text_buf)
+	if (!view->title_text_buf)
 	{
 		view->title_text_buf = wlr_scene_buffer_create(
 			view->scene_tree, NULL);

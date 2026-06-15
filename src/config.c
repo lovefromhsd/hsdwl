@@ -1,5 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
+#include <cairo.h>
 #include <ctype.h>
+#include <pango/pangocairo.h>
 #include <stdio.h>
 #include <xkbcommon/xkbcommon.h>
 #include <stdlib.h>
@@ -48,7 +50,6 @@ static const char *default_config_text =
 	"border_width = 2\n"
 	"border_color = #333333\n"
 	"border_color_focused = #335577\n"
-	"titlebar_height = 24\n"
 	"titlebar_color = #333333\n"
 	"titlebar_color_focused = #335577\n"
 	"title_font = sans-serif\n"
@@ -174,7 +175,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	cfg->border_width = 2;
 	parse_hex_color("#444444", cfg->border_color);
 	parse_hex_color("#5294e2", cfg->border_color_focused);
-	cfg->titlebar_height = 24;
+	cfg->titlebar_height = 0;
 	cfg->titlebar_radius = 8;
 	parse_hex_color("#333333", cfg->titlebar_color);
 	parse_hex_color("#335577", cfg->titlebar_color_focused);
@@ -293,8 +294,6 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			parse_hex_color(val, cfg->border_color);
 		else if (strcmp(key, "border_color_focused") == 0)
 			parse_hex_color(val, cfg->border_color_focused);
-		else if (strcmp(key, "titlebar_height") == 0)
-			cfg->titlebar_height = atoi(val);
 		else if (strcmp(key, "titlebar_color") == 0)
 			parse_hex_color(val, cfg->titlebar_color);
 		else if (strcmp(key, "titlebar_color_focused") == 0)
@@ -333,6 +332,31 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 
 	free(line);
 	fclose(f);
+
+	/* auto-compute titlebar height from font metrics */
+	cairo_surface_t *cs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
+	cairo_t *ct = cairo_create(cs);
+	PangoLayout *pl = pango_cairo_create_layout(ct);
+	char fd[256];
+	if (cfg->title_font_weight[0])
+		snprintf(fd, sizeof(fd), "%s %s %d",
+			cfg->title_font, cfg->title_font_weight,
+			cfg->title_font_size);
+	else
+		snprintf(fd, sizeof(fd), "%s %d",
+			cfg->title_font, cfg->title_font_size);
+	PangoFontDescription *pf = pango_font_description_from_string(fd);
+	pango_layout_set_font_description(pl, pf);
+	PangoContext *pc = pango_layout_get_context(pl);
+	PangoFontMetrics *pm = pango_context_get_metrics(pc, pf, NULL);
+	int asc = pango_font_metrics_get_ascent(pm) / PANGO_SCALE;
+	int dsc = pango_font_metrics_get_descent(pm) / PANGO_SCALE;
+	pango_font_metrics_unref(pm);
+	cfg->titlebar_height = asc + dsc + 10;
+	pango_font_description_free(pf);
+	g_object_unref(pl);
+	cairo_destroy(ct);
+	cairo_surface_destroy(cs);
 	return true;
 }
 
