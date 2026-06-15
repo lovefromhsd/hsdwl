@@ -29,6 +29,9 @@
 #include <wlr/types/wlr_xdg_output_v1.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_ext_data_control_v1.h>
+#include <wlr/types/wlr_ext_image_capture_source_v1.h>
+#include <wlr/types/wlr_ext_image_copy_capture_v1.h>
+#include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
@@ -333,6 +336,30 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	{
 		wlr_log(WLR_ERROR,
 			"wlr_ext_data_control_manager_v1_create failed");
+		return false;
+	}
+
+	if (!wlr_screencopy_manager_v1_create(server->display))
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_screencopy_manager_v1_create failed");
+		return false;
+	}
+
+	if (!wlr_ext_output_image_capture_source_manager_v1_create(
+			server->display, 1))
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_ext_output_image_capture_source_"
+			"manager_v1_create failed");
+		return false;
+	}
+
+	if (!wlr_ext_image_copy_capture_manager_v1_create(
+			server->display, 1))
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_ext_image_copy_capture_manager_v1_create failed");
 		return false;
 	}
 
