@@ -201,15 +201,32 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 				wlr_surface_get_texture(surface);
 			if (texture)
 			{
+				/* use the texture's actual buffer dimensions
+				   so the aspect ratio is always correct even
+				   when buffer != geometry (e.g. CSD windows) */
+				float tex_w = surface->current.width;
+				float tex_h = surface->current.height;
+				if (tex_w < 1 || tex_h < 1)
+				{
+					tex_w = cw->w;
+					tex_h = cw->h;
+				}
+				float fit_scale = fmin(
+					sw / tex_w, sh / tex_h);
+				float fit_w = tex_w * fit_scale;
+				float fit_h = tex_h * fit_scale;
+				float fit_x = sx + (sw - fit_w) / 2;
+				float fit_y = sy + (sh - fit_h) / 2;
+
 				const float tex_alpha = 1.0f;
 				wlr_render_pass_add_texture(pass,
 					&(struct wlr_render_texture_options){
 					.texture = texture,
 					.dst_box = {
-						.x = (int)(sx + 0.5f),
-						.y = (int)(sy + 0.5f),
-						.width = (int)(sw + 0.5f),
-						.height = (int)(sh + 0.5f),
+						.x = (int)(fit_x + 0.5f),
+						.y = (int)(fit_y + 0.5f),
+						.width = (int)(fit_w + 0.5f),
+						.height = (int)(fit_h + 0.5f),
 					},
 					.alpha = &tex_alpha,
 					.transform = WL_OUTPUT_TRANSFORM_NORMAL,
@@ -547,21 +564,35 @@ void stage_manager_merge(struct hsdwl_server *server,
 	stage_manager_render_sidebar(server, ws);
 }
 
+static void stage_hide_thumb(struct custom_stage *st, bool hide)
+{
+	if (st && st->thumb_tree)
+		wlr_scene_node_set_enabled(&st->thumb_tree->node, !hide);
+}
+
 void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
+
+	/* active stage never shows in the sidebar */
+	stage_hide_thumb(mgr->active_stage, true);
+
+	/* hide every inactive stage thumbnail first; we'll re-enable only
+	   the ones that have windows and are actually rendered below */
+	struct custom_stage *st;
+	wl_list_for_each(st, &mgr->inactive_stages, link)
+		stage_hide_thumb(st, true);
+
 	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
 
 	/* first pass: compute thumbnail dimensions and total height */
 	struct thumb_info {
-		int h;
-		int w;
+		int h, w, gap;
 		struct custom_stage *st;
 	} infos[64];
 	int ninfo = 0;
 	int total_h = 0;
 
-	struct custom_stage *st;
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 	{
 		if (wl_list_empty(&st->windows) || ninfo >= 64)
@@ -606,13 +637,16 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 
 		infos[ninfo].h = th;
 		infos[ninfo].w = tw;
+		infos[ninfo].gap = STAGE_THUMB_GAP + th / 8;
 		infos[ninfo].st = st;
 		ninfo++;
 		total_h += th;
 	}
 	if (ninfo == 0) return;
 
-	total_h += (ninfo - 1) * STAGE_THUMB_GAP;
+	for (int i = 0; i < ninfo; i++)
+		total_h += infos[i].gap;
+	total_h -= infos[ninfo - 1].gap;
 
 	/* get sidebar height from the first output */
 	int sidebar_h = 1050; /* fallback */
@@ -632,13 +666,15 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		struct custom_stage *st = infos[i].st;
 		int tw = infos[i].w;
 		int th = infos[i].h;
+		int gap = infos[i].gap;
 
+		stage_hide_thumb(st, false);
 		stage_render_thumbnail(server, st, tw, th);
 
 		wlr_scene_node_set_position(
 			&st->thumb_tree->node, STAGE_THUMB_PAD, y);
 
-		y += th + STAGE_THUMB_GAP;
+		y += th + gap;
 		st->thumb_dirty = false;
 	}
 }
@@ -661,6 +697,23 @@ void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 			if (cw) break;
 		}
 		if (!cw) continue;
+
+		/* update cached dimensions from the newly committed buffer */
+		if (view->xdg_surface && view->xdg_surface->configured)
+		{
+			cw->w = view->xdg_surface->geometry.width;
+			cw->h = view->xdg_surface->geometry.height;
+		}
+		else if (view->xwayland_surface)
+		{
+			cw->w = view->xwayland_surface->width;
+			cw->h = view->xwayland_surface->height;
+		}
+		if (view->scene_tree)
+		{
+			cw->x = view->scene_tree->node.x;
+			cw->y = view->scene_tree->node.y;
+		}
 
 		/* re-render just this stage's thumbnail */
 		int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;

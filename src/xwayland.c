@@ -134,8 +134,10 @@ static void xwayland_view_handle_surface_unmap(
 static void xwayland_view_handle_surface_commit(
 		struct wl_listener *listener, void *data)
 {
-	(void)listener;
 	(void)data;
+	struct hsdwl_view *view = wl_container_of(listener, view, commit);
+	if (view->server->config.stage_manager_enabled)
+		stage_manager_notify_surface_commit(view->server, view);
 }
 
 static void xwayland_view_handle_set_geometry(
