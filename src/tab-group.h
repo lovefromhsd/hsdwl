@@ -38,6 +38,7 @@ struct hsdwl_tab_group
 	int tab_bar_thickness;
 	enum hsdwl_tab_orientation orientation;
 	bool maximized;
+	bool zoomed;
 	struct wlr_box saved_geometry;
 };
 

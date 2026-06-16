@@ -572,11 +572,12 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 
 	if (!target || target == cur) return;
 
-	/* hide current active, show target — straight swap */
+	/* push current active to TAIL so the next alt+tab picks the
+	   next inactive stage instead of bouncing between two */
 	if (cur)
 	{
 		stage_set_views_enabled(cur, false);
-		wl_list_insert(&mgr->inactive_stages, &cur->link);
+		wl_list_insert(mgr->inactive_stages.prev, &cur->link);
 	}
 	wl_list_remove(&target->link);
 	mgr->active_stage = target;

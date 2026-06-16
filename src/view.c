@@ -668,6 +668,35 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	free(view);
 }
 
+static void view_do_unmaximize(struct hsdwl_view *view)
+{
+	struct hsdwl_config *cfg = &view->server->config;
+	wlr_scene_node_set_position(&view->scene_tree->node,
+		view->saved_geometry.x, view->saved_geometry.y);
+
+	if (view->xdg_surface && view->xdg_surface->configured)
+		wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
+			view->saved_geometry.width, view->saved_geometry.height);
+	else if (view->xwayland_surface)
+		wlr_xwayland_surface_configure(view->xwayland_surface,
+			view->saved_geometry.x, view->saved_geometry.y,
+			view->saved_geometry.width, view->saved_geometry.height);
+
+	for (int i = 0; i < 4; i++)
+		if (view->border_rects[i])
+			wlr_scene_node_set_enabled(&view->border_rects[i]->node, true);
+	if (view->title_text_buf)
+		wlr_scene_node_set_enabled(&view->title_text_buf->node, true);
+
+	int bw = cfg->border_width;
+	int tb = cfg->titlebar_height > 0 ? cfg->titlebar_height : bw;
+	if (view->content_tree)
+		wlr_scene_node_set_position(&view->content_tree->node, bw, tb);
+
+	view_borders_update(view);
+	titlebar_text_update(view);
+}
+
 void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 {
 	if (!view || !view->scene_tree)
@@ -675,177 +704,113 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 	if (hsdwl_tab_group_is_member(view))
 	{
-		struct hsdwl_tab_group *g = view->tab_group;
-		if (g->maximized)
-			hsdwl_tab_group_restore(g);
-		else
-			hsdwl_tab_group_maximize(g, server);
+		hsdwl_tab_group_maximize(view->tab_group, server);
 		return;
 	}
 
 	struct hsdwl_config *cfg = &server->config;
 
+	/* ── Stage 3: unmaximize ── */
 	if (view->maximized)
 	{
-		wlr_scene_node_set_position(&view->scene_tree->node,
-			view->saved_geometry.x, view->saved_geometry.y);
-
-		if (view->xdg_surface && view->xdg_surface->configured)
-		{
-			wlr_xdg_toplevel_set_size(
-				view->xdg_surface->toplevel,
-				view->saved_geometry.width,
-				view->saved_geometry.height);
-		}
-		else if (view->xwayland_surface)
-		{
-			wlr_xwayland_surface_configure(
-				view->xwayland_surface,
-				view->saved_geometry.x,
-				view->saved_geometry.y,
-				view->saved_geometry.width,
-				view->saved_geometry.height);
-		}
-
-		for (int i = 0; i < 4; i++)
-		{
-			if (view->border_rects[i])
-				wlr_scene_node_set_enabled(
-					&view->border_rects[i]->node,
-					true);
-		}
-		if (view->title_text_buf)
-			wlr_scene_node_set_enabled(
-				&view->title_text_buf->node, true);
-
-		int bw = cfg->border_width;
-		int tb = cfg->titlebar_height > 0
-			? cfg->titlebar_height : bw;
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node, bw, tb);
-
+		view_do_unmaximize(view);
 		view->maximized = false;
-		view_borders_update(view);
-		titlebar_text_update(view);
+		view->zoomed = false;
 		return;
 	}
 
+	/* ── Stage 2: full maximize (cover sidebar, hide decorations) ── */
+	if (view->zoomed)
+	{
+		struct wlr_output *wlr_o = wlr_output_layout_output_at(
+			server->output_layout,
+			view->saved_geometry.x + view->saved_geometry.width / 2,
+			view->saved_geometry.y + view->saved_geometry.height / 2);
+		if (!wlr_o) return;
+
+		struct wlr_box obox;
+		wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
+
+		/* view is inside the stage tree which is inside the canvas
+		   at x=SIDEBAR_WIDTH — shift left to cover the sidebar area */
+		wlr_scene_node_set_position(&view->scene_tree->node,
+			-SIDEBAR_WIDTH, 0);
+		if (view->content_tree)
+			wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
+
+		for (int i = 0; i < 4; i++)
+			if (view->border_rects[i])
+				wlr_scene_node_set_enabled(&view->border_rects[i]->node, false);
+		if (view->title_text_buf)
+			wlr_scene_node_set_enabled(&view->title_text_buf->node, false);
+
+		if (view->xdg_surface && view->xdg_surface->configured)
+			wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
+				obox.width, obox.height);
+		else if (view->xwayland_surface)
+			wlr_xwayland_surface_configure(view->xwayland_surface,
+				-SIDEBAR_WIDTH, 0, obox.width, obox.height);
+
+		view->zoomed = false;
+		view->maximized = true;
+		return;
+	}
+
+	/* ── Stage 1: zoom (fill canvas, keep decorations) ── */
 	view->saved_geometry.x = view->scene_tree->node.x;
 	view->saved_geometry.y = view->scene_tree->node.y;
-
 	if (view->xdg_surface && view->xdg_surface->configured)
 	{
-		view->saved_geometry.width =
-			view->xdg_surface->geometry.width;
-		view->saved_geometry.height =
-			view->xdg_surface->geometry.height;
+		view->saved_geometry.width = view->xdg_surface->geometry.width;
+		view->saved_geometry.height = view->xdg_surface->geometry.height;
 	}
 	else if (view->xwayland_surface)
 	{
-		view->saved_geometry.width =
-			view->xwayland_surface->width;
-		view->saved_geometry.height =
-			view->xwayland_surface->height;
+		view->saved_geometry.width = view->xwayland_surface->width;
+		view->saved_geometry.height = view->xwayland_surface->height;
 	}
-	else
-	{
-		return;
-	}
+	else return;
 
-	struct wlr_output *wlr_output = wlr_output_layout_output_at(
+	struct wlr_output *wlr_o = wlr_output_layout_output_at(
 		server->output_layout,
-		view->saved_geometry.x +
-			view->saved_geometry.width / 2,
-		view->saved_geometry.y +
-			view->saved_geometry.height / 2);
-	if (!wlr_output)
-		return;
+		view->saved_geometry.x + view->saved_geometry.width / 2,
+		view->saved_geometry.y + view->saved_geometry.height / 2);
+	if (!wlr_o) return;
 
-	struct wlr_box output_box;
-	wlr_output_layout_get_box(server->output_layout,
-		wlr_output, &output_box);
+	struct wlr_box obox;
+	wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
 
-	int target_x = output_box.x;
-	int target_y = output_box.y;
-	int target_w = output_box.width;
-	int target_h = output_box.height;
+	/* zoom: fill the canvas area (right of the sidebar).
+	   view is inside stage->tree which is at (0,0) inside the
+	   canvas tree which is at (SIDEBAR_WIDTH, 0) in the workspace,
+	   so position (0,0) relative to stage tree = right after sidebar */
+	int bw = cfg->border_width;
+	int tb = cfg->titlebar_height;
+	int zw = obox.width - SIDEBAR_WIDTH;
+	int zh = obox.height;
+	if (zw < 1) zw = 1;
 
-	if (cfg->smart_gaps)
-	{
-		wlr_scene_node_set_position(
-			&view->scene_tree->node,
-			target_x, target_y);
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node, 0, 0);
+	wlr_scene_node_set_position(&view->scene_tree->node, 0, 0);
+	if (view->content_tree)
+		wlr_scene_node_set_position(&view->content_tree->node,
+			bw, tb > 0 ? tb : bw);
 
-		for (int i = 0; i < 4; i++)
-		{
-			if (view->border_rects[i])
-				wlr_scene_node_set_enabled(
-					&view->border_rects[i]->node,
-					false);
-		}
-		if (view->title_text_buf)
-			wlr_scene_node_set_enabled(
-				&view->title_text_buf->node,
-				false);
+	int cw = zw - 2 * bw;
+	int ch = zh - (tb > 0 ? tb : 0) - bw;
+	if (cw < 1) cw = 1;
+	if (ch < 1) ch = 1;
 
-		if (view->xdg_surface &&
-				view->xdg_surface->configured)
-		{
-			wlr_xdg_toplevel_set_size(
-				view->xdg_surface->toplevel,
-				target_w, target_h);
-		}
-		else if (view->xwayland_surface)
-		{
-			wlr_xwayland_surface_configure(
-				view->xwayland_surface,
-				target_x, target_y,
-				target_w, target_h);
-		}
-	}
-	else
-	{
-		int bw = cfg->border_width;
-		int tb = cfg->titlebar_height;
+	if (view->xdg_surface && view->xdg_surface->configured)
+		wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel, cw, ch);
+	else if (view->xwayland_surface)
+		wlr_xwayland_surface_configure(view->xwayland_surface,
+			0, 0, cw, ch);
 
-		wlr_scene_node_set_position(
-			&view->scene_tree->node,
-			target_x, target_y);
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node,
-				bw, tb > 0 ? tb : bw);
+	view_borders_update(view);
+	titlebar_text_update(view);
 
-		int client_w = target_w - 2 * bw;
-		int client_h = target_h
-			- (tb > 0 ? tb : 0) - bw;
-		if (client_w < 1) client_w = 1;
-		if (client_h < 1) client_h = 1;
-
-		if (view->xdg_surface &&
-				view->xdg_surface->configured)
-		{
-			wlr_xdg_toplevel_set_size(
-				view->xdg_surface->toplevel,
-				client_w, client_h);
-		}
-		else if (view->xwayland_surface)
-		{
-			wlr_xwayland_surface_configure(
-				view->xwayland_surface,
-				target_x, target_y,
-				client_w, client_h);
-		}
-
-		view_borders_update(view);
-		titlebar_text_update(view);
-	}
-
-	view->maximized = true;
+	view->zoomed = true;
+	view->maximized = false;
 }
 
 void view_close(struct hsdwl_view *view)
@@ -877,6 +842,7 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	view->tab_group = NULL;
 	wl_list_init(&view->tab_group_link);
 	view->maximized = false;
+	view->zoomed = false;
 	memset(&view->saved_geometry, 0, sizeof(view->saved_geometry));
 	xdg_surface->data = view;
 	wl_list_insert(&server->views, &view->link);

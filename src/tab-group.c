@@ -774,24 +774,19 @@ struct hsdwl_view *hsdwl_tab_group_next(struct hsdwl_tab_group *group,
 
 /* ── maximize / restore ── */
 
-void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
+void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 		struct hsdwl_server *server)
 {
-	if (!group || !group->scene_tree)
-		return;
-
-	struct wlr_output *wlr_output = wlr_output_layout_output_at(
+	struct wlr_output *wlr_o = wlr_output_layout_output_at(
 		server->output_layout,
 		group->scene_tree->node.x +
 			group->content_area_box.width / 2,
 		group->scene_tree->node.y +
 			group->content_area_box.height / 2);
-	if (!wlr_output)
-		return;
+	if (!wlr_o) return;
 
-	struct wlr_box output_box;
-	wlr_output_layout_get_box(server->output_layout,
-		wlr_output, &output_box);
+	struct wlr_box obox;
+	wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
 
 	group->saved_geometry.x = group->scene_tree->node.x;
 	group->saved_geometry.y = group->scene_tree->node.y;
@@ -799,25 +794,75 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 	group->saved_geometry.height =
 		group->content_area_box.height + group->tab_bar_thickness;
 
-	int cont_h = output_box.height - group->tab_bar_thickness;
-	if (cont_h < 1) cont_h = 1;
+	int zw = obox.width - SIDEBAR_WIDTH;
+	if (zw < 1) zw = 1;
+	int zh = obox.height - group->tab_bar_thickness;
+	if (zh < 1) zh = 1;
 
 	wlr_scene_node_set_position(&group->scene_tree->node,
-		output_box.x, output_box.y);
-	group->content_area_box.width = output_box.width;
-	group->content_area_box.height = cont_h;
+		SIDEBAR_WIDTH, 0);
+	group->content_area_box.width = zw;
+	group->content_area_box.height = zh;
 
 	struct hsdwl_view *vi;
 	wl_list_for_each(vi, &group->views, tab_group_link)
-		view_configure_size(vi, output_box.width, cont_h);
+		view_configure_size(vi, zw, zh);
 
-	group->maximized = true;
+	group->zoomed = true;
+	group->maximized = false;
 	hsdwl_tab_group_update_layout(group);
+}
+
+void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
+		struct hsdwl_server *server)
+{
+	if (!group || !group->scene_tree)
+		return;
+
+	if (group->maximized)
+	{
+		hsdwl_tab_group_restore(group);
+		return;
+	}
+
+	if (group->zoomed)
+	{
+		struct wlr_output *wlr_o = wlr_output_layout_output_at(
+			server->output_layout,
+			group->scene_tree->node.x +
+				group->content_area_box.width / 2,
+			group->scene_tree->node.y +
+				group->content_area_box.height / 2);
+		if (!wlr_o) return;
+
+		struct wlr_box obox;
+		wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
+
+		wlr_scene_node_set_position(&group->scene_tree->node, 0, 0);
+		wlr_scene_node_raise_to_top(&group->scene_tree->node);
+
+		int fh = obox.height - group->tab_bar_thickness;
+		if (fh < 1) fh = 1;
+
+		group->content_area_box.width = obox.width;
+		group->content_area_box.height = fh;
+
+		struct hsdwl_view *vi;
+		wl_list_for_each(vi, &group->views, tab_group_link)
+			view_configure_size(vi, obox.width, fh);
+
+		group->zoomed = false;
+		group->maximized = true;
+		hsdwl_tab_group_update_layout(group);
+		return;
+	}
+
+	hsdwl_tab_group_zoom(group, server);
 }
 
 void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 {
-	if (!group || !group->maximized)
+	if (!group || (!group->maximized && !group->zoomed))
 		return;
 
 	wlr_scene_node_set_position(&group->scene_tree->node,
@@ -833,6 +878,7 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 			group->content_area_box.height);
 
 	group->maximized = false;
+	group->zoomed = false;
 	hsdwl_tab_group_update_layout(group);
 }
 

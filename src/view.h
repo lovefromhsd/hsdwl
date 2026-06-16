@@ -43,6 +43,7 @@ struct hsdwl_view
 	struct wl_listener set_title;
 	struct wl_listener toplevel_destroy;
 	bool maximized;
+	bool zoomed;
 	struct wlr_box saved_geometry;
 };
 
