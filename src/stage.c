@@ -582,21 +582,27 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	if (wl_list_empty(&mgr->inactive_stages))
 		return;
 
-	struct custom_stage *cur = mgr->active_stage;
 	struct custom_stage *target = reverse
 		? wl_container_of(mgr->inactive_stages.prev, target, link)
 		: wl_container_of(mgr->inactive_stages.next,  target, link);
 
-	if (!target || target == cur) return;
+	if (!target || target == mgr->active_stage)
+		return;
 
-	/* push current active to TAIL so the next alt+tab picks the
-	   next inactive stage instead of bouncing between two */
-	if (cur)
-	{
-		stage_set_views_enabled(cur, false);
-		wl_list_insert(mgr->inactive_stages.prev, &cur->link);
-	}
+	stage_set_views_enabled(mgr->active_stage, false);
+
+	/* remove target from the inactive list */
 	wl_list_remove(&target->link);
+
+	/* pick from HEAD for forward, TAIL for reverse.
+	   push old active to the opposite end so it cycles through all. */
+	if (reverse)
+		wl_list_insert(&mgr->inactive_stages,               /* HEAD */
+			&mgr->active_stage->link);
+	else
+		wl_list_insert(mgr->inactive_stages.prev,           /* TAIL */
+			&mgr->active_stage->link);
+
 	mgr->active_stage = target;
 	stage_reparent_to_canvas(target, server);
 

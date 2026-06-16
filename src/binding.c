@@ -75,7 +75,15 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_QUIT:
 		case HSDWL_ACTION_CLOSE_FOCUSED:
 		case HSDWL_ACTION_MAXIMIZE:
-			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym)) continue;
+			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym))
+			{
+				/* Shift+Tab produces ISO_Left_Tab, not Tab */
+				if (!((b->keysym == XKB_KEY_Tab
+						|| b->keysym == XKB_KEY_ISO_Left_Tab)
+					&& (sym == XKB_KEY_Tab
+						|| sym == XKB_KEY_ISO_Left_Tab)))
+					continue;
+			}
 			break;
 		case HSDWL_ACTION_SWITCH_WORKSPACE:
 		case HSDWL_ACTION_MOVE_TO_WORKSPACE:
