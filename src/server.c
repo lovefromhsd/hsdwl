@@ -406,6 +406,10 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wl_list_remove(&server->pointer_focus_change.link);
 	wl_list_remove(&server->request_set_selection.link);
 	wl_list_remove(&server->request_set_primary_selection.link);
+	wl_list_remove(&server->request_start_drag.link);
+	wl_list_remove(&server->start_drag.link);
+	if (server->drag_icon_destroy.notify)
+		wl_list_remove(&server->drag_icon_destroy.link);
 	wlr_xcursor_manager_destroy(server->cursor_mgr);
 	wlr_cursor_destroy(server->cursor);
 	hsdwl_xwayland_finish(server);

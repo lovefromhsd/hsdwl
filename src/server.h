@@ -65,6 +65,8 @@ struct hsdwl_server
 	struct wl_listener cursor_axis;
 	struct wl_listener cursor_frame;
 	struct wl_listener request_cursor;
+	struct wl_listener request_start_drag;
+	struct wl_listener start_drag;
 	struct wl_listener request_set_selection;
 	struct wl_listener request_set_primary_selection;
 	struct wl_listener pointer_focus_change;
@@ -93,6 +95,8 @@ struct hsdwl_server
 	struct wl_list layer_surfaces;
 	struct hsdwl_layer_surface *focused_layer;
 	const char *socket;
+	struct wlr_scene_tree *drag_icon_tree;
+	struct wl_listener drag_icon_destroy;
 };
 
 bool hsdwl_server_init(struct hsdwl_server *server);
