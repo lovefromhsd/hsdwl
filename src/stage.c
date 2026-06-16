@@ -244,6 +244,30 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 	wlr_buffer_drop(buf);
 }
 
+/* ── app-name helpers for grouping ── */
+
+static const char *view_get_app_name(struct hsdwl_view *view)
+{
+	if (!view) return "Unknown";
+	if (view->xdg_surface && view->xdg_surface->toplevel
+			&& view->xdg_surface->toplevel->app_id)
+		return view->xdg_surface->toplevel->app_id;
+	if (view->xwayland_surface && view->xwayland_surface->class)
+		return view->xwayland_surface->class;
+	return "Unknown";
+}
+
+static const char *stage_get_app_name(struct custom_stage *stage)
+{
+	struct custom_window *cw;
+	wl_list_for_each(cw, &stage->windows, link)
+	{
+		if (!cw->view) continue;
+		return view_get_app_name(cw->view);
+	}
+	return "Unknown";
+}
+
 /* ── public API ── */
 
 void stage_manager_init(struct hsdwl_server *server)
@@ -403,14 +427,16 @@ void stage_manager_new_window(struct hsdwl_server *server,
 		return;
 	}
 	cw->view = view;
-	cw->x = fmax(0, (canvas_w - vw) / 2);
-	cw->y = fmax(0, (canvas_h - vh) / 2);
+	double ox = fmax(0, (canvas_w - vw) / 2);
+	double oy = fmax(0, (canvas_h - vh) / 2);
+	cw->x = ox;
+	cw->y = oy;
 	cw->w = vw;
 	cw->h = vh;
 	wl_list_insert(&stage->windows, &cw->link);
 
 	wlr_scene_node_reparent(&view->scene_tree->node, stage->tree);
-	wlr_scene_node_set_position(&view->scene_tree->node, cw->x, cw->y);
+	wlr_scene_node_set_position(&view->scene_tree->node, ox, oy);
 	wlr_scene_node_set_enabled(&view->scene_tree->node, true);
 
 	mgr->active_stage = stage;
@@ -573,31 +599,30 @@ static void stage_hide_thumb(struct custom_stage *st, bool hide)
 void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
+	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
 
 	/* active stage never shows in the sidebar */
 	stage_hide_thumb(mgr->active_stage, true);
 
-	/* hide every inactive stage thumbnail first; we'll re-enable only
-	   the ones that have windows and are actually rendered below */
+	/* hide every inactive stage thumbnail first */
 	struct custom_stage *st;
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 		stage_hide_thumb(st, true);
 
-	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-
-	/* first pass: compute thumbnail dimensions and total height */
-	struct thumb_info {
-		int h, w, gap;
+	/* collect stages with their app name and dimensions */
+	struct entry {
 		struct custom_stage *st;
-	} infos[64];
-	int ninfo = 0;
-	int total_h = 0;
+		const char *app;
+		int tw, th, gap;
+	} entries[64];
+	int nentries = 0;
 
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 	{
-		if (wl_list_empty(&st->windows) || ninfo >= 64)
+		if (wl_list_empty(&st->windows) || nentries >= 64)
 			continue;
 
+		/* compute bounding box */
 		struct wlr_box bbox = {0};
 		bool first = true;
 		struct custom_window *cw;
@@ -622,8 +647,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 				bbox.height = y2 - y1;
 			}
 		}
-		if (bbox.width < 1 || bbox.height < 1)
-			continue;
+		if (bbox.width < 1 || bbox.height < 1) continue;
 
 		int tw = thumb_w;
 		int th = (int)(bbox.height * (float)tw / bbox.width);
@@ -634,22 +658,26 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 			tw = (int)(300 * ar);
 			if (tw < 20) tw = 20;
 		}
+		int gap = STAGE_THUMB_GAP + th / 8;
 
-		infos[ninfo].h = th;
-		infos[ninfo].w = tw;
-		infos[ninfo].gap = STAGE_THUMB_GAP + th / 8;
-		infos[ninfo].st = st;
-		ninfo++;
-		total_h += th;
+		entries[nentries].st = st;
+		entries[nentries].app = stage_get_app_name(st);
+		entries[nentries].tw = tw;
+		entries[nentries].th = th;
+		entries[nentries].gap = gap;
+		nentries++;
 	}
-	if (ninfo == 0) return;
+	if (nentries == 0) return;
 
-	for (int i = 0; i < ninfo; i++)
-		total_h += infos[i].gap;
-	total_h -= infos[ninfo - 1].gap;
+	/* compute total height and centering */
+	int total_h = 0;
+	for (int i = 0; i < nentries; i++)
+	{
+		total_h += entries[i].th;
+		if (i > 0) total_h += entries[i].gap;
+	}
 
-	/* get sidebar height from the first output */
-	int sidebar_h = 1050; /* fallback */
+	int sidebar_h = 1050;
 	if (!wl_list_empty(&server->outputs))
 	{
 		struct hsdwl_output *o = wl_container_of(
@@ -660,22 +688,41 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	int y = (sidebar_h - total_h) / 2;
 	if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
 
-	/* second pass: render and position */
-	for (int i = 0; i < ninfo; i++)
+	/* render: same-app stages get a horizontal offset */
+	for (int i = 0; i < nentries; i++)
 	{
-		struct custom_stage *st = infos[i].st;
-		int tw = infos[i].w;
-		int th = infos[i].h;
-		int gap = infos[i].gap;
+		bool same_as_prev = (i > 0
+			&& strcmp(entries[i].app, entries[i-1].app) == 0);
+		int x = STAGE_THUMB_PAD
+			+ (same_as_prev ? STAGE_GROUP_OFFSET : 0);
 
-		stage_hide_thumb(st, false);
-		stage_render_thumbnail(server, st, tw, th);
-
+		stage_hide_thumb(entries[i].st, false);
+		stage_render_thumbnail(server, entries[i].st,
+			entries[i].tw, entries[i].th);
 		wlr_scene_node_set_position(
-			&st->thumb_tree->node, STAGE_THUMB_PAD, y);
+			&entries[i].st->thumb_tree->node, x, y);
+		y += entries[i].th + entries[i].gap;
+		entries[i].st->thumb_dirty = false;
+	}
+}
 
-		y += th + gap;
-		st->thumb_dirty = false;
+static void cw_update_geometry(struct custom_window *cw,
+		struct hsdwl_view *view)
+{
+	if (view->xdg_surface && view->xdg_surface->configured)
+	{
+		cw->w = view->xdg_surface->geometry.width;
+		cw->h = view->xdg_surface->geometry.height;
+	}
+	else if (view->xwayland_surface)
+	{
+		cw->w = view->xwayland_surface->width;
+		cw->h = view->xwayland_surface->height;
+	}
+	if (view->scene_tree)
+	{
+		cw->x = view->scene_tree->node.x;
+		cw->y = view->scene_tree->node.y;
 	}
 }
 
@@ -685,74 +732,71 @@ void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 	for (size_t ws = 0; ws < HSDWL_NUM_WORKSPACES; ws++)
 	{
 		struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
-		if (!mgr->active_stage || wl_list_empty(&mgr->inactive_stages))
-			continue;
+		if (!mgr->active_stage) continue;
 
-		/* find which inactive stage this view belongs to */
-		struct custom_stage *st;
+		/* always sync dimensions — even for the active stage — so
+		   the thumbnail later uses the correct size */
 		struct custom_window *cw = NULL;
-		wl_list_for_each(st, &mgr->inactive_stages, link)
+		struct custom_stage *st = NULL;
+
+		if ((cw = find_custom_window(mgr->active_stage, view)))
+			cw_update_geometry(cw, view);
+		else
 		{
-			cw = find_custom_window(st, view);
-			if (cw) break;
+			wl_list_for_each(st, &mgr->inactive_stages, link)
+			{
+				if ((cw = find_custom_window(st, view)))
+				{
+					cw_update_geometry(cw, view);
+					break;
+				}
+			}
 		}
+		/* no match → view isn't managed by stage manager */
 		if (!cw) continue;
 
-		/* update cached dimensions from the newly committed buffer */
-		if (view->xdg_surface && view->xdg_surface->configured)
+		/* if the view is in an inactive stage, re-render thumbnail */
+		if (!st) return; /* active stage — no thumbnail to update */
+		if (!wl_list_empty(&st->windows))
 		{
-			cw->w = view->xdg_surface->geometry.width;
-			cw->h = view->xdg_surface->geometry.height;
-		}
-		else if (view->xwayland_surface)
-		{
-			cw->w = view->xwayland_surface->width;
-			cw->h = view->xwayland_surface->height;
-		}
-		if (view->scene_tree)
-		{
-			cw->x = view->scene_tree->node.x;
-			cw->y = view->scene_tree->node.y;
-		}
-
-		/* re-render just this stage's thumbnail */
-		int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-		struct wlr_box bbox = {0};
-		bool first = true;
-		struct custom_window *w;
-		wl_list_for_each(w, &st->windows, link)
-		{
-			if (first)
+			int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			struct wlr_box bbox = {0};
+			bool first = true;
+			struct custom_window *w;
+			wl_list_for_each(w, &st->windows, link)
 			{
-				bbox.x = w->x; bbox.y = w->y;
-				bbox.width = w->w; bbox.height = w->h;
-				first = false;
+				if (first)
+				{
+					bbox.x = w->x; bbox.y = w->y;
+					bbox.width = w->w; bbox.height = w->h;
+					first = false;
+				}
+				else
+				{
+					double x1 = fmin(bbox.x, w->x);
+					double y1 = fmin(bbox.y, w->y);
+					double x2 = fmax(bbox.x + bbox.width,
+						w->x + w->w);
+					double y2 = fmax(bbox.y + bbox.height,
+						w->y + w->h);
+					bbox.x = x1; bbox.y = y1;
+					bbox.width = x2 - x1;
+					bbox.height = y2 - y1;
+				}
 			}
-			else
+			if (bbox.width < 1 || bbox.height < 1) return;
+
+			int thumb_h = (int)(bbox.height * (float)thumb_w / bbox.width);
+			if (thumb_h > 300)
 			{
-				double x1 = fmin(bbox.x, w->x);
-				double y1 = fmin(bbox.y, w->y);
-				double x2 = fmax(bbox.x + bbox.width,
-					w->x + w->w);
-				double y2 = fmax(bbox.y + bbox.height,
-					w->y + w->h);
-				bbox.x = x1; bbox.y = y1;
-				bbox.width = x2 - x1;
-				bbox.height = y2 - y1;
+				float ar = (float)bbox.width / bbox.height;
+				thumb_h = 300;
+				thumb_w = (int)(300 * ar);
+				if (thumb_w < 20) thumb_w = 20;
 			}
-		}
-		if (bbox.width < 1 || bbox.height < 1) return;
 
-		int thumb_h = (int)(bbox.height * (float)thumb_w / bbox.width);
-		if (thumb_h > 300)
-		{
-			float ar = (float)bbox.width / bbox.height;
-			thumb_h = 300;
-			thumb_w = (int)(300 * ar);
-			if (thumb_w < 20) thumb_w = 20;
+			stage_render_thumbnail(server, st, thumb_w, thumb_h);
 		}
-
-		stage_render_thumbnail(server, st, thumb_w, thumb_h);
 		return;
 	}
 }

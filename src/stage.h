@@ -16,6 +16,7 @@ struct wlr_scene_buffer;
 #define MAX_INACTIVE_STAGES 5
 #define STAGE_THUMB_PAD 10
 #define STAGE_THUMB_GAP 6
+#define STAGE_GROUP_OFFSET 14  /* horizontal shift for same-app thumbnails */
 
 struct custom_window
 {
