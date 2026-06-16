@@ -429,8 +429,7 @@ void hsdwl_tab_group_add_view(struct hsdwl_tab_group *group,
 	if (btn)
 		wl_list_insert(&group->tab_buttons, &btn->link);
 
-	view_focus(group->server, group->active);
-	hsdwl_tab_group_update_layout(group);
+	hsdwl_tab_group_set_active(group, view);
 }
 
 void hsdwl_tab_group_remove_view(struct hsdwl_tab_group *group,
