@@ -131,6 +131,8 @@ static void tab_button_update_text(struct hsdwl_tab_button *btn,
 
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 	pango_layout_set_text(layout, title, -1);
+	pango_layout_set_width(layout, (width - 12) * PANGO_SCALE);
+	pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
 	PangoFontDescription *font = pango_font_description_from_string(
 		"Sans 10");
 	pango_layout_set_font_description(layout, font);

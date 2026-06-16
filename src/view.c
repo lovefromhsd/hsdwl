@@ -157,6 +157,8 @@ void titlebar_text_update(struct hsdwl_view *view)
 	/* render text */
 	PangoLayout *layout = pango_cairo_create_layout(cr);
 	pango_layout_set_text(layout, title, -1);
+	pango_layout_set_width(layout, (tw - 24) * PANGO_SCALE);
+	pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
 	const char *weight = cfg->title_font_weight;
 	char font_desc[256];
 	if (weight && weight[0])
