@@ -102,23 +102,24 @@ static struct tab_text_buffer *tab_text_buffer_create(int width, int height)
 /* ── tab button text rendering ── */
 
 static void tab_button_update_text(struct hsdwl_tab_button *btn,
-		bool active)
+		bool active, int width, int height)
 {
 	struct hsdwl_tab_group *group = btn->view->tab_group;
 	if (!group || !btn->text)
 		return;
 
-	int h = group->tab_bar_thickness;
-	int w = TAB_BUTTON_MIN_WIDTH;
-
-	if (w < 4 || h < 4)
+	if (width < 4 || height < 4)
 		return;
 
 	const char *title = btn->view->cached_title[0]
 		? btn->view->cached_title : "Untitled";
 
+	float *tc = active
+		? group->server->config.title_text_color_focused
+		: group->server->config.title_text_color;
+
 	cairo_surface_t *surf = cairo_image_surface_create(
-		CAIRO_FORMAT_ARGB32, w, h);
+		CAIRO_FORMAT_ARGB32, width, height);
 	cairo_t *cr = cairo_create(surf);
 
 	cairo_set_source_rgba(cr, 0, 0, 0, 0);
@@ -132,24 +133,14 @@ static void tab_button_update_text(struct hsdwl_tab_button *btn,
 		"Sans 10");
 	pango_layout_set_font_description(layout, font);
 
-	if (active)
-		cairo_set_source_rgba(cr, 1.0f, 1.0f, 1.0f, 1.0f);
-	else
-		cairo_set_source_rgba(cr, 0.6f, 0.6f, 0.6f, 1.0f);
+	cairo_set_source_rgba(cr, tc[0], tc[1], tc[2], tc[3]);
 
 	int text_w, text_h;
 	pango_layout_get_pixel_size(layout, &text_w, &text_h);
-	int text_x = (w - text_w) / 2;
-	int text_y = (h - text_h) / 2;
+	int text_x = (width - text_w) / 2;
+	int text_y = (height - text_h) / 2;
 	cairo_move_to(cr, text_x, text_y);
 	pango_cairo_show_layout(cr, layout);
-
-	if (active)
-	{
-		cairo_set_source_rgba(cr, 0.4f, 0.6f, 1.0f, 1.0f);
-		cairo_rectangle(cr, text_x - 4, h - 3, text_w + 8, 2);
-		cairo_fill(cr);
-	}
 
 	pango_font_description_free(font);
 	g_object_unref(layout);
@@ -343,6 +334,12 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 		content_h = b->xwayland_surface->height;
 	}
 
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
+	if (tb < 0) tb = 0;
+	int total_w = content_w + 2 * bw;
+	int total_h = content_h + (tb > 0 ? tb : bw) + bw;
+
 	group->scene_tree = wlr_scene_tree_create(parent);
 	if (!group->scene_tree)
 	{
@@ -352,8 +349,8 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 	wlr_scene_node_set_position(&group->scene_tree->node, bx, by);
 	wlr_scene_node_raise_to_top(&group->scene_tree->node);
 
-	int cont_w = content_w;
-	int cont_h = content_h - group->tab_bar_thickness;
+	int cont_w = total_w;
+	int cont_h = total_h - group->tab_bar_thickness;
 	if (cont_h < 1) cont_h = 1;
 
 	group->content_area_box = (struct wlr_box){
@@ -529,20 +526,59 @@ static void render_tab_bar_background(struct hsdwl_tab_group *group)
 	if (w < 4 || h < 4)
 		return;
 
+	int num_views = wl_list_length(&group->tab_buttons);
+
+	bool global_focused = group->active == group->server->focused_views[
+		group->server->current_workspace];
+
+	int seg_w = w / num_views;
+	int r = group->server->config.titlebar_radius;
+
 	cairo_surface_t *surf = cairo_image_surface_create(
 		CAIRO_FORMAT_ARGB32, w, h);
 	cairo_t *cr = cairo_create(surf);
 
-	int r = 8;
-	cairo_move_to(cr, 0, r);
-	cairo_arc(cr, r, r, r, M_PI, 3 * M_PI_2);
-	cairo_arc(cr, w - r, r, r, 3 * M_PI_2, 0);
-	cairo_line_to(cr, w, h);
-	cairo_line_to(cr, 0, h);
-	cairo_close_path(cr);
+	int idx = 0;
+	struct hsdwl_tab_button *btn;
+	wl_list_for_each(btn, &group->tab_buttons, link)
+	{
+		int sx = idx * seg_w;
+		int sw = (idx == num_views - 1) ? w - sx : seg_w;
 
-	cairo_set_source_rgba(cr, 0.08f, 0.08f, 0.08f, 1.0f);
-	cairo_fill(cr);
+		bool seg_active = (btn->view == group->active);
+		float *col = seg_active && global_focused
+			? group->server->config.titlebar_color_focused
+			: group->server->config.titlebar_color;
+
+		cairo_set_source_rgba(cr, col[0], col[1], col[2], col[3]);
+
+		if (idx == 0)
+		{
+			cairo_move_to(cr, 0, r);
+			cairo_arc(cr, r, r, r, M_PI, 3 * M_PI_2);
+			cairo_line_to(cr, sw, 0);
+			cairo_line_to(cr, sw, h);
+			cairo_line_to(cr, 0, h);
+			cairo_close_path(cr);
+			cairo_fill(cr);
+		}
+		else if (idx == num_views - 1)
+		{
+			cairo_move_to(cr, sx, 0);
+			cairo_arc(cr, sx + sw - r, r, r, 3 * M_PI_2, 0);
+			cairo_line_to(cr, sx + sw, h);
+			cairo_line_to(cr, sx, h);
+			cairo_close_path(cr);
+			cairo_fill(cr);
+		}
+		else
+		{
+			cairo_rectangle(cr, sx, 0, sw, h);
+			cairo_fill(cr);
+		}
+
+		idx++;
+	}
 
 	cairo_destroy(cr);
 
@@ -575,21 +611,21 @@ void hsdwl_tab_group_update_layout(struct hsdwl_tab_group *group)
 		return;
 
 	int avail = group->content_area_box.width;
-	int btn_w = avail / num_views;
-	if (btn_w < TAB_BUTTON_MIN_WIDTH)
-		btn_w = TAB_BUTTON_MIN_WIDTH;
-	if (btn_w > TAB_BUTTON_MAX_WIDTH)
-		btn_w = TAB_BUTTON_MAX_WIDTH;
+	int seg_w = avail / num_views;
 
 	int x = 0;
 	struct hsdwl_tab_button *btn;
 	wl_list_for_each(btn, &group->tab_buttons, link)
 	{
 		bool active = (btn->view == group->active);
+		int sw = seg_w;
+		if (x + sw > avail)
+			sw = avail - x;
 		wlr_scene_node_set_position(&btn->text->node,
-			x + (btn_w - TAB_BUTTON_MIN_WIDTH) / 2, 2);
-		x += btn_w;
-		tab_button_update_text(btn, active);
+			x, 0);
+		tab_button_update_text(btn, active, sw,
+			group->tab_bar_thickness);
+		x += seg_w;
 	}
 }
 
@@ -679,6 +715,38 @@ struct hsdwl_tab_group *hsdwl_tab_group_at(struct hsdwl_server *server,
 	return NULL;
 }
 
+struct hsdwl_view *hsdwl_tab_group_next(struct hsdwl_tab_group *group,
+		struct hsdwl_view *current, bool reverse)
+{
+	if (!group || wl_list_empty(&group->tab_buttons))
+		return NULL;
+
+	struct hsdwl_tab_button *btn;
+	bool found = false;
+	struct hsdwl_tab_button *first = NULL;
+
+	if (reverse)
+	{
+		wl_list_for_each_reverse(btn, &group->tab_buttons, link)
+		{
+			if (!first) first = btn;
+			if (found) return btn->view;
+			if (btn->view == current) found = true;
+		}
+	}
+	else
+	{
+		wl_list_for_each(btn, &group->tab_buttons, link)
+		{
+			if (!first) first = btn;
+			if (found) return btn->view;
+			if (btn->view == current) found = true;
+		}
+	}
+
+	return first ? first->view : NULL;
+}
+
 /* ── preview overlay ── */
 
 void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
@@ -692,12 +760,6 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 
 	if (server->preview_tree)
 		hsdwl_tab_group_hide_preview(server);
-
-	server->preview_tree = wlr_scene_tree_create(
-		&server->scene->tree);
-	if (!server->preview_tree)
-		return;
-	wlr_scene_node_raise_to_top(&server->preview_tree->node);
 
 	int tx = target->scene_tree->node.x;
 	int ty = target->scene_tree->node.y;
@@ -719,19 +781,92 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 	int total_w = tw + 2 * bw;
 	int total_h = th + (tb > 0 ? tb : bw) + bw;
 
-	/* Full-window tint */
-	struct wlr_scene_rect *tint = wlr_scene_rect_create(
-		server->preview_tree, total_w, total_h,
-		(float[4]){0.25f, 0.45f, 0.85f, PREVIEW_ALPHA});
-	if (tint)
-		wlr_scene_node_set_position(&tint->node, tx, ty);
+	float *pc = server->config.preview_color;
+	int r = server->config.titlebar_radius;
 
-	/* Tab bar highlight */
-	struct wlr_scene_rect *tab_hl = wlr_scene_rect_create(
-		server->preview_tree, total_w, TAB_BAR_THICKNESS,
-		(float[4]){0.25f, 0.45f, 0.85f, 0.6f});
-	if (tab_hl)
-		wlr_scene_node_set_position(&tab_hl->node, tx, ty);
+	cairo_surface_t *surf = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, total_w, total_h);
+	cairo_t *cr = cairo_create(surf);
+
+	cairo_set_source_rgba(cr, 0, 0, 0, 0);
+	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+	cairo_paint(cr);
+	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+
+	cairo_move_to(cr, 0, r);
+	cairo_arc(cr, r, r, r, M_PI, 3 * M_PI_2);
+	cairo_arc(cr, total_w - r, r, r, 3 * M_PI_2, 0);
+	cairo_line_to(cr, total_w, total_h);
+	cairo_line_to(cr, 0, total_h);
+	cairo_close_path(cr);
+
+	cairo_set_source_rgba(cr, pc[0], pc[1], pc[2], pc[3] * 0.25f);
+	cairo_fill(cr);
+
+	cairo_surface_destroy(surf);
+	cairo_destroy(cr);
+
+	server->preview_tree = wlr_scene_tree_create(
+		&server->scene->tree);
+	if (!server->preview_tree)
+		return;
+	wlr_scene_node_raise_to_top(&server->preview_tree->node);
+
+	struct wlr_scene_buffer *pb = wlr_scene_buffer_create(
+		server->preview_tree, NULL);
+	if (!pb)
+	{
+		hsdwl_tab_group_hide_preview(server);
+		return;
+	}
+	wlr_scene_node_set_position(&pb->node, tx, ty);
+
+	cairo_surface_t *surf2 = cairo_image_surface_create(
+		CAIRO_FORMAT_ARGB32, total_w, total_h);
+	cairo_t *cr2 = cairo_create(surf2);
+
+	cairo_set_source_rgba(cr2, 0, 0, 0, 0);
+	cairo_set_operator(cr2, CAIRO_OPERATOR_CLEAR);
+	cairo_paint(cr2);
+	cairo_set_operator(cr2, CAIRO_OPERATOR_OVER);
+
+	cairo_move_to(cr2, 0, r);
+	cairo_arc(cr2, r, r, r, M_PI, 3 * M_PI_2);
+	cairo_arc(cr2, total_w - r, r, r, 3 * M_PI_2, 0);
+	cairo_line_to(cr2, total_w, total_h);
+	cairo_line_to(cr2, 0, total_h);
+	cairo_close_path(cr2);
+
+	cairo_set_source_rgba(cr2, pc[0], pc[1], pc[2], pc[3] * 0.25f);
+	cairo_fill(cr2);
+
+	cairo_move_to(cr2, 0, r);
+	cairo_arc(cr2, r, r, r, M_PI, 3 * M_PI_2);
+	cairo_arc(cr2, total_w - r, r, r, 3 * M_PI_2, 0);
+	cairo_line_to(cr2, total_w, TAB_BAR_THICKNESS);
+	cairo_line_to(cr2, 0, TAB_BAR_THICKNESS);
+	cairo_close_path(cr2);
+
+	cairo_set_source_rgba(cr2, pc[0], pc[1], pc[2], pc[3] * 0.5f);
+	cairo_fill(cr2);
+
+	cairo_destroy(cr2);
+
+	int cw = cairo_image_surface_get_width(surf2);
+	int ch = cairo_image_surface_get_height(surf2);
+	const unsigned char *src = cairo_image_surface_get_data(surf2);
+
+	struct tab_text_buffer *tbuf = tab_text_buffer_create(cw, ch);
+	if (!tbuf)
+	{
+		cairo_surface_destroy(surf2);
+		return;
+	}
+	memcpy(tbuf->data, src, (size_t)ch * tbuf->stride);
+	cairo_surface_destroy(surf2);
+
+	wlr_scene_buffer_set_buffer(pb, &tbuf->base);
+	wlr_buffer_drop(&tbuf->base);
 }
 
 void hsdwl_tab_group_hide_preview(struct hsdwl_server *server)

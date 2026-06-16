@@ -183,13 +183,24 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 	{
 		double dx = server->cursor->x - server->grab_x;
 		double dy = server->cursor->y - server->grab_y;
-		wlr_scene_node_set_position(
-			&server->grabbed_view->scene_tree->node,
-			server->grab_view_x + (int)dx,
-			server->grab_view_y + (int)dy);
 
-		if (!hsdwl_tab_group_is_member(server->grabbed_view))
+		if (hsdwl_tab_group_is_member(server->grabbed_view))
 		{
+			struct hsdwl_tab_group *g =
+				server->grabbed_view->tab_group;
+			if (g && g->scene_tree)
+				wlr_scene_node_set_position(
+					&g->scene_tree->node,
+					server->grab_view_x + (int)dx,
+					server->grab_view_y + (int)dy);
+		}
+		else
+		{
+			wlr_scene_node_set_position(
+				&server->grabbed_view->scene_tree->node,
+				server->grab_view_x + (int)dx,
+				server->grab_view_y + (int)dy);
+
 			bool vw =
 				server->grabbed_view->scene_tree->node.enabled;
 			wlr_scene_node_set_enabled(
@@ -312,26 +323,32 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				if (view->maximized)
 					view_maximize(server, view);
 
-				if (hsdwl_tab_group_is_member(view))
-				{
-					struct hsdwl_tab_group *g = view->tab_group;
-					hsdwl_tab_group_remove_view(g, view);
-					server->grab_view_x =
-						view->scene_tree->node.x;
-					server->grab_view_y =
-						view->scene_tree->node.y;
-				}
-
 				server->cursor_mode = HSDWL_CURSOR_MOVE;
 				server->grabbed_view = view;
 				server->grab_x = server->cursor->x;
 				server->grab_y = server->cursor->y;
-				server->grab_view_x =
-					view->scene_tree->node.x;
-				server->grab_view_y =
-					view->scene_tree->node.y;
-				wlr_scene_node_raise_to_top(
-					&view->scene_tree->node);
+
+				if (hsdwl_tab_group_is_member(view))
+				{
+					struct hsdwl_tab_group *g =
+						view->tab_group;
+					server->grab_view_x =
+						g->scene_tree->node.x;
+					server->grab_view_y =
+						g->scene_tree->node.y;
+					wlr_scene_node_raise_to_top(
+						&g->scene_tree->node);
+				}
+				else
+				{
+					server->grab_view_x =
+						view->scene_tree->node.x;
+					server->grab_view_y =
+						view->scene_tree->node.y;
+					wlr_scene_node_raise_to_top(
+						&view->scene_tree->node);
+				}
+
 				wlr_cursor_set_xcursor(server->cursor,
 					server->cursor_mgr, "move");
 				view_focus(server, view);

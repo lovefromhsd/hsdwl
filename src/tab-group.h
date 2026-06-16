@@ -57,6 +57,8 @@ void hsdwl_tab_group_reorder(struct hsdwl_tab_group *group,
 		struct hsdwl_view *view, int new_index);
 struct hsdwl_view *hsdwl_tab_group_view_at(struct hsdwl_server *server,
 		double lx, double ly);
+struct hsdwl_view *hsdwl_tab_group_next(struct hsdwl_tab_group *group,
+		struct hsdwl_view *current, bool reverse);
 struct hsdwl_tab_group *hsdwl_tab_group_at(struct hsdwl_server *server,
 		double lx, double ly);
 void hsdwl_tab_group_show_preview(struct hsdwl_server *server,

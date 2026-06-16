@@ -125,6 +125,8 @@ static int parse_action(const char *s)
 	if (strcmp(s, "move_to_workspace") == 0) return HSDWL_ACTION_MOVE_TO_WORKSPACE;
 	if (strcmp(s, "close_focused") == 0) return HSDWL_ACTION_CLOSE_FOCUSED;
 	if (strcmp(s, "maximize") == 0) return HSDWL_ACTION_MAXIMIZE;
+	if (strcmp(s, "cycle_tab_next") == 0) return HSDWL_ACTION_CYCLE_TAB_NEXT;
+	if (strcmp(s, "cycle_tab_prev") == 0) return HSDWL_ACTION_CYCLE_TAB_PREV;
 	return HSDWL_ACTION_NONE;
 }
 
@@ -189,6 +191,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	parse_hex_color("#ffffff", cfg->title_text_color_focused);
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
 	cfg->smart_gaps = true;
+	parse_hex_color("#334466", cfg->preview_color);
 
 	if (num_vars < HSDWL_MAX_VARS) {
 		snprintf(vars[num_vars].key, sizeof(vars[0].key), "mod_key");
@@ -294,6 +297,8 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			snprintf(cfg->kb_layout, sizeof(cfg->kb_layout), "%.127s", val);
 		else if (strcmp(key, "border_width") == 0)
 			cfg->border_width = atoi(val);
+		else if (strcmp(key, "preview_color") == 0)
+			parse_hex_color(val, cfg->preview_color);
 		else if (strcmp(key, "border_color") == 0)
 			parse_hex_color(val, cfg->border_color);
 		else if (strcmp(key, "border_color_focused") == 0)

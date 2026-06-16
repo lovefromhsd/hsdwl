@@ -397,6 +397,9 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			}
 			titlebar_text_update(v);
 		}
+		struct hsdwl_tab_group *tg;
+		wl_list_for_each(tg, &server->tab_groups, link)
+			hsdwl_tab_group_update_layout(tg);
 		return;
 	}
 	if (!view->scene_tree)
@@ -438,6 +441,10 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 		}
 		titlebar_text_update(v);
 	}
+
+	struct hsdwl_tab_group *tg;
+	wl_list_for_each(tg, &server->tab_groups, link)
+		hsdwl_tab_group_update_layout(tg);
 
 	wlr_scene_node_raise_to_top(&view->scene_tree->node);
 	struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);

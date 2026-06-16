@@ -16,6 +16,8 @@ enum hsdwl_action
 	HSDWL_ACTION_QUIT,
 	HSDWL_ACTION_CLOSE_FOCUSED,
 	HSDWL_ACTION_MAXIMIZE,
+	HSDWL_ACTION_CYCLE_TAB_NEXT,
+	HSDWL_ACTION_CYCLE_TAB_PREV,
 };
 
 struct hsdwl_binding
@@ -47,6 +49,7 @@ struct hsdwl_config
 	char title_font_weight[64];
 	float title_text_color[4];
 	float title_text_color_focused[4];
+	float preview_color[4];
 	char mod_key[32];
 	char kb_layout[128];
 	bool smart_gaps;

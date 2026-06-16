@@ -12,6 +12,7 @@
 #include "binding.h"
 #include "config.h"
 #include "server.h"
+#include "tab-group.h"
 #include "view.h"
 
 static bool mods_match(struct hsdwl_binding *b, struct wlr_keyboard *kb)
@@ -67,6 +68,8 @@ bool binding_dispatch(struct hsdwl_server *server,
 		{
 		case HSDWL_ACTION_CYCLE_FOCUS:
 		case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
+		case HSDWL_ACTION_CYCLE_TAB_NEXT:
+		case HSDWL_ACTION_CYCLE_TAB_PREV:
 		case HSDWL_ACTION_SPAWN:
 		case HSDWL_ACTION_QUIT:
 		case HSDWL_ACTION_CLOSE_FOCUSED:
@@ -102,6 +105,13 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_CYCLE_FOCUS:
 		{
 			struct hsdwl_view *cur = focused_view(server);
+			if (cur && cur->tab_group)
+			{
+				struct hsdwl_view *next = hsdwl_tab_group_next(
+					cur->tab_group, cur, false);
+				if (next) view_focus(server, next);
+				return true;
+			}
 			struct hsdwl_view *next = view_next(server, cur);
 			if (next) view_focus(server, next);
 			return true;
@@ -109,6 +119,13 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
 		{
 			struct hsdwl_view *cur = focused_view(server);
+			if (cur && cur->tab_group)
+			{
+				struct hsdwl_view *prev = hsdwl_tab_group_next(
+					cur->tab_group, cur, true);
+				if (prev) view_focus(server, prev);
+				return true;
+			}
 			struct hsdwl_view *prev = view_prev(server, cur);
 			if (prev) view_focus(server, prev);
 			return true;
@@ -125,6 +142,20 @@ bool binding_dispatch(struct hsdwl_server *server,
 				hsdwl_server_move_to_workspace(server,
 					cur, (size_t)(b->arg - 1));
 			return true;
+		}
+		case HSDWL_ACTION_CYCLE_TAB_NEXT:
+		case HSDWL_ACTION_CYCLE_TAB_PREV:
+		{
+			struct hsdwl_view *cur = focused_view(server);
+			if (cur && cur->tab_group)
+			{
+				bool rev = b->action == HSDWL_ACTION_CYCLE_TAB_PREV;
+				struct hsdwl_view *next = hsdwl_tab_group_next(
+					cur->tab_group, cur, rev);
+				if (next) view_focus(server, next);
+				return true;
+			}
+			return false;
 		}
 		case HSDWL_ACTION_MAXIMIZE:
 		{
