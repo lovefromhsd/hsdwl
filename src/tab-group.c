@@ -408,17 +408,7 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 	if (a->scene_tree)
 		wlr_scene_node_set_enabled(&a->scene_tree->node, true);
 
-	group->server->focused_views[
-		group->server->current_workspace] = a;
-	struct wlr_keyboard *kb = wlr_seat_get_keyboard(
-		group->server->seat);
-	if (kb)
-	{
-		struct wlr_surface *s = view_get_surface(a);
-		if (s)
-			wlr_seat_keyboard_notify_enter(
-				group->server->seat, s, NULL, 0, NULL);
-	}
+	view_focus(group->server, a);
 	hsdwl_tab_group_update_layout(group);
 
 	return group;
@@ -439,6 +429,7 @@ void hsdwl_tab_group_add_view(struct hsdwl_tab_group *group,
 	if (btn)
 		wl_list_insert(&group->tab_buttons, &btn->link);
 
+	view_focus(group->server, group->active);
 	hsdwl_tab_group_update_layout(group);
 }
 
@@ -493,6 +484,7 @@ void hsdwl_tab_group_remove_view(struct hsdwl_tab_group *group,
 		hsdwl_tab_group_set_active(group, next);
 	}
 
+	view_focus(group->server, group->active);
 	hsdwl_tab_group_update_layout(group);
 }
 
@@ -513,17 +505,7 @@ void hsdwl_tab_group_set_active(struct hsdwl_tab_group *group,
 	if (view->scene_tree)
 		wlr_scene_node_set_enabled(&view->scene_tree->node, true);
 
-	group->server->focused_views[
-		group->server->current_workspace] = view;
-	struct wlr_keyboard *kb = wlr_seat_get_keyboard(group->server->seat);
-	if (kb)
-	{
-		struct wlr_surface *s = view_get_surface(view);
-		if (s)
-			wlr_seat_keyboard_notify_enter(
-				group->server->seat, s, NULL, 0, NULL);
-	}
-
+	view_focus(group->server, view);
 	hsdwl_tab_group_update_layout(group);
 }
 
