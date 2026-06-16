@@ -4,6 +4,7 @@
 #include "layer-shell.h"
 #include "pointer.h"
 #include "server.h"
+#include "tab-group.h"
 #include "view.h"
 
 #include <linux/input-event-codes.h>
@@ -186,6 +187,43 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 			&server->grabbed_view->scene_tree->node,
 			server->grab_view_x + (int)dx,
 			server->grab_view_y + (int)dy);
+
+		if (!hsdwl_tab_group_is_member(server->grabbed_view))
+		{
+			bool was_enabled =
+				server->grabbed_view->scene_tree->node.enabled;
+			wlr_scene_node_set_enabled(
+				&server->grabbed_view->scene_tree->node, false);
+
+			double sx, sy;
+			struct hsdwl_view *target = view_at(server,
+				server->cursor->x, server->cursor->y, &sx, &sy);
+
+			wlr_scene_node_set_enabled(
+				&server->grabbed_view->scene_tree->node,
+				was_enabled);
+
+			if (target && target != server->grabbed_view
+					&& !hsdwl_tab_group_is_member(target))
+			{
+				if (server->grab_target != target)
+				{
+					server->grab_target = target;
+					hsdwl_tab_group_show_preview(server,
+						target,
+						server->cursor->x,
+						server->cursor->y);
+				}
+			}
+			else
+			{
+				if (server->grab_target)
+				{
+					hsdwl_tab_group_hide_preview(server);
+					server->grab_target = NULL;
+				}
+			}
+		}
 		return true;
 	}
 	case HSDWL_CURSOR_RESIZE:
@@ -233,6 +271,17 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
 	{
+		struct hsdwl_view *tv = hsdwl_tab_group_view_at(server,
+			server->cursor->x, server->cursor->y);
+		if (tv && tv->tab_group)
+		{
+			hsdwl_tab_group_set_active(tv->tab_group, tv);
+			wlr_seat_pointer_notify_button(server->seat,
+				event->time_msec, event->button, event->state);
+			view_focus(server, tv);
+			return;
+		}
+
 		struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);
 		bool alt = kb && xkb_state_mod_name_is_active(
 			kb->xkb_state, server->config.mod_key,
@@ -250,6 +299,17 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			{
 				if (view->maximized)
 					view_maximize(server, view);
+
+				if (hsdwl_tab_group_is_member(view))
+				{
+					struct hsdwl_tab_group *g = view->tab_group;
+					hsdwl_tab_group_remove_view(g, view);
+					server->grab_view_x =
+						view->scene_tree->node.x;
+					server->grab_view_y =
+						view->scene_tree->node.y;
+				}
+
 				server->cursor_mode = HSDWL_CURSOR_MOVE;
 				server->grabbed_view = view;
 				server->grab_x = server->cursor->x;
@@ -390,8 +450,20 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 	if (server->cursor_mode == HSDWL_CURSOR_MOVE
 			|| server->cursor_mode == HSDWL_CURSOR_RESIZE)
 	{
+		if (server->cursor_mode == HSDWL_CURSOR_MOVE
+				&& server->grab_target
+				&& server->grabbed_view
+				&& !hsdwl_tab_group_is_member(server->grabbed_view))
+		{
+			hsdwl_tab_group_create(server,
+				server->grabbed_view, server->grab_target,
+				HSDWL_TAB_HORIZONTAL);
+		}
+
 		server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 		server->grabbed_view = NULL;
+		server->grab_target = NULL;
+		hsdwl_tab_group_hide_preview(server);
 		wlr_cursor_set_xcursor(server->cursor,
 			server->cursor_mgr, "default");
 		return;

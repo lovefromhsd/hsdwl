@@ -3,6 +3,7 @@
 
 #include "xwayland.h"
 #include "server.h"
+#include "tab-group.h"
 #include "view.h"
 
 #include <stdlib.h>
@@ -225,11 +226,16 @@ static void xwayland_view_handle_destroy(
 	(void)data;
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
+	if (view->server->grab_target == view)
+		view->server->grab_target = NULL;
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
 		if (view->server->focused_views[i] == view)
 			view->server->focused_views[i] = NULL;
 	}
+	if (view->tab_group)
+		hsdwl_tab_group_remove_view(view->tab_group, view);
+	wl_list_remove(&view->tab_group_link);
 	if (view->scene_tree)
 	{
 		view->scene_tree->node.data = NULL;
@@ -296,6 +302,8 @@ static void xwayland_handle_new_surface(
 
 	view->server = server;
 	view->xwayland_surface = xsurface;
+	view->tab_group = NULL;
+	wl_list_init(&view->tab_group_link);
 	xsurface->data = view;
 	wl_list_insert(&server->views, &view->link);
 

@@ -6,6 +6,7 @@
 #include <wlr/util/box.h>
 
 struct hsdwl_server;
+struct hsdwl_tab_group;
 struct wlr_xdg_surface;
 struct wlr_xwayland_surface;
 struct wlr_scene_tree;
@@ -19,6 +20,8 @@ struct hsdwl_view
 	struct hsdwl_server *server;
 	struct wlr_xdg_surface *xdg_surface;
 	struct wlr_xwayland_surface *xwayland_surface;
+	struct hsdwl_tab_group *tab_group;
+	struct wl_list tab_group_link;
 	struct wlr_scene_tree *scene_tree;
 	struct wlr_scene_tree *content_tree;
 	struct wlr_scene_rect *border_rects[4];
@@ -55,5 +58,6 @@ void decoration_handle_request_mode(struct wl_listener *listener, void *data);
 void view_close(struct hsdwl_view *view);
 void titlebar_text_update(struct hsdwl_view *view);
 void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view);
+bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws);
 
 #endif

@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "layer-shell.h"
+#include "tab-group.h"
 #include "view.h"
 #include "server.h"
 
@@ -464,7 +465,19 @@ static bool view_is_usable(struct hsdwl_view *v)
 static bool view_on_workspace(struct hsdwl_view *v,
 		struct wlr_scene_tree *ws)
 {
-	return v->scene_tree && v->scene_tree->node.parent == ws;
+	if (!v->scene_tree || !ws)
+		return false;
+	if (v->scene_tree->node.parent == ws)
+		return true;
+	if (v->tab_group && v->tab_group->scene_tree
+			&& v->tab_group->scene_tree->node.parent == ws)
+		return true;
+	return false;
+}
+
+bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws)
+{
+	return view_on_workspace(view, ws);
 }
 
 struct hsdwl_view *view_next(struct hsdwl_server *server,
@@ -564,11 +577,16 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
+	if (view->server->grab_target == view)
+		view->server->grab_target = NULL;
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
 		if (view->server->focused_views[i] == view)
 			view->server->focused_views[i] = NULL;
 	}
+	if (view->tab_group)
+		hsdwl_tab_group_remove_view(view->tab_group, view);
+	wl_list_remove(&view->tab_group_link);
 	if (view->scene_tree)
 	{
 		view->scene_tree->node.data = NULL;
@@ -785,6 +803,8 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 
 	view->server = server;
 	view->xdg_surface = xdg_surface;
+	view->tab_group = NULL;
+	wl_list_init(&view->tab_group_link);
 	view->maximized = false;
 	memset(&view->saved_geometry, 0, sizeof(view->saved_geometry));
 	xdg_surface->data = view;

@@ -9,6 +9,7 @@
 #include <wayland-server-core.h>
 
 #include "config.h"
+#include "tab-group.h"
 
 #define HSDWL_NUM_WORKSPACES 9
 
@@ -75,6 +76,7 @@ struct hsdwl_server
 	struct wl_listener output_manager_destroy;
 	enum hsdwl_cursor_mode cursor_mode;
 	struct hsdwl_view *grabbed_view;
+	struct hsdwl_view *grab_target;
 	double grab_x;
 	double grab_y;
 	int grab_view_x;
@@ -97,6 +99,8 @@ struct hsdwl_server
 	const char *socket;
 	struct wlr_scene_tree *drag_icon_tree;
 	struct wl_listener drag_icon_destroy;
+	struct wl_list tab_groups;
+	struct wlr_scene_tree *preview_tree;
 };
 
 bool hsdwl_server_init(struct hsdwl_server *server);

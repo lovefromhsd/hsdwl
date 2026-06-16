@@ -9,5 +9,6 @@ hsdwl_src = files(
   'output-management.c',
   'output.c',
   'pointer.c',
+  'tab-group.c',
   'xwayland.c',
 )

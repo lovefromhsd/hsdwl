@@ -6,6 +6,7 @@
 #include "output.h"
 #include "output-management.h"
 #include "pointer.h"
+#include "tab-group.h"
 #include "view.h"
 #include "xwayland.h"
 
@@ -109,8 +110,8 @@ void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 			next = NULL;
 	}
 	if (next && (!next->scene_tree
-			|| next->scene_tree->node.parent
-				!= server->workspaces[ws]))
+			|| !view_is_on_workspace(next,
+				server->workspaces[ws])))
 		next = NULL;
 
 	if (!next)
@@ -128,8 +129,8 @@ void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 						v->xwayland_surface));
 			if (!xdg_usable && !xwayland_usable)
 				continue;
-			if (v->scene_tree->node.parent
-					!= server->workspaces[ws])
+			if (!view_is_on_workspace(v,
+					server->workspaces[ws]))
 				continue;
 			next = v;
 			break;
@@ -228,6 +229,7 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wl_list_init(&server->keyboards);
 	wl_list_init(&server->views);
 	wl_list_init(&server->outputs);
+	hsdwl_tab_group_init(server);
 
 	if (!output_manager_init(server))
 	{
@@ -325,6 +327,7 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 
 	server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 	server->grabbed_view = NULL;
+	server->grab_target = NULL;
 
 	if (!pointer_init(server))
 	{
@@ -412,6 +415,9 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 		wl_list_remove(&server->drag_icon_destroy.link);
 	wlr_xcursor_manager_destroy(server->cursor_mgr);
 	wlr_cursor_destroy(server->cursor);
+	if (server->preview_tree)
+		wlr_scene_node_destroy(&server->preview_tree->node);
+	hsdwl_tab_group_finish(server);
 	hsdwl_xwayland_finish(server);
 	output_manager_finish(server);
 	wl_list_remove(&server->new_layer_surface.link);
