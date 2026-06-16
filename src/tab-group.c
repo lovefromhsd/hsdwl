@@ -865,18 +865,30 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 	if (server->preview_tree)
 		hsdwl_tab_group_hide_preview(server);
 
-	int tx = target->scene_tree->node.x;
-	int ty = target->scene_tree->node.y;
-	int tw = 800, th = 600;
-	if (target->xdg_surface && target->xdg_surface->configured)
+	int tx, ty, tw, th;
+	if (hsdwl_tab_group_is_member(target))
 	{
-		tw = target->xdg_surface->geometry.width;
-		th = target->xdg_surface->geometry.height;
+		struct hsdwl_tab_group *g = target->tab_group;
+		tx = g->scene_tree->node.x;
+		ty = g->scene_tree->node.y;
+		tw = g->content_area_box.width;
+		th = g->content_area_box.height;
 	}
-	else if (target->xwayland_surface)
+	else
 	{
-		tw = target->xwayland_surface->width;
-		th = target->xwayland_surface->height;
+		tx = target->scene_tree->node.x;
+		ty = target->scene_tree->node.y;
+		tw = 800; th = 600;
+		if (target->xdg_surface && target->xdg_surface->configured)
+		{
+			tw = target->xdg_surface->geometry.width;
+			th = target->xdg_surface->geometry.height;
+		}
+		else if (target->xwayland_surface)
+		{
+			tw = target->xwayland_surface->width;
+			th = target->xwayland_surface->height;
+		}
 	}
 
 	int bw = server->config.border_width;

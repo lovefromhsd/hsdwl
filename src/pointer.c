@@ -221,6 +221,40 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 					&g->scene_tree->node,
 					server->grab_view_x + (int)dx,
 					server->grab_view_y + (int)dy);
+
+			double sx, sy;
+			struct hsdwl_view *target = view_at(server,
+				server->cursor->x, server->cursor->y,
+				&sx, &sy);
+
+			if (target && target != server->grabbed_view
+					&& target->tab_group != g)
+			{
+				if (server->grab_target != target)
+				{
+					if (server->preview_tree)
+						hsdwl_tab_group_hide_preview(server);
+					server->grab_target = target;
+					hsdwl_tab_group_show_preview(server,
+						target,
+						server->cursor->x,
+						server->cursor->y);
+				}
+				else if (server->preview_tree
+						&& server->preview_tree->node.enabled)
+				{
+					wlr_scene_node_set_enabled(
+						&server->preview_tree->node, true);
+				}
+			}
+			else
+			{
+				if (server->grab_target)
+				{
+					hsdwl_tab_group_hide_preview(server);
+					server->grab_target = NULL;
+				}
+			}
 		}
 		else
 		{
@@ -247,8 +281,7 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 			wlr_scene_node_set_enabled(
 				&server->grabbed_view->scene_tree->node, vw);
 
-			if (target && target != server->grabbed_view
-					&& !hsdwl_tab_group_is_member(target))
+		if (target && target != server->grabbed_view)
 			{
 				if (server->grab_target != target)
 				{
@@ -530,12 +563,28 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 	{
 		if (server->cursor_mode == HSDWL_CURSOR_MOVE
 				&& server->grab_target
-				&& server->grabbed_view
-				&& !hsdwl_tab_group_is_member(server->grabbed_view))
+				&& server->grabbed_view)
 		{
-			hsdwl_tab_group_create(server,
-				server->grabbed_view, server->grab_target,
-				HSDWL_TAB_HORIZONTAL);
+			if (hsdwl_tab_group_is_member(server->grab_target))
+			{
+				hsdwl_tab_group_add_view(
+					server->grab_target->tab_group,
+					server->grabbed_view);
+			}
+			else if (hsdwl_tab_group_is_member(
+					server->grabbed_view))
+			{
+				hsdwl_tab_group_add_view(
+					server->grabbed_view->tab_group,
+					server->grab_target);
+			}
+			else
+			{
+				hsdwl_tab_group_create(server,
+					server->grabbed_view,
+					server->grab_target,
+					HSDWL_TAB_HORIZONTAL);
+			}
 		}
 
 		struct hsdwl_tab_group *__tg;
