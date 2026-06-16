@@ -170,33 +170,31 @@ static void apply_resize(struct hsdwl_server *server)
 	{
 		struct hsdwl_tab_group *g = server->grabbed_view->tab_group;
 		if (g && g->scene_tree)
-		{
-			wlr_scene_node_set_position(
-				&g->scene_tree->node, new_x, new_y);
-			g->content_area_box.width = new_w;
-			g->content_area_box.height = new_h;
-			struct hsdwl_view *vi;
-			wl_list_for_each(vi, &g->views, tab_group_link)
-				view_configure_size(vi, new_w, new_h);
-		}
+			new_y -= g->tab_bar_thickness;
 	}
-	else
+
+	server->resize_preview_x = new_x;
+	server->resize_preview_y = new_y;
+	server->resize_preview_w = new_w;
+	server->resize_preview_h = new_h;
+
+	if (!server->resize_preview)
 	{
+		server->resize_preview = wlr_scene_rect_create(
+			&server->scene->tree, new_w, new_h,
+			server->config.border_color_focused);
+		if (server->resize_preview)
+			wlr_scene_node_raise_to_top(
+				&server->resize_preview->node);
+	}
+	if (server->resize_preview)
+	{
+		wlr_scene_rect_set_size(
+			server->resize_preview, new_w, new_h);
 		wlr_scene_node_set_position(
-			&server->grabbed_view->scene_tree->node,
-			new_x, new_y);
-		if (server->grabbed_view->xdg_surface)
-		{
-			wlr_xdg_toplevel_set_size(
-				server->grabbed_view->xdg_surface->toplevel,
-				new_w, new_h);
-		}
-		else
-		{
-			wlr_xwayland_surface_configure(
-				server->grabbed_view->xwayland_surface,
-				new_x, new_y, new_w, new_h);
-		}
+			&server->resize_preview->node, new_x, new_y);
+		wlr_scene_node_set_enabled(
+			&server->resize_preview->node, true);
 	}
 }
 
@@ -585,6 +583,59 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 					server->grab_target,
 					HSDWL_TAB_HORIZONTAL);
 			}
+		}
+
+		if (server->cursor_mode == HSDWL_CURSOR_RESIZE
+				&& server->resize_preview)
+		{
+			int fx = server->resize_preview_x;
+			int fy = server->resize_preview_y;
+			int fw = server->resize_preview_w;
+			int fh = server->resize_preview_h;
+
+			if (hsdwl_tab_group_is_member(server->grabbed_view))
+			{
+				struct hsdwl_tab_group *g =
+					server->grabbed_view->tab_group;
+				if (g && g->scene_tree)
+				{
+					fy += g->tab_bar_thickness;
+					wlr_scene_node_set_position(
+						&g->scene_tree->node, fx, fy);
+					g->content_area_box.width = fw;
+					g->content_area_box.height = fh;
+					struct hsdwl_view *vi;
+					wl_list_for_each(vi, &g->views,
+							tab_group_link)
+						view_configure_size(vi, fw, fh);
+				}
+			}
+			else if (server->grabbed_view)
+			{
+				wlr_scene_node_set_position(
+					&server->grabbed_view->scene_tree->node,
+					fx, fy);
+				if (server->grabbed_view->xdg_surface)
+				{
+					wlr_xdg_toplevel_set_size(
+						server->grabbed_view
+							->xdg_surface->toplevel,
+						fw, fh);
+				}
+				else if (server->grabbed_view->xwayland_surface)
+				{
+					wlr_xwayland_surface_configure(
+						server->grabbed_view
+							->xwayland_surface,
+						fx, fy, fw, fh);
+				}
+			}
+
+			wlr_scene_node_set_enabled(
+				&server->resize_preview->node, false);
+			wlr_scene_node_destroy(
+				&server->resize_preview->node);
+			server->resize_preview = NULL;
 		}
 
 		struct hsdwl_tab_group *__tg;

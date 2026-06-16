@@ -19,6 +19,7 @@ struct wlr_renderer;
 struct wlr_allocator;
 struct wlr_scene;
 struct wlr_scene_tree;
+struct wlr_scene_rect;
 struct wlr_scene_output_layout;
 struct wlr_output_layout;
 struct wlr_seat;
@@ -101,6 +102,11 @@ struct hsdwl_server
 	struct wl_listener drag_icon_destroy;
 	struct wl_list tab_groups;
 	struct wlr_scene_tree *preview_tree;
+	struct wlr_scene_rect *resize_preview;
+	int resize_preview_x;
+	int resize_preview_y;
+	int resize_preview_w;
+	int resize_preview_h;
 };
 
 bool hsdwl_server_init(struct hsdwl_server *server);
