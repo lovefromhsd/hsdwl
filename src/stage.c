@@ -559,6 +559,39 @@ void stage_manager_switch(struct hsdwl_server *server,
 	stage_manager_render_sidebar(server, ws);
 }
 
+void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
+{
+	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
+	if (wl_list_empty(&mgr->inactive_stages))
+		return;
+
+	struct custom_stage *cur = mgr->active_stage;
+	struct custom_stage *target = reverse
+		? wl_container_of(mgr->inactive_stages.prev, target, link)
+		: wl_container_of(mgr->inactive_stages.next,  target, link);
+
+	if (!target || target == cur) return;
+
+	/* hide current active, show target — straight swap */
+	if (cur)
+	{
+		stage_set_views_enabled(cur, false);
+		wl_list_insert(&mgr->inactive_stages, &cur->link);
+	}
+	wl_list_remove(&target->link);
+	mgr->active_stage = target;
+	stage_reparent_to_canvas(target, server);
+
+	struct custom_window *cw;
+	wl_list_for_each(cw, &target->windows, link)
+	{
+		view_focus(server, cw->view);
+		break;
+	}
+
+	stage_manager_render_sidebar(server, ws);
+}
+
 void stage_manager_merge(struct hsdwl_server *server,
 		struct custom_stage *source, size_t ws)
 {
@@ -622,7 +655,6 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		if (wl_list_empty(&st->windows) || nentries >= 64)
 			continue;
 
-		/* compute bounding box */
 		struct wlr_box bbox = {0};
 		bool first = true;
 		struct custom_window *cw;
@@ -669,7 +701,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	}
 	if (nentries == 0) return;
 
-	/* compute total height and centering */
+	/* total height — each entry at its own natural height */
 	int total_h = 0;
 	for (int i = 0; i < nentries; i++)
 	{

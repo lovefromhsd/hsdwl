@@ -12,6 +12,7 @@
 #include "binding.h"
 #include "config.h"
 #include "server.h"
+#include "stage.h"
 #include "tab-group.h"
 #include "view.h"
 
@@ -104,6 +105,12 @@ bool binding_dispatch(struct hsdwl_server *server,
 		}
 		case HSDWL_ACTION_CYCLE_FOCUS:
 		{
+			if (server->config.stage_manager_enabled)
+			{
+				stage_manager_cycle(server,
+					server->current_workspace, false);
+				return true;
+			}
 			struct hsdwl_view *cur = focused_view(server);
 			struct hsdwl_view *next = view_next(server, cur);
 			if (next) view_focus(server, next);
@@ -111,6 +118,12 @@ bool binding_dispatch(struct hsdwl_server *server,
 		}
 		case HSDWL_ACTION_CYCLE_FOCUS_REVERSE:
 		{
+			if (server->config.stage_manager_enabled)
+			{
+				stage_manager_cycle(server,
+					server->current_workspace, true);
+				return true;
+			}
 			struct hsdwl_view *cur = focused_view(server);
 			struct hsdwl_view *prev = view_prev(server, cur);
 			if (prev) view_focus(server, prev);
@@ -143,6 +156,13 @@ bool binding_dispatch(struct hsdwl_server *server,
 						cur->tab_group, next);
 					view_focus(server, next);
 				}
+				return true;
+			}
+			if (server->config.stage_manager_enabled)
+			{
+				bool rev = b->action == HSDWL_ACTION_CYCLE_TAB_PREV;
+				stage_manager_cycle(server,
+					server->current_workspace, rev);
 				return true;
 			}
 			bool rev = b->action == HSDWL_ACTION_CYCLE_TAB_PREV;

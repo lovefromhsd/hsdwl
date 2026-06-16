@@ -57,6 +57,9 @@ struct custom_stage *stage_at(struct hsdwl_server *server,
 void stage_manager_switch(struct hsdwl_server *server,
 		struct custom_stage *target, size_t ws);
 
+void stage_manager_cycle(struct hsdwl_server *server,
+		size_t ws, bool reverse);
+
 void stage_manager_merge(struct hsdwl_server *server,
 		struct custom_stage *source, size_t ws);
 

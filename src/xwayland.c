@@ -100,14 +100,14 @@ static void xwayland_view_handle_surface_map(
 		&view->scene_tree->node, xsurface->x, xsurface->y);
 	wlr_scene_node_set_enabled(
 		&view->scene_tree->node, true);
-	if (!xsurface->override_redirect
-			|| wlr_xwayland_surface_override_redirect_wants_focus(
-				xsurface))
+	if (view->server->config.stage_manager_enabled
+			&& !xsurface->override_redirect)
 	{
-		if (view->server->config.stage_manager_enabled)
-			stage_manager_new_window(view->server, view);
-		else
-			view_focus(view->server, view);
+		stage_manager_new_window(view->server, view);
+	}
+	else
+	{
+		view_focus(view->server, view);
 	}
 }
 
