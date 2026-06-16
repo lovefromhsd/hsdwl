@@ -340,12 +340,6 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 		content_h = b->xwayland_surface->height;
 	}
 
-	int bw = server->config.border_width;
-	int tb = server->config.titlebar_height;
-	if (tb < 0) tb = 0;
-	int total_w = content_w + 2 * bw;
-	int total_h = content_h + (tb > 0 ? tb : bw) + bw;
-
 	group->scene_tree = wlr_scene_tree_create(parent);
 	if (!group->scene_tree)
 	{
@@ -355,8 +349,8 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 	wlr_scene_node_set_position(&group->scene_tree->node, bx, by);
 	wlr_scene_node_raise_to_top(&group->scene_tree->node);
 
-	int cont_w = total_w;
-	int cont_h = total_h - group->tab_bar_thickness;
+	int cont_w = content_w;
+	int cont_h = content_h;
 	if (cont_h < 1) cont_h = 1;
 
 	group->content_area_box = (struct wlr_box){
