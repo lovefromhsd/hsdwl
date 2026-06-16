@@ -37,6 +37,8 @@ struct hsdwl_tab_group
 	struct wlr_box content_area_box;
 	int tab_bar_thickness;
 	enum hsdwl_tab_orientation orientation;
+	bool maximized;
+	struct wlr_box saved_geometry;
 };
 
 void hsdwl_tab_group_init(struct hsdwl_server *server);
@@ -64,5 +66,8 @@ struct hsdwl_tab_group *hsdwl_tab_group_at(struct hsdwl_server *server,
 void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 		struct hsdwl_view *target, double cursor_x, double cursor_y);
 void hsdwl_tab_group_hide_preview(struct hsdwl_server *server);
+void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
+		struct hsdwl_server *server);
+void hsdwl_tab_group_restore(struct hsdwl_tab_group *group);
 
 #endif

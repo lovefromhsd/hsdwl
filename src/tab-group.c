@@ -12,6 +12,8 @@
 #include <string.h>
 #include <wlr/interfaces/wlr_buffer.h>
 #include <wlr/types/wlr_cursor.h>
+#include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_shell.h>
@@ -575,7 +577,12 @@ static void render_tab_bar_background(struct hsdwl_tab_group *group)
 
 		cairo_set_source_rgba(cr, col[0], col[1], col[2], col[3]);
 
-		if (idx == 0)
+		if (group->maximized)
+		{
+			cairo_rectangle(cr, sx, 0, sw, h);
+			cairo_fill(cr);
+		}
+		else if (idx == 0)
 		{
 			cairo_move_to(cr, 0, r);
 			cairo_arc(cr, r, r, r, M_PI, 3 * M_PI_2);
@@ -768,6 +775,70 @@ struct hsdwl_view *hsdwl_tab_group_next(struct hsdwl_tab_group *group,
 	}
 
 	return first ? first->view : NULL;
+}
+
+/* ── maximize / restore ── */
+
+void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
+		struct hsdwl_server *server)
+{
+	if (!group || !group->scene_tree)
+		return;
+
+	struct wlr_output *wlr_output = wlr_output_layout_output_at(
+		server->output_layout,
+		group->scene_tree->node.x +
+			group->content_area_box.width / 2,
+		group->scene_tree->node.y +
+			group->content_area_box.height / 2);
+	if (!wlr_output)
+		return;
+
+	struct wlr_box output_box;
+	wlr_output_layout_get_box(server->output_layout,
+		wlr_output, &output_box);
+
+	group->saved_geometry.x = group->scene_tree->node.x;
+	group->saved_geometry.y = group->scene_tree->node.y;
+	group->saved_geometry.width = group->content_area_box.width;
+	group->saved_geometry.height =
+		group->content_area_box.height + group->tab_bar_thickness;
+
+	int cont_h = output_box.height - group->tab_bar_thickness;
+	if (cont_h < 1) cont_h = 1;
+
+	wlr_scene_node_set_position(&group->scene_tree->node,
+		output_box.x, output_box.y);
+	group->content_area_box.width = output_box.width;
+	group->content_area_box.height = cont_h;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, output_box.width, cont_h);
+
+	group->maximized = true;
+	hsdwl_tab_group_update_layout(group);
+}
+
+void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
+{
+	if (!group || !group->maximized)
+		return;
+
+	wlr_scene_node_set_position(&group->scene_tree->node,
+		group->saved_geometry.x, group->saved_geometry.y);
+	group->content_area_box.width = group->saved_geometry.width;
+	group->content_area_box.height =
+		group->saved_geometry.height - group->tab_bar_thickness;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi,
+			group->content_area_box.width,
+			group->content_area_box.height);
+
+	group->maximized = false;
+	hsdwl_tab_group_update_layout(group);
 }
 
 /* ── preview overlay ── */

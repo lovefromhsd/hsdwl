@@ -619,6 +619,16 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	if (!view || !view->scene_tree)
 		return;
 
+	if (hsdwl_tab_group_is_member(view))
+	{
+		struct hsdwl_tab_group *g = view->tab_group;
+		if (g->maximized)
+			hsdwl_tab_group_restore(g);
+		else
+			hsdwl_tab_group_maximize(g, server);
+		return;
+	}
+
 	struct hsdwl_config *cfg = &server->config;
 
 	if (view->maximized)
