@@ -272,7 +272,7 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 
 /* ── configure view to a given content size ── */
 
-static void view_configure_size(struct hsdwl_view *view, int w, int h)
+void view_configure_size(struct hsdwl_view *view, int w, int h)
 {
 	if (view->xdg_surface && view->xdg_surface->configured)
 	{

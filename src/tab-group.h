@@ -69,5 +69,6 @@ void hsdwl_tab_group_hide_preview(struct hsdwl_server *server);
 void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		struct hsdwl_server *server);
 void hsdwl_tab_group_restore(struct hsdwl_tab_group *group);
+void view_configure_size(struct hsdwl_view *view, int w, int h);
 
 #endif

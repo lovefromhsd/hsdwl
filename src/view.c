@@ -563,6 +563,26 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 		wlr_xdg_surface_schedule_configure(view->xdg_surface);
 	}
 
+	if (view->tab_group && view->xdg_surface->configured)
+	{
+		struct hsdwl_tab_group *g = view->tab_group;
+		int cw = view->xdg_surface->geometry.width;
+		int ch = view->xdg_surface->geometry.height;
+		if (cw != g->content_area_box.width
+				|| ch != g->content_area_box.height)
+		{
+			g->content_area_box.width = cw;
+			g->content_area_box.height = ch;
+			struct hsdwl_view *vi;
+			wl_list_for_each(vi, &g->views, tab_group_link)
+			{
+				if (vi != view)
+					view_configure_size(vi, cw, ch);
+			}
+		}
+		hsdwl_tab_group_update_layout(g);
+	}
+
 	view_borders_update(view);
 	titlebar_text_update(view);
 }

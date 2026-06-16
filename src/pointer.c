@@ -41,18 +41,29 @@ static struct hsdwl_view *view_at(struct hsdwl_server *server,
 static uint32_t determine_resize_edges(struct hsdwl_server *server,
 		struct hsdwl_view *view, double cursor_x, double cursor_y)
 {
-	int wx = view->scene_tree->node.x;
-	int wy = view->scene_tree->node.y;
-	int ww, wh;
-	if (view->xdg_surface)
+	int wx, wy, ww, wh;
+	if (hsdwl_tab_group_is_member(view))
 	{
-		ww = view->xdg_surface->geometry.width;
-		wh = view->xdg_surface->geometry.height;
+		struct hsdwl_tab_group *g = view->tab_group;
+		wx = g->scene_tree->node.x;
+		wy = g->scene_tree->node.y + g->tab_bar_thickness;
+		ww = g->content_area_box.width;
+		wh = g->content_area_box.height;
 	}
 	else
 	{
-		ww = view->xwayland_surface->width;
-		wh = view->xwayland_surface->height;
+		wx = view->scene_tree->node.x;
+		wy = view->scene_tree->node.y;
+		if (view->xdg_surface)
+		{
+			ww = view->xdg_surface->geometry.width;
+			wh = view->xdg_surface->geometry.height;
+		}
+		else
+		{
+			ww = view->xwayland_surface->width;
+			wh = view->xwayland_surface->height;
+		}
 	}
 
 	if (ww < 1 || wh < 1)
@@ -155,20 +166,37 @@ static void apply_resize(struct hsdwl_server *server)
 	if (new_h < server->config.min_window_size)
 		new_h = server->config.min_window_size;
 
-	wlr_scene_node_set_position(
-		&server->grabbed_view->scene_tree->node,
-		new_x, new_y);
-	if (server->grabbed_view->xdg_surface)
+	if (hsdwl_tab_group_is_member(server->grabbed_view))
 	{
-		wlr_xdg_toplevel_set_size(
-			server->grabbed_view->xdg_surface->toplevel,
-			new_w, new_h);
+		struct hsdwl_tab_group *g = server->grabbed_view->tab_group;
+		if (g && g->scene_tree)
+		{
+			wlr_scene_node_set_position(
+				&g->scene_tree->node, new_x, new_y);
+			g->content_area_box.width = new_w;
+			g->content_area_box.height = new_h;
+			struct hsdwl_view *vi;
+			wl_list_for_each(vi, &g->views, tab_group_link)
+				view_configure_size(vi, new_w, new_h);
+		}
 	}
 	else
 	{
-		wlr_xwayland_surface_configure(
-			server->grabbed_view->xwayland_surface,
-			new_x, new_y, new_w, new_h);
+		wlr_scene_node_set_position(
+			&server->grabbed_view->scene_tree->node,
+			new_x, new_y);
+		if (server->grabbed_view->xdg_surface)
+		{
+			wlr_xdg_toplevel_set_size(
+				server->grabbed_view->xdg_surface->toplevel,
+				new_w, new_h);
+		}
+		else
+		{
+			wlr_xwayland_surface_configure(
+				server->grabbed_view->xwayland_surface,
+				new_x, new_y, new_w, new_h);
+		}
 	}
 }
 
@@ -379,10 +407,25 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				server->grabbed_view = view;
 				server->grab_x = server->cursor->x;
 				server->grab_y = server->cursor->y;
-				server->grab_view_x =
-					view->scene_tree->node.x;
-				server->grab_view_y =
-					view->scene_tree->node.y;
+				if (hsdwl_tab_group_is_member(view))
+				{
+					struct hsdwl_tab_group *g = view->tab_group;
+					server->grab_view_x =
+						g->scene_tree->node.x;
+					server->grab_view_y =
+						g->scene_tree->node.y;
+					wlr_scene_node_raise_to_top(
+						&g->scene_tree->node);
+				}
+				else
+				{
+					server->grab_view_x =
+						view->scene_tree->node.x;
+					server->grab_view_y =
+						view->scene_tree->node.y;
+					wlr_scene_node_raise_to_top(
+						&view->scene_tree->node);
+				}
 				if (view->xdg_surface)
 				{
 					server->grab_geom_width =
@@ -400,8 +443,9 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				server->resize_edges = determine_resize_edges(server,
 					view, server->cursor->x,
 					server->cursor->y);
-				wlr_scene_node_raise_to_top(
-					&view->scene_tree->node);
+				if (!hsdwl_tab_group_is_member(view))
+					wlr_scene_node_raise_to_top(
+						&view->scene_tree->node);
 				wlr_cursor_set_xcursor(server->cursor,
 					server->cursor_mgr, "move");
 				view_focus(server, view);
