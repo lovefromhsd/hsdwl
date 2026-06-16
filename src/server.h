@@ -38,6 +38,7 @@ enum hsdwl_cursor_mode
 	HSDWL_CURSOR_PASSTHROUGH,
 	HSDWL_CURSOR_MOVE,
 	HSDWL_CURSOR_RESIZE,
+	HSDWL_CURSOR_TAB_REORDER,
 };
 
 struct hsdwl_server

@@ -38,6 +38,72 @@ static struct hsdwl_view *view_at(struct hsdwl_server *server,
 	return NULL;
 }
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
+static void get_view_bounds(struct hsdwl_view *view, struct wlr_box *box)
+{
+	if (!view || !view->scene_tree)
+	{
+		box->x = box->y = box->width = box->height = 0;
+		return;
+	}
+	if (hsdwl_tab_group_is_member(view))
+	{
+		struct hsdwl_tab_group *g = view->tab_group;
+		box->x = g->scene_tree->node.x;
+		box->y = g->scene_tree->node.y;
+		box->width = g->content_area_box.width;
+		box->height = g->content_area_box.height
+			+ g->tab_bar_thickness;
+	}
+	else
+	{
+		box->x = view->scene_tree->node.x;
+		box->y = view->scene_tree->node.y;
+		int cw = 0, ch = 0;
+		if (view->xdg_surface
+				&& view->xdg_surface->configured)
+		{
+			cw = view->xdg_surface->geometry.width;
+			ch = view->xdg_surface->geometry.height;
+		}
+		else if (view->xwayland_surface)
+		{
+			cw = view->xwayland_surface->width;
+			ch = view->xwayland_surface->height;
+		}
+		int bw = view->server->config.border_width;
+		int tb = view->server->config.titlebar_height;
+		if (tb < 0) tb = 0;
+		box->width = cw + 2 * bw;
+		box->height = ch + (tb > 0 ? tb : bw) + bw;
+	}
+}
+
+static bool overlap_meets_threshold(struct hsdwl_view *dragged,
+		struct hsdwl_view *target, float threshold)
+{
+	if (threshold <= 0.0f)
+		return true;
+	struct wlr_box bd, bt;
+	get_view_bounds(dragged, &bd);
+	get_view_bounds(target, &bt);
+	int ix = MAX(bd.x, bt.x);
+	int iy = MAX(bd.y, bt.y);
+	int ix2 = MIN(bd.x + bd.width, bt.x + bt.width);
+	int iy2 = MIN(bd.y + bd.height, bt.y + bt.height);
+	int iw = ix2 > ix ? ix2 - ix : 0;
+	int ih = iy2 > iy ? iy2 - iy : 0;
+	int ia = iw * ih;
+	if (!ia)
+		return false;
+	int da = bd.width * bd.height;
+	if (!da)
+		return false;
+	return (float)ia / da >= threshold;
+}
+
 static uint32_t determine_resize_edges(struct hsdwl_server *server,
 		struct hsdwl_view *view, double cursor_x, double cursor_y)
 {
@@ -279,7 +345,10 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 				&sx, &sy);
 
 			if (target && target != server->grabbed_view
-					&& target->tab_group != g)
+					&& target->tab_group != g
+					&& overlap_meets_threshold(
+						server->grabbed_view, target,
+						server->config.group_overlap_threshold))
 			{
 				if (server->grab_target != target)
 				{
@@ -332,7 +401,10 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 			wlr_scene_node_set_enabled(
 				&server->grabbed_view->scene_tree->node, vw);
 
-		if (target && target != server->grabbed_view)
+		if (target && target != server->grabbed_view
+				&& overlap_meets_threshold(
+					server->grabbed_view, target,
+					server->config.group_overlap_threshold))
 			{
 				if (server->grab_target != target)
 				{
@@ -364,6 +436,46 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 	case HSDWL_CURSOR_RESIZE:
 		apply_resize(server);
 		return true;
+	case HSDWL_CURSOR_TAB_REORDER:
+	{
+		struct hsdwl_view *v = server->grabbed_view;
+		if (!v || !v->tab_group || !v->tab_group->scene_tree)
+		{
+			server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
+			server->grabbed_view = NULL;
+			return true;
+		}
+		struct hsdwl_tab_group *g = v->tab_group;
+		int num = wl_list_length(&g->tab_buttons);
+		if (num < 2)
+		{
+			server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
+			server->grabbed_view = NULL;
+			return true;
+		}
+		/* only reorder when cursor is inside the tab bar */
+		double local_y = server->cursor->y
+			- g->scene_tree->node.y;
+		if (local_y < 0 || local_y >= g->tab_bar_thickness)
+			return true;
+		double local_x = server->cursor->x
+			- g->scene_tree->node.x;
+		int seg = g->content_area_box.width / num;
+		int idx = (int)(local_x / seg);
+		if (idx < 0) idx = 0;
+		if (idx >= num) idx = num - 1;
+		int old_idx = 0;
+		struct hsdwl_tab_button *btn;
+		wl_list_for_each(btn, &g->tab_buttons, link)
+		{
+			if (btn->view == v)
+				break;
+			old_idx++;
+		}
+		if (idx != old_idx)
+			hsdwl_tab_group_reorder(g, v, idx);
+		return true;
+	}
 	default:
 		return false;
 	}
@@ -410,22 +522,38 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			server->cursor->x, server->cursor->y);
 		if (tv && tv->tab_group)
 		{
+			struct hsdwl_tab_group *g = tv->tab_group;
+			double ly = server->cursor->y - g->scene_tree->node.y;
+			bool on_tab_bar = ly >= 0
+				&& ly < g->tab_bar_thickness;
+
 			if (event->button == BTN_RIGHT)
 			{
-				FILE *lf = fopen("/tmp/hsdwl-debug.log", "a");
-				if (lf) {
-					fprintf(lf, "pointer: right-click on view=%p group=%p\n",
-						(void*)tv, (void*)tv->tab_group);
-					fclose(lf);
+				if (on_tab_bar)
+				{
+					hsdwl_tab_group_remove_view(g, tv);
+					return;
 				}
-				hsdwl_tab_group_remove_view(tv->tab_group, tv);
+			}
+			else if (on_tab_bar)
+			{
+				hsdwl_tab_group_set_active(g, tv);
+				server->cursor_mode =
+					HSDWL_CURSOR_TAB_REORDER;
+				server->grabbed_view = tv;
+				server->grab_x = server->cursor->x;
+				server->grab_y = server->cursor->y;
+				wlr_cursor_set_xcursor(
+					server->cursor,
+					server->cursor_mgr,
+					"grabbing");
 				return;
 			}
-			hsdwl_tab_group_set_active(tv->tab_group, tv);
-			wlr_seat_pointer_notify_button(server->seat,
-				event->time_msec, event->button, event->state);
-			view_focus(server, tv);
-			return;
+			else
+			{
+				hsdwl_tab_group_set_active(g, tv);
+				/* content area click: fall through */
+			}
 		}
 
 		struct wlr_keyboard *kb = wlr_seat_get_keyboard(server->seat);
@@ -616,7 +744,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 	}
 
 	if (server->cursor_mode == HSDWL_CURSOR_MOVE
-			|| server->cursor_mode == HSDWL_CURSOR_RESIZE)
+			|| server->cursor_mode == HSDWL_CURSOR_RESIZE
+			|| server->cursor_mode == HSDWL_CURSOR_TAB_REORDER)
 	{
 		if (server->cursor_mode == HSDWL_CURSOR_MOVE
 				&& server->grab_target

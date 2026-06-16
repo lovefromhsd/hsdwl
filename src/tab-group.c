@@ -677,18 +677,20 @@ void hsdwl_tab_group_reorder(struct hsdwl_tab_group *group,
 	if (btn && btn->link.next)
 	{
 		wl_list_remove(&btn->link);
-		int pos = 0;
 		struct hsdwl_tab_button *tmp;
+		bool inserted = false;
+		int pos = 0;
 		wl_list_for_each(tmp, &group->tab_buttons, link)
 		{
 			if (pos == new_index)
 			{
 				wl_list_insert(tmp->link.prev, &btn->link);
+				inserted = true;
 				break;
 			}
 			pos++;
 		}
-		if (pos == count)
+		if (!inserted)
 			wl_list_insert(group->tab_buttons.prev, &btn->link);
 	}
 

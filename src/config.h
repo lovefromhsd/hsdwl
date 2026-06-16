@@ -50,6 +50,7 @@ struct hsdwl_config
 	float title_text_color[4];
 	float title_text_color_focused[4];
 	float preview_color[4];
+	float group_overlap_threshold;
 	char mod_key[32];
 	char kb_layout[128];
 	bool smart_gaps;
