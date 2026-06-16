@@ -731,10 +731,12 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		struct wlr_box obox;
 		wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
 
-		/* view is inside the stage tree which is inside the canvas
-		   at x=SIDEBAR_WIDTH — shift left to cover the sidebar area */
+		int pad = 16;
+		int fw = obox.width - pad;
+		if (fw < 1) fw = 1;
+
 		wlr_scene_node_set_position(&view->scene_tree->node,
-			-SIDEBAR_WIDTH, 0);
+			-SIDEBAR_WIDTH + pad, 0);
 		if (view->content_tree)
 			wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
 
@@ -746,10 +748,10 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 		if (view->xdg_surface && view->xdg_surface->configured)
 			wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
-				obox.width, obox.height);
+				fw, obox.height);
 		else if (view->xwayland_surface)
 			wlr_xwayland_surface_configure(view->xwayland_surface,
-				-SIDEBAR_WIDTH, 0, obox.width, obox.height);
+				-SIDEBAR_WIDTH + pad, 0, fw, obox.height);
 
 		view->zoomed = false;
 		view->maximized = true;
@@ -786,11 +788,12 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	   so position (0,0) relative to stage tree = right after sidebar */
 	int bw = cfg->border_width;
 	int tb = cfg->titlebar_height;
-	int zw = obox.width - SIDEBAR_WIDTH;
+	int pad = 16;
+	int zw = obox.width - SIDEBAR_WIDTH - pad;
 	int zh = obox.height;
 	if (zw < 1) zw = 1;
 
-	wlr_scene_node_set_position(&view->scene_tree->node, 0, 0);
+	wlr_scene_node_set_position(&view->scene_tree->node, pad, 0);
 	if (view->content_tree)
 		wlr_scene_node_set_position(&view->content_tree->node,
 			bw, tb > 0 ? tb : bw);
@@ -804,7 +807,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel, cw, ch);
 	else if (view->xwayland_surface)
 		wlr_xwayland_surface_configure(view->xwayland_surface,
-			0, 0, cw, ch);
+			pad, 0, cw, ch);
 
 	view_borders_update(view);
 	titlebar_text_update(view);
