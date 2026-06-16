@@ -102,7 +102,7 @@ struct hsdwl_server
 	struct wl_listener drag_icon_destroy;
 	struct wl_list tab_groups;
 	struct wlr_scene_tree *preview_tree;
-	struct wlr_scene_rect *resize_preview;
+	struct wlr_scene_rect *resize_preview[4];
 	int resize_preview_x;
 	int resize_preview_y;
 	int resize_preview_w;

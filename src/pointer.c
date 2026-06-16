@@ -166,11 +166,30 @@ static void apply_resize(struct hsdwl_server *server)
 	if (new_h < server->config.min_window_size)
 		new_h = server->config.min_window_size;
 
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
+	if (tb < 0) tb = 0;
+
+	/* compute full window dimensions including borders/titlebar */
+	int pw, ph;
+	if (tb > 0)
+	{
+		pw = new_w + 2 * bw;
+		ph = new_h + tb + bw;
+	}
+	else
+	{
+		pw = new_w + 2 * bw;
+		ph = new_h + 2 * bw;
+	}
+
 	if (hsdwl_tab_group_is_member(server->grabbed_view))
 	{
 		struct hsdwl_tab_group *g = server->grabbed_view->tab_group;
 		if (g && g->scene_tree)
 			new_y -= g->tab_bar_thickness;
+		pw = new_w;
+		ph = new_h;
 	}
 
 	server->resize_preview_x = new_x;
@@ -178,23 +197,57 @@ static void apply_resize(struct hsdwl_server *server)
 	server->resize_preview_w = new_w;
 	server->resize_preview_h = new_h;
 
-	if (!server->resize_preview)
+	/* create 4 preview rects forming a border outline */
+	float *col = server->config.border_color_focused;
+	for (int i = 0; i < 4; i++)
 	{
-		server->resize_preview = wlr_scene_rect_create(
-			&server->scene->tree, new_w, new_h,
-			server->config.border_color_focused);
-		if (server->resize_preview)
-			wlr_scene_node_raise_to_top(
-				&server->resize_preview->node);
+		if (!server->resize_preview[i])
+		{
+			server->resize_preview[i] = wlr_scene_rect_create(
+				&server->scene->tree, 1, 1, col);
+			if (server->resize_preview[i])
+				wlr_scene_node_raise_to_top(
+					&server->resize_preview[i]->node);
+		}
 	}
-	if (server->resize_preview)
-	{
+
+	/* top */
+	if (server->resize_preview[0]) {
 		wlr_scene_rect_set_size(
-			server->resize_preview, new_w, new_h);
+			server->resize_preview[0], pw, bw);
 		wlr_scene_node_set_position(
-			&server->resize_preview->node, new_x, new_y);
+			&server->resize_preview[0]->node, new_x, new_y);
 		wlr_scene_node_set_enabled(
-			&server->resize_preview->node, true);
+			&server->resize_preview[0]->node, true);
+	}
+	/* bottom */
+	if (server->resize_preview[1]) {
+		wlr_scene_rect_set_size(
+			server->resize_preview[1], pw, bw);
+		wlr_scene_node_set_position(
+			&server->resize_preview[1]->node,
+			new_x, new_y + ph - bw);
+		wlr_scene_node_set_enabled(
+			&server->resize_preview[1]->node, true);
+	}
+	/* left */
+	if (server->resize_preview[2]) {
+		wlr_scene_rect_set_size(
+			server->resize_preview[2], bw, ph);
+		wlr_scene_node_set_position(
+			&server->resize_preview[2]->node, new_x, new_y);
+		wlr_scene_node_set_enabled(
+			&server->resize_preview[2]->node, true);
+	}
+	/* right */
+	if (server->resize_preview[3]) {
+		wlr_scene_rect_set_size(
+			server->resize_preview[3], bw, ph);
+		wlr_scene_node_set_position(
+			&server->resize_preview[3]->node,
+			new_x + pw - bw, new_y);
+		wlr_scene_node_set_enabled(
+			&server->resize_preview[3]->node, true);
 	}
 }
 
@@ -585,8 +638,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			}
 		}
 
-		if (server->cursor_mode == HSDWL_CURSOR_RESIZE
-				&& server->resize_preview)
+		if (server->cursor_mode == HSDWL_CURSOR_RESIZE)
 		{
 			int fx = server->resize_preview_x;
 			int fy = server->resize_preview_y;
@@ -622,7 +674,8 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 							->xdg_surface->toplevel,
 						fw, fh);
 				}
-				else if (server->grabbed_view->xwayland_surface)
+				else if (server->grabbed_view
+						->xwayland_surface)
 				{
 					wlr_xwayland_surface_configure(
 						server->grabbed_view
@@ -631,11 +684,19 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				}
 			}
 
-			wlr_scene_node_set_enabled(
-				&server->resize_preview->node, false);
-			wlr_scene_node_destroy(
-				&server->resize_preview->node);
-			server->resize_preview = NULL;
+			for (int i = 0; i < 4; i++)
+			{
+				if (server->resize_preview[i])
+				{
+					wlr_scene_node_set_enabled(
+						&server->resize_preview[i]
+							->node, false);
+					wlr_scene_node_destroy(
+						&server->resize_preview[i]
+							->node);
+					server->resize_preview[i] = NULL;
+				}
+			}
 		}
 
 		struct hsdwl_tab_group *__tg;
