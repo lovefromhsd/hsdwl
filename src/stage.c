@@ -28,9 +28,18 @@ static void stage_set_views_enabled(struct custom_stage *stage, bool enabled)
 	struct custom_window *cw;
 	wl_list_for_each(cw, &stage->windows, link)
 	{
-		if (cw->view && cw->view->scene_tree)
+		if (cw->view && cw->view->tab_group
+				&& cw->view->tab_group->scene_tree)
+		{
+			wlr_scene_node_set_enabled(
+				&cw->view->tab_group->scene_tree->node,
+				enabled);
+		}
+		else if (cw->view && cw->view->scene_tree)
+		{
 			wlr_scene_node_set_enabled(
 				&cw->view->scene_tree->node, enabled);
+		}
 	}
 }
 
@@ -41,7 +50,15 @@ static void stage_reparent_to_canvas(struct custom_stage *stage,
 	struct custom_window *cw;
 	wl_list_for_each(cw, &stage->windows, link)
 	{
-		if (cw->view && cw->view->scene_tree)
+		if (cw->view && cw->view->tab_group
+				&& cw->view->tab_group->scene_tree
+				&& cw->view->tab_group->scene_tree->node.parent
+					== stage->tree)
+		{
+			wlr_scene_node_set_enabled(
+				&cw->view->tab_group->scene_tree->node, true);
+		}
+		else if (cw->view && cw->view->scene_tree)
 		{
 			wlr_scene_node_reparent(
 				&cw->view->scene_tree->node,

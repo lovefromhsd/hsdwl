@@ -731,7 +731,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		struct wlr_box obox;
 		wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
 
-		int pad = 16;
+		int pad = 0;
 		int fw = obox.width - pad;
 		if (fw < 1) fw = 1;
 

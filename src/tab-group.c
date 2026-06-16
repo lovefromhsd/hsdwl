@@ -231,7 +231,8 @@ static void view_enter_tab_group(struct hsdwl_view *view,
 static void view_leave_tab_group(struct hsdwl_view *view)
 {
 	struct hsdwl_server *server = view->server;
-	if (!view->tab_group)
+	struct hsdwl_tab_group *g = view->tab_group;
+	if (!g)
 		return;
 
 	view->tab_group = NULL;
@@ -241,15 +242,28 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 	if (!view->scene_tree)
 		return;
 
-	struct wlr_scene_tree *ws =
-		server->workspaces[server->current_workspace];
+	/* reparent back to the group's parent tree (stage or workspace) */
+	struct wlr_scene_tree *target = g->scene_tree && g->scene_tree->node.parent
+		? g->scene_tree->node.parent
+		: server->workspaces[server->current_workspace];
+
+	/* compute absolute scene offset of the target tree */
+	int off_x = 0, off_y = 0;
+	struct wlr_scene_tree *pn = target;
+	while (pn)
+	{
+		off_x += pn->node.x;
+		off_y += pn->node.y;
+		pn = pn->node.parent;
+	}
+
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
 	if (tb < 0) tb = 0;
-	int pos_x = (int)server->cursor->x;
-	int pos_y = (int)server->cursor->y;
+	int pos_x = (int)server->cursor->x - off_x;
+	int pos_y = (int)server->cursor->y - off_y;
 
-	wlr_scene_node_reparent(&view->scene_tree->node, ws);
+	wlr_scene_node_reparent(&view->scene_tree->node, target);
 	wlr_scene_node_set_position(&view->scene_tree->node, pos_x, pos_y);
 	wlr_scene_node_set_enabled(&view->scene_tree->node, true);
 	if (view->content_tree)
@@ -900,15 +914,38 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 	if (hsdwl_tab_group_is_member(target))
 	{
 		struct hsdwl_tab_group *g = target->tab_group;
-		tx = g->scene_tree->node.x;
-		ty = g->scene_tree->node.y;
+		if (g->maximized)
+		{
+			tx = 0;
+			ty = 0;
+		}
+		else
+		{
+			tx = g->scene_tree->node.x;
+			ty = g->scene_tree->node.y;
+			struct wlr_scene_tree *pn = g->scene_tree->node.parent;
+			while (pn)
+			{
+				tx += pn->node.x;
+				ty += pn->node.y;
+				pn = pn->node.parent;
+			}
+		}
 		tw = g->content_area_box.width;
 		th = g->content_area_box.height;
 	}
 	else
 	{
-		tx = target->scene_tree->node.x;
-		ty = target->scene_tree->node.y;
+		if (target->maximized)
+		{
+			tx = 0;
+			ty = 0;
+		}
+		else
+		{
+			tx = target->scene_tree->node.x;
+			ty = target->scene_tree->node.y;
+		}
 		tw = 800; th = 600;
 		if (target->xdg_surface && target->xdg_surface->configured)
 		{
