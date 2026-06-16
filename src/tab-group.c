@@ -240,6 +240,8 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 	{
 		wlr_scene_node_reparent(&view->scene_tree->node,
 			server->workspaces[server->current_workspace]);
+		wlr_scene_node_set_enabled(
+			&view->scene_tree->node, true);
 
 		wlr_scene_node_set_position(&view->scene_tree->node,
 			server->cursor->x, server->cursor->y);
@@ -461,13 +463,21 @@ void hsdwl_tab_group_remove_view(struct hsdwl_tab_group *group,
 	if (wl_list_length(&group->views) <= 1)
 	{
 		struct hsdwl_view *remaining = NULL;
+		int gx = group->scene_tree ? group->scene_tree->node.x : 0;
+		int gy = group->scene_tree ? group->scene_tree->node.y : 0;
 		if (wl_list_length(&group->views) == 1)
 		{
 			remaining = wl_container_of(
 				group->views.next, remaining, tab_group_link);
 		}
 		if (remaining)
+		{
 			view_leave_tab_group(remaining);
+			if (remaining->scene_tree)
+				wlr_scene_node_set_position(
+					&remaining->scene_tree->node,
+					gx, gy);
+		}
 		hsdwl_tab_group_destroy(group);
 		return;
 	}

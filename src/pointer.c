@@ -298,6 +298,11 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			server->cursor->x, server->cursor->y);
 		if (tv && tv->tab_group)
 		{
+			if (event->button == BTN_RIGHT)
+			{
+				hsdwl_tab_group_remove_view(tv->tab_group, tv);
+				return;
+			}
 			hsdwl_tab_group_set_active(tv->tab_group, tv);
 			wlr_seat_pointer_notify_button(server->seat,
 				event->time_msec, event->button, event->state);
