@@ -3,6 +3,7 @@
 
 #include "xwayland.h"
 #include "server.h"
+#include "stage.h"
 #include "tab-group.h"
 #include "view.h"
 
@@ -102,7 +103,12 @@ static void xwayland_view_handle_surface_map(
 	if (!xsurface->override_redirect
 			|| wlr_xwayland_surface_override_redirect_wants_focus(
 				xsurface))
-		view_focus(view->server, view);
+	{
+		if (view->server->config.stage_manager_enabled)
+			stage_manager_new_window(view->server, view);
+		else
+			view_focus(view->server, view);
+	}
 }
 
 static void xwayland_view_handle_surface_unmap(
@@ -241,6 +247,8 @@ static void xwayland_view_handle_destroy(
 		view->scene_tree->node.data = NULL;
 		wlr_scene_node_destroy(&view->scene_tree->node);
 	}
+	if (view->server->config.stage_manager_enabled)
+		stage_manager_notify_view_removed(view->server, view);
 	wl_list_remove(&view->link);
 	wl_list_remove(&view->associate.link);
 	wl_list_remove(&view->dissociate.link);

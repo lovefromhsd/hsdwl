@@ -2,6 +2,7 @@
 #define HSDWL_VIEW_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <wayland-server-core.h>
 #include <wlr/util/box.h>
 

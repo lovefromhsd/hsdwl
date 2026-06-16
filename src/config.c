@@ -61,6 +61,7 @@ static const char *default_config_text =
 	"mod_key = Mod1\n"
 	"kb_layout = us\n"
 	"smart_gaps = true\n"
+	"stage_manager = true\n"
 	"group_overlap_threshold = 0.5\n"
 	"\n"
 	"bind = mod_key+Return, foot\n"
@@ -194,6 +195,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	parse_hex_color("#ffffff", cfg->title_text_color_focused);
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
 	cfg->smart_gaps = true;
+	cfg->stage_manager_enabled = true;
 	cfg->group_overlap_threshold = 0.5f;
 	parse_hex_color("#334466", cfg->preview_color);
 
@@ -326,6 +328,8 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			parse_hex_color(val, cfg->title_text_color_focused);
 		else if (strcmp(key, "smart_gaps") == 0)
 			cfg->smart_gaps = strcmp(val, "true") == 0;
+		else if (strcmp(key, "stage_manager") == 0)
+			cfg->stage_manager_enabled = strcmp(val, "true") == 0;
 		else if (strcmp(key, "group_overlap_threshold") == 0)
 			cfg->group_overlap_threshold = atof(val);
 

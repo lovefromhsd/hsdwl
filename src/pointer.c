@@ -4,6 +4,7 @@
 #include "layer-shell.h"
 #include "pointer.h"
 #include "server.h"
+#include "stage.h"
 #include "tab-group.h"
 #include "view.h"
 
@@ -436,6 +437,8 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 	case HSDWL_CURSOR_RESIZE:
 		apply_resize(server);
 		return true;
+	case HSDWL_CURSOR_STAGE_DRAG:
+		return true;
 	case HSDWL_CURSOR_TAB_REORDER:
 	{
 		struct hsdwl_view *v = server->grabbed_view;
@@ -518,6 +521,27 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
 	{
+		/* stage manager sidebar click */
+		if (server->config.stage_manager_enabled
+				&& server->cursor->x < SIDEBAR_WIDTH
+				&& event->button == BTN_LEFT)
+		{
+			struct custom_stage *stage = stage_at(server,
+				server->cursor->x, server->cursor->y,
+				server->current_workspace);
+			if (stage)
+			{
+				server->cursor_mode =
+					HSDWL_CURSOR_STAGE_DRAG;
+				server->drag_source_stage = stage;
+				wlr_cursor_set_xcursor(
+					server->cursor,
+					server->cursor_mgr,
+					"grabbing");
+				return;
+			}
+		}
+
 		struct hsdwl_view *tv = hsdwl_tab_group_view_at(server,
 			server->cursor->x, server->cursor->y);
 		if (tv && tv->tab_group)
@@ -740,6 +764,25 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				}
 			}
 		}
+		return;
+	}
+
+	if (server->cursor_mode == HSDWL_CURSOR_STAGE_DRAG)
+	{
+		if (server->drag_source_stage)
+		{
+			size_t ws = server->current_workspace;
+			if (server->cursor->x > SIDEBAR_WIDTH)
+				stage_manager_merge(server,
+					server->drag_source_stage, ws);
+			else
+				stage_manager_switch(server,
+					server->drag_source_stage, ws);
+		}
+		server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
+		server->drag_source_stage = NULL;
+		wlr_cursor_set_xcursor(server->cursor,
+			server->cursor_mgr, "default");
 		return;
 	}
 

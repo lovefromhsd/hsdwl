@@ -54,6 +54,7 @@ struct hsdwl_config
 	char mod_key[32];
 	char kb_layout[128];
 	bool smart_gaps;
+	bool stage_manager_enabled;
 	struct wl_list bindings;
 };
 

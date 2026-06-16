@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "layer-shell.h"
+#include "stage.h"
 #include "tab-group.h"
 #include "view.h"
 #include "server.h"
@@ -263,7 +264,10 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 	}
 
 	titlebar_text_update(view);
-	view_focus(view->server, view);
+	if (view->server->config.stage_manager_enabled)
+		stage_manager_new_window(view->server, view);
+	else
+		view_focus(view->server, view);
 }
 
 struct wlr_surface *view_get_surface(struct hsdwl_view *view)
@@ -475,15 +479,29 @@ static bool view_is_usable(struct hsdwl_view *v)
 	return false;
 }
 
+static bool scene_tree_is_descendant(struct wlr_scene_tree *tree,
+		struct wlr_scene_tree *ancestor)
+{
+	if (!tree || !ancestor) return false;
+	struct wlr_scene_tree *p = tree;
+	while (p)
+	{
+		if (p == ancestor) return true;
+		p = p->node.parent;
+	}
+	return false;
+}
+
 static bool view_on_workspace(struct hsdwl_view *v,
 		struct wlr_scene_tree *ws)
 {
 	if (!v->scene_tree || !ws)
 		return false;
-	if (v->scene_tree->node.parent == ws)
+	if (scene_tree_is_descendant(v->scene_tree->node.parent, ws))
 		return true;
 	if (v->tab_group && v->tab_group->scene_tree
-			&& v->tab_group->scene_tree->node.parent == ws)
+			&& scene_tree_is_descendant(
+				v->tab_group->scene_tree->node.parent, ws))
 		return true;
 	return false;
 }
@@ -555,7 +573,8 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 	}
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
-	view_focus(view->server, view_next(view->server, view));
+	if (!view->server->config.stage_manager_enabled)
+		view_focus(view->server, view_next(view->server, view));
 }
 
 static void view_handle_commit(struct wl_listener *listener, void *data)
@@ -595,6 +614,9 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 
 	view_borders_update(view);
 	titlebar_text_update(view);
+
+	if (view->server->config.stage_manager_enabled)
+		stage_manager_notify_surface_commit(view->server, view);
 }
 
 static void view_handle_toplevel_destroy(struct wl_listener *listener, void *data)
@@ -641,6 +663,8 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&view->destroy.link);
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
+	if (view->server->config.stage_manager_enabled)
+		stage_manager_notify_view_removed(view->server, view);
 	free(view);
 }
 

@@ -9,6 +9,7 @@
 #include <wayland-server-core.h>
 
 #include "config.h"
+#include "stage.h"
 #include "tab-group.h"
 
 #define HSDWL_NUM_WORKSPACES 9
@@ -39,6 +40,7 @@ enum hsdwl_cursor_mode
 	HSDWL_CURSOR_MOVE,
 	HSDWL_CURSOR_RESIZE,
 	HSDWL_CURSOR_TAB_REORDER,
+	HSDWL_CURSOR_STAGE_DRAG,
 };
 
 struct hsdwl_server
@@ -108,6 +110,13 @@ struct hsdwl_server
 	int resize_preview_y;
 	int resize_preview_w;
 	int resize_preview_h;
+
+	/* stage manager */
+	struct workspace_stage_mgr ws_stage_mgrs[HSDWL_NUM_WORKSPACES];
+	struct wlr_scene_tree *ws_sidebar_trees[HSDWL_NUM_WORKSPACES];
+	struct wlr_scene_rect *ws_sidebar_bgs[HSDWL_NUM_WORKSPACES];
+	struct wlr_scene_tree *ws_stage_canvases[HSDWL_NUM_WORKSPACES];
+	struct custom_stage *drag_source_stage;
 };
 
 bool hsdwl_server_init(struct hsdwl_server *server);

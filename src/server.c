@@ -6,6 +6,7 @@
 #include "output.h"
 #include "output-management.h"
 #include "pointer.h"
+#include "stage.h"
 #include "tab-group.h"
 #include "view.h"
 #include "xwayland.h"
@@ -395,6 +396,8 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		return false;
 	}
 
+	stage_manager_init(server);
+
 	return true;
 }
 
@@ -417,6 +420,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wlr_cursor_destroy(server->cursor);
 	if (server->preview_tree)
 		wlr_scene_node_destroy(&server->preview_tree->node);
+	stage_manager_destroy(server);
 	hsdwl_tab_group_finish(server);
 	hsdwl_xwayland_finish(server);
 	output_manager_finish(server);
