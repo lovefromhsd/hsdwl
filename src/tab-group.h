@@ -21,7 +21,6 @@ struct hsdwl_tab_button
 {
 	struct wl_list link;
 	struct hsdwl_view *view;
-	struct wlr_scene_rect *bg;
 	struct wlr_scene_buffer *text;
 };
 
@@ -32,7 +31,7 @@ struct hsdwl_tab_group
 	struct wl_list views;
 	struct hsdwl_view *active;
 	struct wlr_scene_tree *scene_tree;
-	struct wlr_scene_rect *tab_bar_bg;
+	struct wlr_scene_buffer *tab_bar_bg;
 	struct wl_list tab_buttons;
 	struct wlr_scene_tree *content_area;
 	struct wlr_box content_area_box;

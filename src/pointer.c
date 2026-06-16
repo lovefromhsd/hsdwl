@@ -190,29 +190,41 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 
 		if (!hsdwl_tab_group_is_member(server->grabbed_view))
 		{
-			bool was_enabled =
+			bool vw =
 				server->grabbed_view->scene_tree->node.enabled;
 			wlr_scene_node_set_enabled(
 				&server->grabbed_view->scene_tree->node, false);
+
+			bool pvw = server->preview_tree
+				&& server->preview_tree->node.enabled;
+			if (server->preview_tree)
+				wlr_scene_node_set_enabled(
+					&server->preview_tree->node, false);
 
 			double sx, sy;
 			struct hsdwl_view *target = view_at(server,
 				server->cursor->x, server->cursor->y, &sx, &sy);
 
 			wlr_scene_node_set_enabled(
-				&server->grabbed_view->scene_tree->node,
-				was_enabled);
+				&server->grabbed_view->scene_tree->node, vw);
 
 			if (target && target != server->grabbed_view
 					&& !hsdwl_tab_group_is_member(target))
 			{
 				if (server->grab_target != target)
 				{
+					if (server->preview_tree)
+						hsdwl_tab_group_hide_preview(server);
 					server->grab_target = target;
 					hsdwl_tab_group_show_preview(server,
 						target,
 						server->cursor->x,
 						server->cursor->y);
+				}
+				else if (server->preview_tree && pvw)
+				{
+					wlr_scene_node_set_enabled(
+						&server->preview_tree->node, true);
 				}
 			}
 			else
