@@ -85,7 +85,9 @@ static const char *default_config_text =
 	"bind = mod_key+Shift+8, move_to_workspace, 8\n"
 	"bind = mod_key+Shift+9, move_to_workspace, 9\n"
 	"bind = mod_key+Q, close_focused\n"
-	"bind = mod_key+i, maximize\n";
+	"bind = mod_key+i, maximize\n"
+	"bind = mod_key+h, cycle_tab_prev\n"
+	"bind = mod_key+l, cycle_tab_next\n";
 
 static void write_default_config(const char *path)
 {

@@ -503,6 +503,8 @@ struct hsdwl_view *view_next(struct hsdwl_server *server,
 	{
 		if (!view_is_usable(v) || !view_on_workspace(v, ws))
 			continue;
+		if (v->tab_group && v != v->tab_group->active)
+			continue;
 		if (!first)
 			first = v;
 		if (found)
@@ -524,6 +526,8 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 	wl_list_for_each_reverse(v, &server->views, link)
 	{
 		if (!view_is_usable(v) || !view_on_workspace(v, ws))
+			continue;
+		if (v->tab_group && v != v->tab_group->active)
 			continue;
 		if (!last)
 			last = v;
