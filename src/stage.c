@@ -175,35 +175,23 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 		return;
 	}
 
-	/* clear with dark background */
+	/* clear with fully transparent */
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 		.box = { .width = thumb_w, .height = thumb_h },
-		.color = { 0.08f, 0.08f, 0.10f, 1.0f },
+		.color = { 0.0f, 0.0f, 0.0f, 0.0f },
 	});
 
-	float x_scale = (float)thumb_w / bbox.width;
-	float y_scale = (float)thumb_h / bbox.height;
+	float scale = (float)thumb_w / bbox.width;
 
 	wl_list_for_each(cw, &stage->windows, link)
 	{
-		float sx = (cw->x - bbox.x) * x_scale;
-		float sy = (cw->y - bbox.y) * y_scale;
-		float sw = cw->w * x_scale;
-		float sh = cw->h * y_scale;
+		float sx = (cw->x - bbox.x) * scale;
+		float sy = (cw->y - bbox.y) * scale;
+		float sw = cw->w * scale;
+		float sh = cw->h * scale;
 
 		if (sw < 2 || sh < 2)
 			continue;
-
-		/* dimmed background rect for the window area */
-		wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
-			.box = {
-				.x = (int)(sx + 0.5f),
-				.y = (int)(sy + 0.5f),
-				.width = (int)(sw + 0.5f),
-				.height = (int)(sh + 0.5f),
-			},
-			.color = { 0.18f, 0.18f, 0.20f, 0.8f },
-		});
 
 		/* render actual window content texture, scaled down */
 		struct wlr_surface *surface = view_get_surface(cw->view);
@@ -213,7 +201,7 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 				wlr_surface_get_texture(surface);
 			if (texture)
 			{
-				const float tex_alpha = 0.65f;
+				const float tex_alpha = 1.0f;
 				wlr_render_pass_add_texture(pass,
 					&(struct wlr_render_texture_options){
 					.texture = texture,
@@ -228,17 +216,6 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 				});
 			}
 		}
-
-		/* border outline */
-		wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
-			.box = {
-				.x = (int)(sx + 0.5f),
-				.y = (int)(sy + 0.5f),
-				.width = (int)(sw + 0.5f),
-				.height = (int)(sh + 0.5f),
-			},
-			.color = { 0.40f, 0.40f, 0.45f, 0.4f },
-		});
 	}
 
 	if (!wlr_render_pass_submit(pass))
@@ -246,6 +223,7 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 
 	/* display the rendered thumbnail in the sidebar */
 	wlr_scene_buffer_set_buffer(stage->thumb_buf, buf);
+	wlr_scene_buffer_set_dest_size(stage->thumb_buf, thumb_w, thumb_h);
 	wlr_buffer_drop(buf);
 }
 
@@ -268,7 +246,7 @@ void stage_manager_init(struct hsdwl_server *server)
 		server->ws_sidebar_bgs[i] = wlr_scene_rect_create(
 			server->ws_sidebar_trees[i],
 			SIDEBAR_WIDTH, 4096,
-			(float[]){0.12f, 0.12f, 0.14f, 1.0f});
+			(float[]){0.0f, 0.0f, 0.0f, 0.0f});
 		if (!server->ws_sidebar_bgs[i])
 			wlr_log(WLR_ERROR, "sidebar_bg create failed");
 
@@ -368,7 +346,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 
 	stage->thumb_bg = wlr_scene_rect_create(
 		stage->thumb_tree, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, 1,
-		(float[]){0.18f, 0.18f, 0.20f, 0.9f});
+		(float[]){0.0f, 0.0f, 0.0f, 0.0f});
 	if (!stage->thumb_bg)
 		wlr_log(WLR_ERROR, "thumb_bg create failed");
 
@@ -572,16 +550,23 @@ void stage_manager_merge(struct hsdwl_server *server,
 void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
-	int y = STAGE_THUMB_PAD;
 	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+
+	/* first pass: compute thumbnail dimensions and total height */
+	struct thumb_info {
+		int h;
+		int w;
+		struct custom_stage *st;
+	} infos[64];
+	int ninfo = 0;
+	int total_h = 0;
 
 	struct custom_stage *st;
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 	{
-		if (wl_list_empty(&st->windows))
+		if (wl_list_empty(&st->windows) || ninfo >= 64)
 			continue;
 
-		/* compute bounding box for sizing */
 		struct wlr_box bbox = {0};
 		bool first = true;
 		struct custom_window *cw;
@@ -606,24 +591,54 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 				bbox.height = y2 - y1;
 			}
 		}
-
 		if (bbox.width < 1 || bbox.height < 1)
 			continue;
 
-		int thumb_h = (int)(bbox.height * (float)thumb_w / bbox.width);
-		if (thumb_h < 20) thumb_h = 20;
-		if (thumb_h > 300) thumb_h = 300;
+		int tw = thumb_w;
+		int th = (int)(bbox.height * (float)tw / bbox.width);
+		if (th > 300)
+		{
+			float ar = (float)bbox.width / bbox.height;
+			th = 300;
+			tw = (int)(300 * ar);
+			if (tw < 20) tw = 20;
+		}
 
-		if (st->thumb_bg)
-			wlr_scene_rect_set_size(st->thumb_bg, thumb_w, thumb_h);
+		infos[ninfo].h = th;
+		infos[ninfo].w = tw;
+		infos[ninfo].st = st;
+		ninfo++;
+		total_h += th;
+	}
+	if (ninfo == 0) return;
 
-		/* render actual window content scaled down into the thumbnail */
-		stage_render_thumbnail(server, st, thumb_w, thumb_h);
+	total_h += (ninfo - 1) * STAGE_THUMB_GAP;
+
+	/* get sidebar height from the first output */
+	int sidebar_h = 1050; /* fallback */
+	if (!wl_list_empty(&server->outputs))
+	{
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			sidebar_h = o->wlr_output->height;
+	}
+	int y = (sidebar_h - total_h) / 2;
+	if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
+
+	/* second pass: render and position */
+	for (int i = 0; i < ninfo; i++)
+	{
+		struct custom_stage *st = infos[i].st;
+		int tw = infos[i].w;
+		int th = infos[i].h;
+
+		stage_render_thumbnail(server, st, tw, th);
 
 		wlr_scene_node_set_position(
 			&st->thumb_tree->node, STAGE_THUMB_PAD, y);
 
-		y += thumb_h + STAGE_THUMB_GAP;
+		y += th + STAGE_THUMB_GAP;
 		st->thumb_dirty = false;
 	}
 }
@@ -676,14 +691,15 @@ void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 		if (bbox.width < 1 || bbox.height < 1) return;
 
 		int thumb_h = (int)(bbox.height * (float)thumb_w / bbox.width);
-		if (thumb_h < 20) thumb_h = 20;
-		if (thumb_h > 300) thumb_h = 300;
+		if (thumb_h > 300)
+		{
+			float ar = (float)bbox.width / bbox.height;
+			thumb_h = 300;
+			thumb_w = (int)(300 * ar);
+			if (thumb_w < 20) thumb_w = 20;
+		}
 
 		stage_render_thumbnail(server, st, thumb_w, thumb_h);
-
-		if (st->thumb_bg)
-			wlr_scene_rect_set_size(st->thumb_bg, thumb_w, thumb_h);
-
 		return;
 	}
 }
@@ -749,7 +765,7 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 
 		active->thumb_bg = wlr_scene_rect_create(active->thumb_tree,
 			SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, 1,
-			(float[]){0.18f, 0.18f, 0.20f, 0.9f});
+			(float[]){0.0f, 0.0f, 0.0f, 0.0f});
 		active->thumb_buf = wlr_scene_buffer_create(
 			active->thumb_tree, NULL);
 
@@ -806,7 +822,7 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 			st->thumb_bg = wlr_scene_rect_create(
 				st->thumb_tree,
 				SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD,
-				1, (float[]){0.18f, 0.18f, 0.20f, 0.9f});
+				1, (float[]){0.0f, 0.0f, 0.0f, 0.0f});
 			st->thumb_buf = wlr_scene_buffer_create(
 				st->thumb_tree, NULL);
 
