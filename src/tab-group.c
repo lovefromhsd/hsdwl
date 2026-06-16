@@ -238,38 +238,34 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 	wl_list_remove(&view->tab_group_link);
 	wl_list_init(&view->tab_group_link);
 
-	if (view->scene_tree)
-	{
-		wlr_scene_node_reparent(&view->scene_tree->node,
-			server->workspaces[server->current_workspace]);
-		wlr_scene_node_set_enabled(
-			&view->scene_tree->node, true);
+	if (!view->scene_tree)
+		return;
 
-		wlr_scene_node_set_position(&view->scene_tree->node,
-			server->cursor->x, server->cursor->y);
+	struct wlr_scene_tree *ws =
+		server->workspaces[server->current_workspace];
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
+	if (tb < 0) tb = 0;
+	int pos_x = (int)server->cursor->x;
+	int pos_y = (int)server->cursor->y;
 
-		int bw = server->config.border_width;
-		int tb = server->config.titlebar_height;
-		if (tb < 0) tb = 0;
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node,
-				bw, tb > 0 ? tb : bw);
+	wlr_scene_node_reparent(&view->scene_tree->node, ws);
+	wlr_scene_node_set_position(&view->scene_tree->node, pos_x, pos_y);
+	wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+	if (view->content_tree)
+		wlr_scene_node_set_position(&view->content_tree->node,
+			bw, tb > 0 ? tb : bw);
 
+	wlr_scene_node_raise_to_top(&view->scene_tree->node);
+	if (view->border_rects[0])
 		for (int i = 0; i < 4; i++)
-		{
-			if (view->border_rects[i])
-				wlr_scene_node_set_enabled(
-					&view->border_rects[i]->node,
-					true);
-		}
-		if (view->title_text_buf)
 			wlr_scene_node_set_enabled(
-				&view->title_text_buf->node, true);
-
-		view_borders_update(view);
-		titlebar_text_update(view);
-	}
+				&view->border_rects[i]->node, true);
+	if (view->title_text_buf)
+		wlr_scene_node_set_enabled(
+			&view->title_text_buf->node, true);
+	view_borders_update(view);
+	titlebar_text_update(view);
 }
 
 /* ── configure view to a given content size ── */
@@ -446,6 +442,9 @@ void hsdwl_tab_group_remove_view(struct hsdwl_tab_group *group,
 
 	view_leave_tab_group(view);
 
+	if (view->scene_tree)
+		wlr_scene_node_raise_to_top(&view->scene_tree->node);
+
 	if (wl_list_length(&group->views) <= 1)
 	{
 		struct hsdwl_view *remaining = NULL;
@@ -476,11 +475,18 @@ void hsdwl_tab_group_remove_view(struct hsdwl_tab_group *group,
 			next = btn->view;
 			break;
 		}
-		hsdwl_tab_group_set_active(group, next);
+		if (next)
+		{
+			group->active = next;
+			if (next->scene_tree)
+				wlr_scene_node_set_enabled(
+					&next->scene_tree->node, true);
+		}
 	}
-
-	view_focus(group->server, group->active);
 	hsdwl_tab_group_update_layout(group);
+
+	if (view->scene_tree)
+		wlr_scene_node_raise_to_top(&view->scene_tree->node);
 }
 
 void hsdwl_tab_group_set_active(struct hsdwl_tab_group *group,

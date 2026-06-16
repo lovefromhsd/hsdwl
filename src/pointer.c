@@ -412,6 +412,12 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 		{
 			if (event->button == BTN_RIGHT)
 			{
+				FILE *lf = fopen("/tmp/hsdwl-debug.log", "a");
+				if (lf) {
+					fprintf(lf, "pointer: right-click on view=%p group=%p\n",
+						(void*)tv, (void*)tv->tab_group);
+					fclose(lf);
+				}
 				hsdwl_tab_group_remove_view(tv->tab_group, tv);
 				return;
 			}
