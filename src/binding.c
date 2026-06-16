@@ -109,7 +109,11 @@ bool binding_dispatch(struct hsdwl_server *server,
 			{
 				struct hsdwl_view *next = hsdwl_tab_group_next(
 					cur->tab_group, cur, false);
-				if (next) view_focus(server, next);
+				if (next) {
+					hsdwl_tab_group_set_active(
+						cur->tab_group, next);
+					view_focus(server, next);
+				}
 				return true;
 			}
 			struct hsdwl_view *next = view_next(server, cur);
@@ -123,7 +127,11 @@ bool binding_dispatch(struct hsdwl_server *server,
 			{
 				struct hsdwl_view *prev = hsdwl_tab_group_next(
 					cur->tab_group, cur, true);
-				if (prev) view_focus(server, prev);
+				if (prev) {
+					hsdwl_tab_group_set_active(
+						cur->tab_group, prev);
+					view_focus(server, prev);
+				}
 				return true;
 			}
 			struct hsdwl_view *prev = view_prev(server, cur);
@@ -152,7 +160,11 @@ bool binding_dispatch(struct hsdwl_server *server,
 				bool rev = b->action == HSDWL_ACTION_CYCLE_TAB_PREV;
 				struct hsdwl_view *next = hsdwl_tab_group_next(
 					cur->tab_group, cur, rev);
-				if (next) view_focus(server, next);
+				if (next) {
+					hsdwl_tab_group_set_active(
+						cur->tab_group, next);
+					view_focus(server, next);
+				}
 				return true;
 			}
 			return false;
