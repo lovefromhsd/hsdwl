@@ -390,10 +390,33 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 			wl_list_insert(&group->tab_buttons, &btn->link);
 	}
 
+	wl_list_insert(&server->tab_groups, &group->link);
+
+	/* Disable all views, then enable only the active one */
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+	{
+		if (vi->scene_tree)
+			wlr_scene_node_set_enabled(
+				&vi->scene_tree->node, false);
+	}
 	group->active = a;
+	if (a->scene_tree)
+		wlr_scene_node_set_enabled(&a->scene_tree->node, true);
+
+	group->server->focused_views[
+		group->server->current_workspace] = a;
+	struct wlr_keyboard *kb = wlr_seat_get_keyboard(
+		group->server->seat);
+	if (kb)
+	{
+		struct wlr_surface *s = view_get_surface(a);
+		if (s)
+			wlr_seat_keyboard_notify_enter(
+				group->server->seat, s, NULL, 0, NULL);
+	}
 	hsdwl_tab_group_update_layout(group);
 
-	wl_list_insert(&server->tab_groups, &group->link);
 	return group;
 }
 

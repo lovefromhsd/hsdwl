@@ -489,6 +489,10 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				HSDWL_TAB_HORIZONTAL);
 		}
 
+		struct hsdwl_tab_group *__tg;
+		wl_list_for_each(__tg, &server->tab_groups, link)
+			hsdwl_tab_group_update_layout(__tg);
+
 		server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 		server->grabbed_view = NULL;
 		server->grab_target = NULL;
