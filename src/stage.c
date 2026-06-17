@@ -254,7 +254,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 		cw->h = view->xwayland_surface->height;
 	}
 	if (cw->w < 1) cw->w = 800;
-	if (cw->h < 1) cw->h = 800;
+	if (cw->h < 1) cw->h = 1080;
 	wl_list_insert(&stage->windows, &cw->link);
 
 	stage->tree = wlr_scene_tree_create(
