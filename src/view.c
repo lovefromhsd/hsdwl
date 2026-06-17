@@ -849,9 +849,7 @@ struct wlr_buffer *view_capture_full_window(
 		? server->config.titlebar_color_focused
 		: server->config.titlebar_color;
 
-	/* titlebar background (solid color — actual titlebar stays
-	   visible in the scene_tree during animation so we don't need
-	   to replicate the text here) */
+	/* titlebar background */
 	if (tb > 0)
 	{
 		wlr_render_pass_add_rect(pass,
@@ -859,6 +857,36 @@ struct wlr_buffer *view_capture_full_window(
 				.box = { .width = content_w + 2 * bw, .height = tb },
 				.color = { tcol[0], tcol[1], tcol[2], tcol[3] },
 			});
+
+		/* titlebar text */
+		if (view->title_text_buf)
+		{
+			titlebar_text_update(view);
+			if (view->title_text_buf->buffer)
+			{
+				struct wlr_texture *text_texture =
+					wlr_texture_from_buffer(
+						server->renderer,
+						view->title_text_buf->buffer);
+				if (text_texture)
+				{
+					const float ta = 1.0f;
+					wlr_render_pass_add_texture(pass,
+						&(struct wlr_render_texture_options){
+							.texture = text_texture,
+							.dst_box = {
+								.x = bw,
+								.y = 0,
+								.width = content_w,
+								.height = tb,
+							},
+							.alpha = &ta,
+							.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+						});
+					wlr_texture_destroy(text_texture);
+				}
+			}
+		}
 	}
 
 	/* borders */
@@ -955,21 +983,25 @@ static void view_anim_zoom_finish(struct hsdwl_server *server, void *user_data)
 {
 	struct hsdwl_view *view = user_data;
 	destroy_anim_overlay(server, view);
+
+	for (int i = 0; i < 4; i++)
+		if (view->border_rects[i])
+			wlr_scene_node_set_enabled(
+				&view->border_rects[i]->node, true);
+	if (view->title_text_buf)
+		wlr_scene_node_set_enabled(
+			&view->title_text_buf->node, true);
+
 	view_borders_update(view);
 	titlebar_text_update(view);
 }
 
 static void view_anim_full_finish(struct hsdwl_server *server, void *user_data)
 {
+	(void)server;
 	struct hsdwl_view *view = user_data;
-	destroy_anim_overlay(server, view);
 	if (view->content_tree)
 		wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
-	for (int i = 0; i < 4; i++)
-		if (view->border_rects[i])
-			wlr_scene_node_set_enabled(&view->border_rects[i]->node, false);
-	if (view->title_text_buf)
-		wlr_scene_node_set_enabled(&view->title_text_buf->node, false);
 }
 
 static void view_anim_unmaximize_finish(struct hsdwl_server *server,
@@ -980,14 +1012,19 @@ static void view_anim_unmaximize_finish(struct hsdwl_server *server,
 	view_do_unmaximize(view);
 }
 
-/* Capture current content (no decorations) and create overlay */
-static struct wlr_scene_buffer *create_content_overlay(
+/* Capture full window (content + borders + titlebar) and create overlay */
+static struct wlr_scene_buffer *create_window_overlay(
 	struct hsdwl_server *server, struct hsdwl_view *view,
-	int content_w, int content_h,
+	int content_w, int content_h, int bw, int tb,
 	int abs_x, int abs_y)
 {
+	int win_w = content_w + 2 * bw;
+	int win_h = content_h + tb + bw;
+	if (win_w < 1) win_w = 1;
+	if (win_h < 1) win_h = 1;
+
 	struct wlr_buffer *cap = view_capture_full_window(
-		server, view, content_w, content_h, 0, 0);
+		server, view, content_w, content_h, bw, tb);
 	if (!cap) return NULL;
 
 	wlr_scene_node_raise_to_top(&server->animation_tree->node);
@@ -996,28 +1033,9 @@ static struct wlr_scene_buffer *create_content_overlay(
 		server->animation_tree, cap);
 	wlr_buffer_drop(cap);
 	wlr_scene_node_set_position(&ov->node, abs_x, abs_y);
-	wlr_scene_buffer_set_dest_size(ov, content_w, content_h);
+	wlr_scene_buffer_set_dest_size(ov, win_w, win_h);
 	wlr_scene_node_raise_to_top(&ov->node);
 	return ov;
-}
-
-/* Get current content size from view */
-static void get_content_size(struct hsdwl_view *view, int *w, int *h)
-{
-	if (view->xdg_surface && view->xdg_surface->configured)
-	{
-		*w = view->xdg_surface->geometry.width;
-		*h = view->xdg_surface->geometry.height;
-	}
-	else if (view->xwayland_surface)
-	{
-		*w = view->xwayland_surface->width;
-		*h = view->xwayland_surface->height;
-	}
-	else
-	{
-		*w = 1; *h = 1;
-	}
 }
 
 void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
@@ -1036,8 +1054,6 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	struct hsdwl_config *cfg = &server->config;
 	int bw = cfg->border_width;
 	int tb = cfg->titlebar_height;
-	int ct_off_x = bw;
-	int ct_off_y = tb > 0 ? tb : bw;
 
 	/* ── Stage 3: restore (undo full-max or zoom) ── */
 	if (view->maximized)
@@ -1054,32 +1070,47 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			return;
 		}
 
-		int src_cw, src_ch;
-		get_content_size(view, &src_cw, &src_ch);
-		int src_abs_x = SIDEBAR_WIDTH + (int)view->scene_tree->node.x
-			+ (view->content_tree ? view->content_tree->node.x : 0);
-		int src_abs_y = (int)view->scene_tree->node.y
-			+ (view->content_tree ? view->content_tree->node.y : 0);
+		int cur_cw = 1, cur_ch = 1;
+		if (view->xdg_surface && view->xdg_surface->configured)
+		{
+			cur_cw = view->xdg_surface->geometry.width;
+			cur_ch = view->xdg_surface->geometry.height;
+		}
+		else if (view->xwayland_surface)
+		{
+			cur_cw = view->xwayland_surface->width;
+			cur_ch = view->xwayland_surface->height;
+		}
 
-		struct wlr_scene_buffer *ov = create_content_overlay(
-			server, view, src_cw, src_ch, src_abs_x, src_abs_y);
+		int tb_cap = tb > 0 ? tb : 0;
+		int src_full_w = cur_cw + 2 * bw;
+		int src_full_h = cur_ch + tb_cap + bw;
+		int src_abs_x = SIDEBAR_WIDTH + (int)view->scene_tree->node.x;
+		int src_abs_y = (int)view->scene_tree->node.y;
+
+		int tgt_full_w = view->saved_geometry.width + 2 * bw;
+		int tgt_full_h = view->saved_geometry.height + tb_cap + bw;
+		int tgt_abs_x = SIDEBAR_WIDTH + (int)view->saved_geometry.x;
+		int tgt_abs_y = (int)view->saved_geometry.y;
+
+		struct wlr_scene_buffer *ov = create_window_overlay(
+			server, view, cur_cw, cur_ch, bw, tb_cap,
+			src_abs_x, src_abs_y);
 		if (!ov) return;
 
 		if (view->content_tree)
 			wlr_scene_node_set_enabled(
 				&view->content_tree->node, false);
+		if (view->title_text_buf)
+			wlr_scene_node_set_enabled(
+				&view->title_text_buf->node, false);
 
 		wlr_scene_node_set_position(&view->scene_tree->node,
 			view->saved_geometry.x, view->saved_geometry.y);
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node, ct_off_x, ct_off_y);
 		for (int i = 0; i < 4; i++)
 			if (view->border_rects[i])
 				wlr_scene_node_set_enabled(
-					&view->border_rects[i]->node, true);
-		if (view->title_text_buf)
-			wlr_scene_node_set_enabled(&view->title_text_buf->node, true);
+					&view->border_rects[i]->node, false);
 
 		if (view->xdg_surface && view->xdg_surface->configured)
 			wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
@@ -1088,20 +1119,14 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_xwayland_surface_configure(view->xwayland_surface,
 				view->saved_geometry.x, view->saved_geometry.y,
 				view->saved_geometry.width, view->saved_geometry.height);
-		view_borders_update(view);
-		titlebar_text_update(view);
 
 		view->anim_overlay = ov;
 
-		int tgt_abs_x = SIDEBAR_WIDTH
-			+ (int)view->saved_geometry.x + ct_off_x;
-		int tgt_abs_y = (int)view->saved_geometry.y + ct_off_y;
-		int tgt_cw = view->saved_geometry.width;
-		int tgt_ch = view->saved_geometry.height;
-
 		animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
-			src_abs_x, src_abs_y, src_cw, src_ch,
-			tgt_abs_x, tgt_abs_y, tgt_cw, tgt_ch,
+			(double)src_abs_x, (double)src_abs_y,
+			src_full_w, src_full_h,
+			(double)tgt_abs_x, (double)tgt_abs_y,
+			tgt_full_w, tgt_full_h,
 			view_anim_unmaximize_finish, view);
 
 		view->maximized = false;
@@ -1124,25 +1149,6 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		int fw = obox.width;
 		if (fw < 1) fw = 1;
 
-		int src_cw, src_ch;
-		get_content_size(view, &src_cw, &src_ch);
-		int src_abs_x = SIDEBAR_WIDTH + (int)view->scene_tree->node.x
-			+ ct_off_x;
-		int src_abs_y = (int)view->scene_tree->node.y + ct_off_y;
-
-		struct wlr_scene_buffer *ov = create_content_overlay(
-			server, view, src_cw, src_ch, src_abs_x, src_abs_y);
-		if (!ov) return;
-
-		if (view->content_tree)
-			wlr_scene_node_set_enabled(
-				&view->content_tree->node, false);
-
-		wlr_scene_node_set_position(
-			&view->scene_tree->node, -SIDEBAR_WIDTH, 0);
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node, 0, 0);
 		for (int i = 0; i < 4; i++)
 			if (view->border_rects[i])
 				wlr_scene_node_set_enabled(
@@ -1151,6 +1157,10 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_scene_node_set_enabled(
 				&view->title_text_buf->node, false);
 
+		if (view->content_tree)
+			wlr_scene_node_set_position(
+				&view->content_tree->node, 0, 0);
+
 		if (view->xdg_surface && view->xdg_surface->configured)
 			wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
 				fw, obox.height);
@@ -1158,16 +1168,13 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_xwayland_surface_configure(view->xwayland_surface,
 				-SIDEBAR_WIDTH, 0, fw, obox.height);
 
-		view->anim_overlay = ov;
+		double cur_x = view->scene_tree->node.x;
+		double cur_y = view->scene_tree->node.y;
 
-		int tgt_abs_x = 0;
-		int tgt_abs_y = 0;
-		int tgt_cw = fw;
-		int tgt_ch = obox.height;
-
-		animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
-			src_abs_x, src_abs_y, src_cw, src_ch,
-			tgt_abs_x, tgt_abs_y, tgt_cw, tgt_ch,
+		animation_create_node_pos(server, &view->scene_tree->node,
+			200, HSDWL_EASE_OUT_QUAD,
+			cur_x, cur_y,
+			(double)-SIDEBAR_WIDTH, 0.0,
 			view_anim_full_finish, view);
 
 		view->zoomed = false;
@@ -1210,17 +1217,35 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 	int src_cw = view->saved_geometry.width;
 	int src_ch = view->saved_geometry.height;
-	int src_abs_x = SIDEBAR_WIDTH + (int)view->saved_geometry.x + ct_off_x;
-	int src_abs_y = (int)view->saved_geometry.y + ct_off_y;
+	int tb_cap = tb > 0 ? tb : 0;
+	int src_full_w = src_cw + 2 * bw;
+	int src_full_h = src_ch + tb_cap + bw;
+	int src_abs_x = SIDEBAR_WIDTH + (int)view->saved_geometry.x;
+	int src_abs_y = (int)view->saved_geometry.y;
 
-	struct wlr_scene_buffer *ov = create_content_overlay(
-		server, view, src_cw, src_ch, src_abs_x, src_abs_y);
+	int tgt_full_w = cw + 2 * bw;
+	int tgt_full_h = ch + tb_cap + bw;
+	int tgt_abs_x = SIDEBAR_WIDTH + pad;
+	int tgt_abs_y = 0;
+
+	struct wlr_scene_buffer *ov = create_window_overlay(
+		server, view, src_cw, src_ch, bw, tb_cap,
+		src_abs_x, src_abs_y);
 	if (!ov) return;
 
 	if (view->content_tree)
-		wlr_scene_node_set_enabled(&view->content_tree->node, false);
+		wlr_scene_node_set_enabled(
+			&view->content_tree->node, false);
+	for (int i = 0; i < 4; i++)
+		if (view->border_rects[i])
+			wlr_scene_node_set_enabled(
+				&view->border_rects[i]->node, false);
+	if (view->title_text_buf)
+		wlr_scene_node_set_enabled(
+			&view->title_text_buf->node, false);
 
 	wlr_scene_node_set_position(&view->scene_tree->node, pad, 0);
+
 	if (view->xdg_surface && view->xdg_surface->configured)
 		wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel, cw, ch);
 	else if (view->xwayland_surface)
@@ -1229,14 +1254,11 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 	view->anim_overlay = ov;
 
-	int tgt_abs_x = SIDEBAR_WIDTH + pad + ct_off_x;
-	int tgt_abs_y = ct_off_y;
-	int tgt_cw = cw;
-	int tgt_ch = ch;
-
 	animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
-		src_abs_x, src_abs_y, src_cw, src_ch,
-		tgt_abs_x, tgt_abs_y, tgt_cw, tgt_ch,
+		(double)src_abs_x, (double)src_abs_y,
+		src_full_w, src_full_h,
+		(double)tgt_abs_x, (double)tgt_abs_y,
+		tgt_full_w, tgt_full_h,
 		view_anim_zoom_finish, view);
 
 	view->zoomed = true;
