@@ -48,7 +48,8 @@ const char *stage_get_app_name(struct custom_stage *stage)
 
 
 void stage_render_thumbnail(struct hsdwl_server *server,
-		struct custom_stage *stage, int thumb_w, int thumb_h)
+		struct custom_stage *stage, int thumb_w, int thumb_h,
+		float tilt_dir)
 {
 	if (!stage->thumb_buf || wl_list_empty(&stage->windows))
 		return;
@@ -173,7 +174,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 					stage_3d_render_tilted(tpass, tex,
 						thumb_w, thumb_h,
 						0, 0, thumb_w, thumb_h,
-						-12.0f, 1.0f);
+						-12.0f, 1.0f, tilt_dir);
 					if (wlr_render_pass_submit(tpass)) {
 						wlr_scene_buffer_set_buffer(
 							stage->thumb_buf, tilted);
@@ -226,7 +227,6 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	
 	struct entry {
 		struct custom_stage *st;
-		const char *app;
 		int tw, th, gap;
 	} entries[64];
 	int nentries = 0;
@@ -275,7 +275,6 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		int gap = STAGE_THUMB_GAP + th / 16;
 
 		entries[nentries].st = st;
-		entries[nentries].app = stage_get_app_name(st);
 		entries[nentries].tw = tw;
 		entries[nentries].th = th;
 		entries[nentries].gap = gap;
@@ -305,14 +304,15 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	
 	for (int i = 0; i < nentries; i++)
 	{
-		bool same_as_prev = (i > 0
-			&& strcmp(entries[i].app, entries[i-1].app) == 0);
-		int x = STAGE_THUMB_PAD
-			+ (same_as_prev ? STAGE_GROUP_OFFSET : 0);
+		int x = STAGE_THUMB_PAD;
+
+		float tilt_dir = nentries > 1
+			? (float)i / (float)(nentries - 1) * 2.0f - 1.0f
+			: 0.0f;
 
 		stage_hide_thumb(entries[i].st, false);
 		stage_render_thumbnail(server, entries[i].st,
-			entries[i].tw, entries[i].th);
+			entries[i].tw, entries[i].th, tilt_dir);
 		wlr_scene_node_set_position(
 			&entries[i].st->thumb_tree->node, x, y);
 		entries[i].st->thumb_x = x;

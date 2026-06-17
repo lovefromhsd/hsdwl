@@ -17,7 +17,8 @@ void stage_3d_render_tilted(
 	int dst_x, int dst_y,
 	int dst_w, int dst_h,
 	float angle_deg,
-	float alpha);
+	float alpha,
+	float tilt_dir);
 
 struct hsdwl_flip_state {
 	struct wl_list link;

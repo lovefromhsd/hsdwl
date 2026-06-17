@@ -24,7 +24,8 @@ void stage_3d_render_tilted(
 	int dst_x, int dst_y,
 	int dst_w, int dst_h,
 	float angle_deg,
-	float alpha)
+	float alpha,
+	float tilt_dir)
 {
 	if (tex_w < 1 || tex_h < 1 || dst_w < 1 || dst_h < 1)
 		return;
@@ -39,11 +40,11 @@ void stage_3d_render_tilted(
 	float min_persp = focal / (focal + (float)tex_w / 2.0f * fabsf(sin_a));
 	if (min_persp > 1.0f) min_persp = 1.0f;
 
-	float ramp_amp = (float)dst_h * 0.22f;
+	float ramp_amp = (float)dst_h * 0.18f;
 	float total_span = ((max_persp + min_persp) * 0.5f) * (float)tex_h + ramp_amp;
 	float vscale = 1.0f;
 	if (total_span > (float)dst_h && total_span > 0.0f) {
-		vscale = (float)dst_h / total_span;
+		vscale = (float)dst_h / total_span * 0.97f;
 	}
 	ramp_amp *= vscale;
 
@@ -84,7 +85,7 @@ void stage_3d_render_tilted(
 		if (strip_w < 1.0f) strip_w = 1.0f;
 
 		float strip_h = (float)tex_h * perspc * vscale;
-		float ramp = -(pc - 0.5f) * ramp_amp;
+		float ramp = -(pc - 0.5f) * ramp_amp * tilt_dir;
 		float strip_y = (float)dst_h * 0.5f - strip_h * 0.5f + ramp + global_shift;
 
 		float src_x = p0 * (float)tex_w;
@@ -143,7 +144,7 @@ static struct wlr_buffer *render_flip_frame(
 	});
 
 	stage_3d_render_tilted(pass, tex, tex_w, tex_h,
-		0, 0, dst_w, dst_h, angle_deg, 1.0f);
+		0, 0, dst_w, dst_h, angle_deg, 1.0f, 0.0f);
 
 	if (!wlr_render_pass_submit(pass)) {
 		wlr_buffer_drop(buf);

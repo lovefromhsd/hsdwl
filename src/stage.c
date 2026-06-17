@@ -497,8 +497,11 @@ void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 					thumb_h = 300;
 					thumb_w = (int)(300 * ar);
 				}
-				stage_render_thumbnail(server, st,
-					thumb_w, thumb_h);
+				float td = (st->thumb_y - 540.0f) / 540.0f;
+			if (td < -1.0f) td = -1.0f;
+			if (td > 1.0f) td = 1.0f;
+			stage_render_thumbnail(server, st,
+				thumb_w, thumb_h, td);
 				return;
 			}
 		}
