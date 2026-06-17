@@ -1097,6 +1097,12 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_scene_node_set_enabled(
 				&view->title_text_buf->node, true);
 
+		int ct_off_x = bw;
+		int ct_off_y = tb > 0 ? tb : bw;
+		if (view->content_tree)
+			wlr_scene_node_set_position(
+				&view->content_tree->node, ct_off_x, ct_off_y);
+
 		wlr_scene_node_set_position(&view->scene_tree->node,
 			view->saved_geometry.x, view->saved_geometry.y);
 
@@ -1107,6 +1113,9 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_xwayland_surface_configure(view->xwayland_surface,
 				view->saved_geometry.x, view->saved_geometry.y,
 				view->saved_geometry.width, view->saved_geometry.height);
+
+		view_borders_update(view);
+		titlebar_text_update(view);
 
 		view->anim_overlay = ov;
 
