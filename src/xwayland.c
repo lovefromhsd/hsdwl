@@ -6,6 +6,7 @@
 #include "stage.h"
 #include "tab-group.h"
 #include "view.h"
+#include "deco.h"
 
 #include <stdlib.h>
 #include <string.h>

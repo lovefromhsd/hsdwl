@@ -46,6 +46,16 @@ struct workspace_stage_mgr
 	struct wl_list inactive_stages;  /* of custom_stage, max MAX_INACTIVE_STAGES */
 };
 
+/* internal helpers shared across stage modules */
+void stage_set_views_enabled(struct custom_stage *stage, bool enabled);
+void stage_reparent_to_canvas(struct custom_stage *stage,
+		struct hsdwl_server *server);
+void stage_safe_evict(struct custom_stage *stage,
+		struct hsdwl_server *server, size_t ws);
+struct custom_window *find_custom_window(struct custom_stage *stage,
+		struct hsdwl_view *view);
+void stage_free(struct custom_stage *stage);
+
 void stage_manager_init(struct hsdwl_server *server);
 void stage_manager_destroy(struct hsdwl_server *server);
 

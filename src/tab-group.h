@@ -55,9 +55,6 @@ void hsdwl_tab_group_set_active(struct hsdwl_tab_group *group,
 		struct hsdwl_view *view);
 void hsdwl_tab_group_destroy(struct hsdwl_tab_group *group);
 bool hsdwl_tab_group_is_member(struct hsdwl_view *view);
-void hsdwl_tab_group_update_layout(struct hsdwl_tab_group *group);
-void hsdwl_tab_group_reorder(struct hsdwl_tab_group *group,
-		struct hsdwl_view *view, int new_index);
 struct hsdwl_view *hsdwl_tab_group_view_at(struct hsdwl_server *server,
 		double lx, double ly);
 struct hsdwl_view *hsdwl_tab_group_next(struct hsdwl_tab_group *group,
@@ -67,9 +64,5 @@ struct hsdwl_tab_group *hsdwl_tab_group_at(struct hsdwl_server *server,
 void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 		struct hsdwl_view *target, double cursor_x, double cursor_y);
 void hsdwl_tab_group_hide_preview(struct hsdwl_server *server);
-void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
-		struct hsdwl_server *server);
-void hsdwl_tab_group_restore(struct hsdwl_tab_group *group);
-void view_configure_size(struct hsdwl_view *view, int w, int h);
 
 #endif

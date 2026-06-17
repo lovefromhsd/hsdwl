@@ -50,25 +50,13 @@ struct hsdwl_view
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view);
-void view_borders_update(struct hsdwl_view *view);
-void view_borders_create(struct hsdwl_view *view);
 struct hsdwl_view *view_next(struct hsdwl_server *server,
 		struct hsdwl_view *current);
 struct hsdwl_view *view_prev(struct hsdwl_server *server,
 		struct hsdwl_view *current);
 struct wlr_surface *view_get_surface(struct hsdwl_view *view);
-struct wlr_buffer *view_capture_full_window(struct hsdwl_server *server,
-	struct hsdwl_view *view, int content_w, int content_h,
-	int bw, int tb);
 void decoration_handle_request_mode(struct wl_listener *listener, void *data);
 void view_close(struct hsdwl_view *view);
-void titlebar_text_update(struct hsdwl_view *view);
-void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view);
 bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws);
-struct wlr_buffer *view_capture_full_window(struct hsdwl_server *server,
-    struct hsdwl_view *view, int content_w, int content_h,
-    int bw, int tb);
-struct wlr_buffer *view_capture_content_only(struct hsdwl_server *server,
-    struct hsdwl_view *view, int target_w, int target_h);
 
 #endif

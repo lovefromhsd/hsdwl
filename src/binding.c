@@ -12,6 +12,7 @@
 #include "binding.h"
 #include "config.h"
 #include "server.h"
+#include "view-maximize.h"
 #include "stage.h"
 #include "tab-group.h"
 #include "view.h"

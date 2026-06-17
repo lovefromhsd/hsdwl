@@ -6,6 +6,7 @@
 #include "output.h"
 #include "output-management.h"
 #include "pointer.h"
+#include "seat.h"
 #include "stage.h"
 #include "tab-group.h"
 #include "view.h"
@@ -344,6 +345,12 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	if (!pointer_init(server))
 	{
 		wlr_log(WLR_ERROR, "pointer_init failed");
+		return false;
+	}
+
+	if (!seat_init(server))
+	{
+		wlr_log(WLR_ERROR, "seat_init failed");
 		return false;
 	}
 
