@@ -6,6 +6,7 @@
 
 struct hsdwl_server;
 struct wlr_scene_buffer;
+struct wlr_scene_node;
 
 enum hsdwl_easing
 {
@@ -22,6 +23,7 @@ struct hsdwl_animation
 	enum hsdwl_easing easing;
 
 	struct wlr_scene_buffer *buffer;
+	struct wlr_scene_node *pos_node;
 
 	double from_x, from_y;
 	double to_x, to_y;
@@ -41,6 +43,14 @@ void animation_create(struct hsdwl_server *server,
 	void *user_data);
 
 void animation_tick(struct hsdwl_server *server, struct timespec *now);
+
+void animation_create_node_pos(struct hsdwl_server *server,
+	struct wlr_scene_node *node,
+	int duration_ms, enum hsdwl_easing easing,
+	double from_x, double from_y,
+	double to_x, double to_y,
+	void (*on_finish)(struct hsdwl_server *, void *),
+	void *user_data);
 
 void animation_cancel_all(struct hsdwl_server *server);
 

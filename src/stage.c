@@ -424,6 +424,19 @@ void stage_manager_destroy(struct hsdwl_server *server)
 	}
 }
 
+static void stage_new_window_anim_done(struct hsdwl_server *server,
+		void *user_data)
+{
+	(void)server;
+	struct hsdwl_view *view = user_data;
+	if (view->anim_overlay)
+	{
+		wlr_scene_node_destroy(&view->anim_overlay->node);
+		view->anim_overlay = NULL;
+	}
+	wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+}
+
 void stage_manager_new_window(struct hsdwl_server *server,
 		struct hsdwl_view *view)
 {
@@ -536,6 +549,50 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	wlr_scene_node_reparent(&view->scene_tree->node, stage->tree);
 	wlr_scene_node_set_position(&view->scene_tree->node, ox, oy);
 	wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+
+	/* ── pop‑in animation ── */
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
+	struct wlr_buffer *cap = view_capture_full_window(
+		server, view, vw, vh, bw, tb);
+	if (cap && view->scene_tree)
+	{
+		double start_x = SIDEBAR_WIDTH;
+		double start_y = fmax(0,
+			(canvas_h - (vh + tb + bw)) / 2);
+		int start_w = 1;
+		int start_h = 1;
+
+		double end_x = SIDEBAR_WIDTH + ox;
+		double end_y = oy;
+		int end_w = vw + 2 * bw;
+		int end_h = vh + tb + bw;
+		if (end_w < 1) end_w = 1;
+		if (end_h < 1) end_h = 1;
+
+		struct wlr_scene_buffer *overlay =
+			wlr_scene_buffer_create(
+				server->animation_tree, cap);
+		wlr_buffer_drop(cap);
+		wlr_scene_node_set_position(&overlay->node,
+			(int)start_x, (int)start_y);
+		wlr_scene_buffer_set_dest_size(overlay,
+			start_w, start_h);
+		view->anim_overlay = overlay;
+
+		wlr_scene_node_set_enabled(
+			&view->scene_tree->node, false);
+
+		animation_create(server, overlay, 200,
+			HSDWL_EASE_OUT_QUAD,
+			start_x, start_y, start_w, start_h,
+			end_x, end_y, end_w, end_h,
+			stage_new_window_anim_done, view);
+	}
+	else if (cap)
+	{
+		wlr_buffer_drop(cap);
+	}
 
 	mgr->active_stage = stage;
 

@@ -51,6 +51,31 @@ void animation_create(struct hsdwl_server *server,
 	wl_list_insert(&server->animations, &anim->link);
 }
 
+void animation_create_node_pos(struct hsdwl_server *server,
+	struct wlr_scene_node *node,
+	int duration_ms, enum hsdwl_easing easing,
+	double from_x, double from_y,
+	double to_x, double to_y,
+	void (*on_finish)(struct hsdwl_server *, void *),
+	void *user_data)
+{
+	struct hsdwl_animation *anim = calloc(1, sizeof(*anim));
+	if (!anim)
+		return;
+	anim->pos_node = node;
+	anim->buffer = NULL;
+	anim->duration_ms = duration_ms;
+	anim->easing = easing;
+	anim->from_x = from_x;
+	anim->from_y = from_y;
+	anim->to_x = to_x;
+	anim->to_y = to_y;
+	anim->on_finish = on_finish;
+	anim->user_data = user_data;
+	clock_gettime(CLOCK_MONOTONIC, &anim->start);
+	wl_list_insert(&server->animations, &anim->link);
+}
+
 void animation_tick(struct hsdwl_server *server, struct timespec *now)
 {
 	struct hsdwl_animation *anim, *tmp;
@@ -80,19 +105,29 @@ void animation_tick(struct hsdwl_server *server, struct timespec *now)
 
 		double x = anim->from_x + (anim->to_x - anim->from_x) * eased_t;
 		double y = anim->from_y + (anim->to_y - anim->from_y) * eased_t;
-		double w = anim->from_w + (anim->to_w - anim->from_w) * eased_t;
-		double h = anim->from_h + (anim->to_h - anim->from_h) * eased_t;
 
-		wlr_scene_node_set_position(&anim->buffer->node,
-			(int)round(x), (int)round(y));
-		wlr_scene_buffer_set_dest_size(anim->buffer,
-			(int)round(w), (int)round(h));
+		if (anim->pos_node) {
+			wlr_scene_node_set_position(anim->pos_node,
+				(int)round(x), (int)round(y));
+		} else {
+			double w = anim->from_w + (anim->to_w - anim->from_w) * eased_t;
+			double h = anim->from_h + (anim->to_h - anim->from_h) * eased_t;
+			wlr_scene_node_set_position(&anim->buffer->node,
+				(int)round(x), (int)round(y));
+			wlr_scene_buffer_set_dest_size(anim->buffer,
+				(int)round(w), (int)round(h));
+		}
 
 		if (t >= 1.0) {
-			wlr_scene_node_set_position(&anim->buffer->node,
-				(int)round(anim->to_x), (int)round(anim->to_y));
-			wlr_scene_buffer_set_dest_size(anim->buffer,
-				anim->to_w, anim->to_h);
+			if (anim->pos_node) {
+				wlr_scene_node_set_position(anim->pos_node,
+					(int)round(anim->to_x), (int)round(anim->to_y));
+			} else {
+				wlr_scene_node_set_position(&anim->buffer->node,
+					(int)round(anim->to_x), (int)round(anim->to_y));
+				wlr_scene_buffer_set_dest_size(anim->buffer,
+					anim->to_w, anim->to_h);
+			}
 
 			wl_list_remove(&anim->link);
 			if (anim->on_finish)
