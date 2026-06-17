@@ -16,7 +16,7 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/xwayland.h>
 
-/* ── custom wlr_buffer wrapping a cairo-rendered pixel buffer ── */
+
 
 struct title_buffer
 {
@@ -91,7 +91,7 @@ static struct title_buffer *title_buffer_create(
 	return buf;
 }
 
-/* ── titlebar text rendering ── */
+
 
 void titlebar_text_update(struct hsdwl_view *view)
 {
@@ -199,7 +199,7 @@ void titlebar_text_update(struct hsdwl_view *view)
 	wlr_buffer_drop(&tbuf->base);
 }
 
-/* ── border rects ── */
+
 
 void view_borders_create(struct hsdwl_view *view)
 {

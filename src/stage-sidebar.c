@@ -19,7 +19,7 @@
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_scene.h>
 
-/* ── app-name helpers for grouping ── */
+
 
 const char *view_get_app_name(struct hsdwl_view *view)
 {
@@ -43,7 +43,7 @@ const char *stage_get_app_name(struct custom_stage *stage)
 	return "Unknown";
 }
 
-/* ── thumbnail rendering ── */
+
 
 void stage_render_thumbnail(struct hsdwl_server *server,
 		struct custom_stage *stage, int thumb_w, int thumb_h)
@@ -51,7 +51,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 	if (!stage->thumb_buf || wl_list_empty(&stage->windows))
 		return;
 
-	/* compute bounding box */
+	
 	struct wlr_box bbox = {0};
 	bool first = true;
 	struct custom_window *cw;
@@ -154,7 +154,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 	wlr_buffer_drop(buf);
 }
 
-/* ── sidebar thumb visibility ── */
+
 
 void stage_hide_thumb(struct custom_stage *st, bool hide)
 {
@@ -162,22 +162,22 @@ void stage_hide_thumb(struct custom_stage *st, bool hide)
 		wlr_scene_node_set_enabled(&st->thumb_tree->node, !hide);
 }
 
-/* ── sidebar rendering ── */
+
 
 void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
 	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
 
-	/* active stage never shows in the sidebar */
+	
 	stage_hide_thumb(mgr->active_stage, true);
 
-	/* hide every inactive stage thumbnail first */
+	
 	struct custom_stage *st;
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 		stage_hide_thumb(st, true);
 
-	/* collect stages with their app name and dimensions */
+	
 	struct entry {
 		struct custom_stage *st;
 		const char *app;
@@ -236,7 +236,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	}
 	if (nentries == 0) return;
 
-	/* total height — each entry at its own natural height */
+	
 	int total_h = 0;
 	for (int i = 0; i < nentries; i++)
 	{
@@ -255,7 +255,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	int y = (sidebar_h - total_h) / 2;
 	if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
 
-	/* render: same-app stages get a horizontal offset */
+	
 	for (int i = 0; i < nentries; i++)
 	{
 		bool same_as_prev = (i > 0

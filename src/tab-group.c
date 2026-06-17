@@ -12,7 +12,7 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/xwayland.h>
 
-/* ── view tab-group helpers ── */
+
 
 static void view_enter_tab_group(struct hsdwl_view *view,
 		struct hsdwl_tab_group *group)
@@ -55,12 +55,12 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 	if (!view->scene_tree)
 		return;
 
-	/* reparent back to the group's parent tree (stage or workspace) */
+	
 	struct wlr_scene_tree *target = g->scene_tree && g->scene_tree->node.parent
 		? g->scene_tree->node.parent
 		: server->workspaces[server->current_workspace];
 
-	/* compute absolute scene offset of the target tree */
+	
 	int off_x = 0, off_y = 0;
 	struct wlr_scene_tree *pn = target;
 	while (pn)
@@ -95,7 +95,7 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 	titlebar_text_update(view);
 }
 
-/* ── public API ── */
+
 
 void hsdwl_tab_group_init(struct hsdwl_server *server)
 {
@@ -123,7 +123,7 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 	wl_list_init(&group->views);
 	wl_list_init(&group->tab_buttons);
 
-	/* Use view b (the target) for initial placement */
+	
 	struct wlr_scene_tree *parent = b->scene_tree
 		? b->scene_tree->node.parent
 		: server->workspaces[server->current_workspace];
@@ -197,7 +197,7 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 
 	wl_list_insert(&server->tab_groups, &group->link);
 
-	/* Disable all views, then enable only the active one */
+	
 	struct hsdwl_view *vi;
 	wl_list_for_each(vi, &group->views, tab_group_link)
 	{
@@ -326,7 +326,7 @@ void hsdwl_tab_group_destroy(struct hsdwl_tab_group *group)
 	if (!group)
 		return;
 
-	/* cancel any pending animation for this group */
+	
 	struct hsdwl_animation *anim, *tmp;
 	wl_list_for_each_safe(anim, tmp, &group->server->animations, link)
 	{

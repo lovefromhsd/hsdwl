@@ -19,7 +19,7 @@
 
 #define TAB_BAR_THICKNESS 28
 
-/* ── custom wlr_buffer for cairo-rendered tab text ── */
+
 
 struct tab_text_buffer
 {
@@ -94,7 +94,7 @@ static struct tab_text_buffer *tab_text_buffer_create(int width, int height)
 	return buf;
 }
 
-/* ── tab button text rendering ── */
+
 
 static void tab_button_update_text(struct hsdwl_tab_button *btn,
 		bool active, int width, int height)
@@ -160,7 +160,7 @@ static void tab_button_update_text(struct hsdwl_tab_button *btn,
 	wlr_buffer_drop(&tbuf->base);
 }
 
-/* ── tab button lifecycle ── */
+
 
 struct hsdwl_tab_button *tab_button_create(
 		struct hsdwl_tab_group *group, struct hsdwl_view *view)
@@ -192,7 +192,7 @@ void tab_button_destroy(struct hsdwl_tab_button *btn)
 	free(btn);
 }
 
-/* ── tab bar background rendering ── */
+
 
 static void render_tab_bar_background(struct hsdwl_tab_group *group)
 {
@@ -282,7 +282,7 @@ static void render_tab_bar_background(struct hsdwl_tab_group *group)
 	wlr_buffer_drop(&tbuf->base);
 }
 
-/* ── layout / arrangement ── */
+
 
 void hsdwl_tab_group_update_layout(struct hsdwl_tab_group *group)
 {
@@ -374,7 +374,7 @@ void view_configure_size(struct hsdwl_view *view, int w, int h)
 	}
 }
 
-/* ── preview overlay ── */
+
 
 #define PREVIEW_ALPHA 0.25f
 

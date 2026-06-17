@@ -271,7 +271,7 @@ static void xwayland_view_handle_destroy(
 		wl_list_remove(&view->unmap.link);
 		wl_list_remove(&view->commit.link);
 	}
-	/* cancel any active animation for this view */
+	
 	{
 		struct hsdwl_animation *anim, *tmp;
 		wl_list_for_each_safe(anim, tmp,

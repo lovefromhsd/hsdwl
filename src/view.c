@@ -18,7 +18,7 @@
 
 #include "animation.h"
 
-/* ── xdg/xwayland event handlers ── */
+
 
 static void view_handle_set_title(struct wl_listener *listener, void *data)
 {
@@ -91,7 +91,7 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view)
 			: NULL;
 }
 
-/* ── focus management ── */
+
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 {
@@ -182,7 +182,7 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 	}
 }
 
-/* ── view state / workspace helpers ── */
+
 
 static bool view_is_usable(struct hsdwl_view *v)
 {
@@ -228,7 +228,7 @@ bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws)
 	return view_on_workspace(view, ws);
 }
 
-/* ── view cycling ── */
+
 
 struct hsdwl_view *view_next(struct hsdwl_server *server,
 		struct hsdwl_view *current)
@@ -278,7 +278,7 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 	return last;
 }
 
-/* ── unmap / commit / destroy ── */
+
 
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
@@ -387,7 +387,7 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	if (view->server->config.stage_manager_enabled)
 		stage_manager_notify_view_removed(view->server, view);
 
-	/* cancel any active animation for this view */
+	
 	{
 		struct hsdwl_animation *anim, *tmp;
 		wl_list_for_each_safe(anim, tmp,

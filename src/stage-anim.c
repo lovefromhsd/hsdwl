@@ -21,7 +21,7 @@
 
 #define MAX_STAGE_WINDOWS 64
 
-/* ── animation helper structs ── */
+
 
 struct stage_switch_anim {
 	struct hsdwl_server *server;
@@ -43,7 +43,7 @@ struct stage_merge_anim {
 	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
 };
 
-/* ── animation completion callbacks ── */
+
 
 static void stage_switch_on_anim_done(struct hsdwl_server *server,
 		void *user_data)
@@ -117,7 +117,7 @@ static void stage_merge_on_anim_done(struct hsdwl_server *server,
 	free(sma);
 }
 
-/* ── stage switching ── */
+
 
 void stage_manager_switch(struct hsdwl_server *server,
 		struct custom_stage *target, size_t ws)
@@ -141,7 +141,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 	ssa->insert_tail = false;
 	ssa->n_overlays = 0;
 
-	/* Old stage windows: animate from canvas position to thumbnail */
+	
 	if (old) {
 		struct custom_window *cw;
 		struct hsdwl_tab_group *seen_tg[64];
@@ -232,7 +232,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 		}
 	}
 
-	/* Target stage windows: animate from thumbnail to canvas position */
+	
 	{
 		struct custom_window *cw;
 		struct hsdwl_tab_group *seen_tg[64];
@@ -324,7 +324,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 		}
 	}
 
-	/* hide real views (captured before hiding) */
+	
 	if (old) stage_set_views_enabled(old, false);
 	stage_set_views_enabled(target, false);
 
@@ -348,7 +348,7 @@ instant_switch:
 	stage_manager_render_sidebar(server, ws);
 }
 
-/* ── stage cycling ── */
+
 
 void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 {
@@ -593,7 +593,7 @@ instant_switch:
 	stage_manager_render_sidebar(server, ws);
 }
 
-/* ── stage merging ── */
+
 
 void stage_manager_merge(struct hsdwl_server *server,
 		struct custom_stage *source, size_t ws)
@@ -614,7 +614,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 	sma->remaining = 0;
 	sma->n_overlays = 0;
 
-	/* Animate source stage windows from thumbnail to active canvas */
+	
 	{
 		struct custom_window *cw;
 		struct hsdwl_tab_group *seen_tg[64];

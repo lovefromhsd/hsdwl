@@ -236,23 +236,23 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			if (sscanf(rest, "%1023[^,], %1023[^\n]", mods_k, action_part) < 2)
 				continue;
 
-			/* trim trailing spaces from mods_k */
+			
 			trim_tail(mods_k);
 
-			/* resolve any config variable references in mods */
+			
 			resolve_vars(mods_k, vars, num_vars);
 
-			/* capture key name before stripping it */
+			
 			char *last_plus = strrchr(mods_k, '+');
 			const char *key_name = last_plus
 				? last_plus + 1 : mods_k;
 
-			/* trim trailing spaces from key name */
+			
 			char key_name_buf[64];
 			snprintf(key_name_buf, sizeof(key_name_buf), "%s", key_name);
 			trim_tail(key_name_buf);
 
-			/* strip last +-separated part (the key name) from mods */
+			
 			if (last_plus)
 				*last_plus = '\0';
 			else
@@ -349,7 +349,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			}
 		}
 
-		/* store every key=value pair in var table for bind resolution */
+		
 		if (num_vars < HSDWL_MAX_VARS) {
 			int found = 0;
 			for (int i = 0; i < num_vars; i++) {
@@ -370,7 +370,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	free(line);
 	fclose(f);
 
-	/* auto-compute titlebar height from font metrics */
+	
 	cairo_surface_t *cs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
 	cairo_t *ct = cairo_create(cs);
 	PangoLayout *pl = pango_cairo_create_layout(ct);

@@ -17,7 +17,7 @@ struct wlr_scene_buffer;
 #define MAX_INACTIVE_STAGES 5
 #define STAGE_THUMB_PAD 10
 #define STAGE_THUMB_GAP 6
-#define STAGE_GROUP_OFFSET 14  /* horizontal shift for same-app thumbnails */
+#define STAGE_GROUP_OFFSET 14  
 
 struct custom_window
 {
@@ -30,24 +30,24 @@ struct custom_stage;
 
 struct custom_stage
 {
-	struct wl_list link;           /* into workspace_stage_mgr->inactive_stages */
-	struct wl_list windows;        /* of custom_window */
-	struct wlr_scene_tree *tree;   /* container for windows, child of stage_canvas_tree */
-	struct wlr_scene_tree *thumb_tree;  /* node in sidebar for this stage */
+	struct wl_list link;           
+	struct wl_list windows;        
+	struct wlr_scene_tree *tree;   
+	struct wlr_scene_tree *thumb_tree;  
 	struct wlr_scene_buffer *thumb_buf;
 	struct wlr_scene_rect *thumb_bg;
 	bool thumb_dirty;
-	int thumb_x, thumb_y;          /* cached sidebar position for animations */
+	int thumb_x, thumb_y;          
 };
 
 struct workspace_stage_mgr
 {
 	struct custom_stage *active_stage;
-	struct wl_list inactive_stages;  /* of custom_stage, max MAX_INACTIVE_STAGES */
+	struct wl_list inactive_stages;  
 	bool sidebar_hidden;
 };
 
-/* internal helpers shared across stage modules */
+
 void stage_set_views_enabled(struct custom_stage *stage, bool enabled);
 void stage_reparent_to_canvas(struct custom_stage *stage,
 		struct hsdwl_server *server);

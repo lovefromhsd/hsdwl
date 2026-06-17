@@ -112,14 +112,14 @@ struct hsdwl_server
 	int resize_preview_w;
 	int resize_preview_h;
 
-	/* stage manager */
+	
 	struct workspace_stage_mgr ws_stage_mgrs[HSDWL_NUM_WORKSPACES];
 	struct wlr_scene_tree *ws_sidebar_trees[HSDWL_NUM_WORKSPACES];
 	struct wlr_scene_rect *ws_sidebar_bgs[HSDWL_NUM_WORKSPACES];
 	struct wlr_scene_tree *ws_stage_canvases[HSDWL_NUM_WORKSPACES];
 	struct custom_stage *drag_source_stage;
 
-	/* animation */
+	
 	struct wl_list animations;
 	struct wlr_scene_tree *animation_tree;
 };

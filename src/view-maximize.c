@@ -21,7 +21,7 @@
 
 #include "animation.h"
 
-/* ── helpers ── */
+
 
 static void view_do_unmaximize(struct hsdwl_view *view)
 {
@@ -52,7 +52,7 @@ static void view_do_unmaximize(struct hsdwl_view *view)
 	titlebar_text_update(view);
 }
 
-/* ── capture view content surface to buffer ── */
+
 
 struct wlr_buffer *view_capture_content_only(
 	struct hsdwl_server *server,
@@ -131,7 +131,7 @@ struct wlr_buffer *view_capture_content_only(
 	return buf;
 }
 
-/* ── capture full window (content + borders + titlebar) to buffer ── */
+
 
 struct wlr_buffer *view_capture_full_window(
 	struct hsdwl_server *server,
@@ -185,7 +185,7 @@ struct wlr_buffer *view_capture_full_window(
 		? server->config.titlebar_color_focused
 		: server->config.titlebar_color;
 
-	/* titlebar background */
+	
 	if (tb > 0)
 	{
 		wlr_render_pass_add_rect(pass,
@@ -194,7 +194,7 @@ struct wlr_buffer *view_capture_full_window(
 				.color = { tcol[0], tcol[1], tcol[2], tcol[3] },
 			});
 
-		/* titlebar text */
+		
 		if (view->title_text_buf)
 		{
 			titlebar_text_update(view);
@@ -225,7 +225,7 @@ struct wlr_buffer *view_capture_full_window(
 		}
 	}
 
-	/* borders */
+	
 	if (bw > 0)
 	{
 		int side_y = tb > 0 ? tb : bw;
@@ -259,7 +259,7 @@ struct wlr_buffer *view_capture_full_window(
 			});
 	}
 
-	/* content texture at (bw, tb) */
+	
 	if (texture)
 	{
 		float tex_w = surface->current.width;
@@ -300,7 +300,7 @@ struct wlr_buffer *view_capture_full_window(
 	return buf;
 }
 
-/* ── animation completion callbacks ── */
+
 
 static void destroy_anim_overlay(struct hsdwl_server *server,
 	struct hsdwl_view *view)
@@ -331,7 +331,7 @@ static void view_anim_unmaximize_finish(struct hsdwl_server *server,
 	view_do_unmaximize(view);
 }
 
-/* Capture full window (content + borders + titlebar) and create overlay */
+
 static struct wlr_scene_buffer *create_window_overlay(
 	struct hsdwl_server *server, struct hsdwl_view *view,
 	int content_w, int content_h, int bw, int tb,
@@ -374,7 +374,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	int bw = cfg->border_width;
 	int tb = cfg->titlebar_height;
 
-	/* ── Stage 3: restore (undo full-max or zoom) ── */
+	
 	if (view->maximized)
 	{
 		struct wlr_output *wlr_o = wlr_output_layout_output_at(
@@ -404,15 +404,13 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		int tb_cap = tb > 0 ? tb : 0;
 		int src_full_w = cur_cw + 2 * bw;
 		int src_full_h = cur_ch + tb_cap + bw;
-		/* View may be reparented to workspace (full-max),
-		   so absolute position is just scene_tree->node.x */
+		
 		int src_abs_x = (int)view->scene_tree->node.x;
 		int src_abs_y = (int)view->scene_tree->node.y;
 
 		int tgt_full_w = view->saved_geometry.width + 2 * bw;
 		int tgt_full_h = view->saved_geometry.height + tb_cap + bw;
-		/* After restore the view goes back to stage/canvas
-		   so target includes SIDEBAR_WIDTH offset */
+		
 		int tgt_abs_x = SIDEBAR_WIDTH + (int)view->saved_geometry.x;
 		int tgt_abs_y = (int)view->saved_geometry.y;
 
@@ -471,7 +469,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		return;
 	}
 
-	/* ── Stage 2: full maximize (zoom → full-max, hide decorations) ── */
+	
 	if (view->zoomed)
 	{
 		struct wlr_output *wlr_o = wlr_output_layout_output_at(
@@ -498,8 +496,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_scene_node_set_position(
 				&view->content_tree->node, 0, 0);
 
-		/* Reparent to workspace root at origin to avoid
-		   negative position offset from stage manager */
+		
 		view->saved_parent = view->scene_tree->node.parent;
 		wlr_scene_node_reparent(&view->scene_tree->node,
 			server->workspaces[server->current_workspace]);
@@ -517,7 +514,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		return;
 	}
 
-	/* ── Stage 1: zoom (normal → zoomed, keep decorations) ── */
+	
 	view->saved_geometry.x = view->scene_tree->node.x;
 	view->saved_geometry.y = view->scene_tree->node.y;
 	if (view->xdg_surface && view->xdg_surface->configured)

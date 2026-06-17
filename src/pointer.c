@@ -35,7 +35,11 @@ static struct hsdwl_view *view_at(struct hsdwl_server *server,
 	while (tree && tree->node.data == NULL)
 		tree = tree->node.parent;
 	if (tree && tree->node.data)
-		return tree->node.data;
+	{
+		struct hsdwl_view *v;
+		wl_list_for_each(v, &server->views, link)
+			if (v == tree->node.data) return v;
+	}
 	return NULL;
 }
 
@@ -237,7 +241,7 @@ static void apply_resize(struct hsdwl_server *server)
 	int tb = server->config.titlebar_height;
 	if (tb < 0) tb = 0;
 
-	/* compute full window dimensions including borders/titlebar */
+	
 	int pw, ph;
 	if (tb > 0)
 	{
@@ -264,7 +268,7 @@ static void apply_resize(struct hsdwl_server *server)
 	server->resize_preview_w = new_w;
 	server->resize_preview_h = new_h;
 
-	/* create 4 preview rects forming a border outline */
+	
 	float *col = server->config.border_color_focused;
 	for (int i = 0; i < 4; i++)
 	{
@@ -278,7 +282,7 @@ static void apply_resize(struct hsdwl_server *server)
 		}
 	}
 
-	/* top */
+	
 	if (server->resize_preview[0]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[0], pw, bw);
@@ -287,7 +291,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[0]->node, true);
 	}
-	/* bottom */
+	
 	if (server->resize_preview[1]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[1], pw, bw);
@@ -297,7 +301,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[1]->node, true);
 	}
-	/* left */
+	
 	if (server->resize_preview[2]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[2], bw, ph);
@@ -306,7 +310,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[2]->node, true);
 	}
-	/* right */
+	
 	if (server->resize_preview[3]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[3], bw, ph);
@@ -456,7 +460,7 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 			server->grabbed_view = NULL;
 			return true;
 		}
-		/* only reorder when cursor is inside the tab bar */
+		
 		double local_y = server->cursor->y
 			- g->scene_tree->node.y;
 		if (local_y < 0 || local_y >= g->tab_bar_thickness)
@@ -519,17 +523,23 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 		listener, server, cursor_button);
 	struct wlr_pointer_button_event *event = data;
 
+	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED
+			&& server->cursor_mode == HSDWL_CURSOR_STAGE_DRAG)
+		return;
+
 	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
 	{
-		/* stage manager sidebar click */
+		
 		if (server->config.stage_manager_enabled
 				&& server->cursor->x < SIDEBAR_WIDTH
 				&& event->button == BTN_LEFT)
 		{
 			double sx, sy;
-			struct hsdwl_view *v = view_at(server,
+			struct wlr_scene_node *n = wlr_scene_node_at(
+				&server->ws_sidebar_trees[
+					server->current_workspace]->node,
 				server->cursor->x, server->cursor->y, &sx, &sy);
-			if (!v)
+			if (n)
 			{
 				struct custom_stage *stage = stage_at(server,
 					server->cursor->x, server->cursor->y,
@@ -582,7 +592,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			else
 			{
 				hsdwl_tab_group_set_active(g, tv);
-				/* content area click: fall through */
+				
 			}
 		}
 
