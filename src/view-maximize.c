@@ -323,14 +323,6 @@ static void view_anim_zoom_finish(struct hsdwl_server *server, void *user_data)
 	titlebar_text_update(view);
 }
 
-static void view_anim_full_finish(struct hsdwl_server *server, void *user_data)
-{
-	(void)server;
-	struct hsdwl_view *view = user_data;
-	if (view->content_tree)
-		wlr_scene_node_set_position(&view->content_tree->node, 0, 0);
-}
-
 static void view_anim_unmaximize_finish(struct hsdwl_server *server,
 		void *user_data)
 {
@@ -412,11 +404,15 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		int tb_cap = tb > 0 ? tb : 0;
 		int src_full_w = cur_cw + 2 * bw;
 		int src_full_h = cur_ch + tb_cap + bw;
-		int src_abs_x = SIDEBAR_WIDTH + (int)view->scene_tree->node.x;
+		/* View may be reparented to workspace (full-max),
+		   so absolute position is just scene_tree->node.x */
+		int src_abs_x = (int)view->scene_tree->node.x;
 		int src_abs_y = (int)view->scene_tree->node.y;
 
 		int tgt_full_w = view->saved_geometry.width + 2 * bw;
 		int tgt_full_h = view->saved_geometry.height + tb_cap + bw;
+		/* After restore the view goes back to stage/canvas
+		   so target includes SIDEBAR_WIDTH offset */
 		int tgt_abs_x = SIDEBAR_WIDTH + (int)view->saved_geometry.x;
 		int tgt_abs_y = (int)view->saved_geometry.y;
 
@@ -432,6 +428,13 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		if (view->title_text_buf)
 			wlr_scene_node_set_enabled(
 				&view->title_text_buf->node, true);
+
+		if (view->saved_parent)
+		{
+			wlr_scene_node_reparent(&view->scene_tree->node,
+				view->saved_parent);
+			view->saved_parent = NULL;
+		}
 
 		int ct_off_x = bw;
 		int ct_off_y = tb > 0 ? tb : bw;
@@ -495,21 +498,19 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_scene_node_set_position(
 				&view->content_tree->node, 0, 0);
 
+		/* Reparent to workspace root at origin to avoid
+		   negative position offset from stage manager */
+		view->saved_parent = view->scene_tree->node.parent;
+		wlr_scene_node_reparent(&view->scene_tree->node,
+			server->workspaces[server->current_workspace]);
+		wlr_scene_node_set_position(&view->scene_tree->node, 0, 0);
+
 		if (view->xdg_surface && view->xdg_surface->configured)
 			wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
 				fw, obox.height);
 		else if (view->xwayland_surface)
 			wlr_xwayland_surface_configure(view->xwayland_surface,
-				-SIDEBAR_WIDTH, 0, fw, obox.height);
-
-		double cur_x = view->scene_tree->node.x;
-		double cur_y = view->scene_tree->node.y;
-
-		animation_create_node_pos(server, &view->scene_tree->node,
-			200, HSDWL_EASE_BEZIER,
-			cur_x, cur_y,
-			(double)-SIDEBAR_WIDTH, 0.0,
-			view_anim_full_finish, view);
+				0, 0, fw, obox.height);
 
 		view->zoomed = false;
 		view->maximized = true;

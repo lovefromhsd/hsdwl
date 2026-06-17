@@ -526,19 +526,25 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 				&& server->cursor->x < SIDEBAR_WIDTH
 				&& event->button == BTN_LEFT)
 		{
-			struct custom_stage *stage = stage_at(server,
-				server->cursor->x, server->cursor->y,
-				server->current_workspace);
-			if (stage)
+			double sx, sy;
+			struct hsdwl_view *v = view_at(server,
+				server->cursor->x, server->cursor->y, &sx, &sy);
+			if (!v)
 			{
-				server->cursor_mode =
-					HSDWL_CURSOR_STAGE_DRAG;
-				server->drag_source_stage = stage;
-				wlr_cursor_set_xcursor(
-					server->cursor,
-					server->cursor_mgr,
-					"grabbing");
-				return;
+				struct custom_stage *stage = stage_at(server,
+					server->cursor->x, server->cursor->y,
+					server->current_workspace);
+				if (stage)
+				{
+					server->cursor_mode =
+						HSDWL_CURSOR_STAGE_DRAG;
+					server->drag_source_stage = stage;
+					wlr_cursor_set_xcursor(
+						server->cursor,
+						server->cursor_mgr,
+						"grabbing");
+					return;
+				}
 			}
 		}
 

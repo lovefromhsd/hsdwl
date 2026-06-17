@@ -46,6 +46,7 @@ struct hsdwl_view
 	bool zoomed;
 	struct wlr_box saved_geometry;
 	struct wlr_scene_buffer *anim_overlay;
+	struct wlr_scene_tree *saved_parent;
 };
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);
