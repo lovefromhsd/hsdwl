@@ -145,7 +145,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 	ssa->remaining = 0;
 	ssa->insert_tail = false;
 	ssa->n_overlays = 0;
-	ssa->use_3d = server->config.stage_3d_flip_enabled;
+	ssa->use_3d = false;
 
 	if (ssa->use_3d) {
 		stage_3d_cancel(server);
@@ -460,7 +460,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	ssa->remaining = 0;
 	ssa->insert_tail = insert_tail;
 	ssa->n_overlays = 0;
-	ssa->use_3d = server->config.stage_3d_flip_enabled;
+	ssa->use_3d = false;
 
 	if (ssa->use_3d) {
 		stage_3d_cancel(server);
