@@ -304,16 +304,18 @@ void hsdwl_tab_group_set_active(struct hsdwl_tab_group *group,
 	if (!group || !view || view->tab_group != group)
 		return;
 
-	if (group->active == view)
-		return;
+	if (group->active != view)
+	{
+		struct hsdwl_view *prev = group->active;
+		if (prev && prev->scene_tree)
+			wlr_scene_node_set_enabled(
+				&prev->scene_tree->node, false);
 
-	struct hsdwl_view *prev = group->active;
-	if (prev && prev->scene_tree)
-		wlr_scene_node_set_enabled(&prev->scene_tree->node, false);
-
-	group->active = view;
-	if (view->scene_tree)
-		wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+		group->active = view;
+		if (view->scene_tree)
+			wlr_scene_node_set_enabled(
+				&view->scene_tree->node, true);
+	}
 
 	view_focus(group->server, view);
 	hsdwl_tab_group_update_layout(group);
