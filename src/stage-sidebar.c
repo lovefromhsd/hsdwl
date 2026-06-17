@@ -173,7 +173,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 					stage_3d_render_tilted(tpass, tex,
 						thumb_w, thumb_h,
 						0, 0, thumb_w, thumb_h,
-						22.0f, 1.0f);
+						-12.0f, 1.0f);
 					if (wlr_render_pass_submit(tpass)) {
 						wlr_scene_buffer_set_buffer(
 							stage->thumb_buf, tilted);
@@ -264,15 +264,15 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 
 		int tw = thumb_w;
 		int th = (int)(bbox.height * (float)tw / bbox.width);
-		if (th > 300)
+		if (th > 500)
 		{
 			float ar = (float)bbox.width / bbox.height;
-			th = 300;
-			tw = (int)(300 * ar);
+			th = 500;
+			tw = (int)(500 * ar);
 			if (tw < 20) tw = 20;
 		}
 
-		int gap = STAGE_THUMB_GAP + th / 8;
+		int gap = STAGE_THUMB_GAP + th / 16;
 
 		entries[nentries].st = st;
 		entries[nentries].app = stage_get_app_name(st);
