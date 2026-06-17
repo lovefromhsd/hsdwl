@@ -43,6 +43,42 @@ void animation_create(struct hsdwl_server *server,
 	anim->from_h = from_h;
 	anim->to_w = to_w;
 	anim->to_h = to_h;
+	anim->from_opacity = 1.0f;
+	anim->to_opacity = 1.0f;
+	anim->on_finish = on_finish;
+	anim->user_data = user_data;
+
+	clock_gettime(CLOCK_MONOTONIC, &anim->start);
+
+	wl_list_insert(&server->animations, &anim->link);
+}
+
+void animation_create_with_fade(struct hsdwl_server *server,
+	struct wlr_scene_buffer *buffer,
+	int duration_ms, enum hsdwl_easing easing,
+	double from_x, double from_y, int from_w, int from_h,
+	double to_x, double to_y, int to_w, int to_h,
+	float from_opacity, float to_opacity,
+	void (*on_finish)(struct hsdwl_server *, void *),
+	void *user_data)
+{
+	struct hsdwl_animation *anim = calloc(1, sizeof(*anim));
+	if (!anim)
+		return;
+
+	anim->buffer = buffer;
+	anim->duration_ms = duration_ms;
+	anim->easing = easing;
+	anim->from_x = from_x;
+	anim->from_y = from_y;
+	anim->to_x = to_x;
+	anim->to_y = to_y;
+	anim->from_w = from_w;
+	anim->from_h = from_h;
+	anim->to_w = to_w;
+	anim->to_h = to_h;
+	anim->from_opacity = from_opacity;
+	anim->to_opacity = to_opacity;
 	anim->on_finish = on_finish;
 	anim->user_data = user_data;
 
@@ -70,6 +106,37 @@ void animation_create_node_pos(struct hsdwl_server *server,
 	anim->from_y = from_y;
 	anim->to_x = to_x;
 	anim->to_y = to_y;
+	anim->from_opacity = 1.0f;
+	anim->to_opacity = 1.0f;
+	anim->on_finish = on_finish;
+	anim->user_data = user_data;
+	clock_gettime(CLOCK_MONOTONIC, &anim->start);
+	wl_list_insert(&server->animations, &anim->link);
+}
+
+void animation_create_node_pos_with_fade(
+	struct hsdwl_server *server,
+	struct wlr_scene_node *node,
+	int duration_ms, enum hsdwl_easing easing,
+	double from_x, double from_y,
+	double to_x, double to_y,
+	float from_opacity, float to_opacity,
+	void (*on_finish)(struct hsdwl_server *, void *),
+	void *user_data)
+{
+	struct hsdwl_animation *anim = calloc(1, sizeof(*anim));
+	if (!anim)
+		return;
+	anim->pos_node = node;
+	anim->buffer = NULL;
+	anim->duration_ms = duration_ms;
+	anim->easing = easing;
+	anim->from_x = from_x;
+	anim->from_y = from_y;
+	anim->to_x = to_x;
+	anim->to_y = to_y;
+	anim->from_opacity = from_opacity;
+	anim->to_opacity = to_opacity;
 	anim->on_finish = on_finish;
 	anim->user_data = user_data;
 	clock_gettime(CLOCK_MONOTONIC, &anim->start);
@@ -106,6 +173,15 @@ void animation_tick(struct hsdwl_server *server, struct timespec *now)
 		double x = anim->from_x + (anim->to_x - anim->from_x) * eased_t;
 		double y = anim->from_y + (anim->to_y - anim->from_y) * eased_t;
 
+		if (!anim->pos_node && (anim->from_opacity != 1.0f
+				|| anim->to_opacity != 1.0f)) {
+			float opacity = anim->from_opacity
+				+ (anim->to_opacity - anim->from_opacity)
+					* (float)eased_t;
+			wlr_scene_buffer_set_opacity(
+				anim->buffer, opacity);
+		}
+
 		if (anim->pos_node) {
 			wlr_scene_node_set_position(anim->pos_node,
 				(int)round(x), (int)round(y));
@@ -121,12 +197,18 @@ void animation_tick(struct hsdwl_server *server, struct timespec *now)
 		if (t >= 1.0) {
 			if (anim->pos_node) {
 				wlr_scene_node_set_position(anim->pos_node,
-					(int)round(anim->to_x), (int)round(anim->to_y));
+					(int)round(anim->to_x),
+					(int)round(anim->to_y));
 			} else {
 				wlr_scene_node_set_position(&anim->buffer->node,
-					(int)round(anim->to_x), (int)round(anim->to_y));
+					(int)round(anim->to_x),
+					(int)round(anim->to_y));
 				wlr_scene_buffer_set_dest_size(anim->buffer,
 					anim->to_w, anim->to_h);
+				if (anim->from_opacity != 1.0f
+						|| anim->to_opacity != 1.0f)
+					wlr_scene_buffer_set_opacity(
+						anim->buffer, anim->to_opacity);
 			}
 
 			wl_list_remove(&anim->link);

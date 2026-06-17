@@ -983,15 +983,6 @@ static void view_anim_zoom_finish(struct hsdwl_server *server, void *user_data)
 {
 	struct hsdwl_view *view = user_data;
 	destroy_anim_overlay(server, view);
-
-	for (int i = 0; i < 4; i++)
-		if (view->border_rects[i])
-			wlr_scene_node_set_enabled(
-				&view->border_rects[i]->node, true);
-	if (view->title_text_buf)
-		wlr_scene_node_set_enabled(
-			&view->title_text_buf->node, true);
-
 	view_borders_update(view);
 	titlebar_text_update(view);
 }
@@ -1098,19 +1089,16 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			src_abs_x, src_abs_y);
 		if (!ov) return;
 
-		if (view->content_tree)
-			wlr_scene_node_set_enabled(
-				&view->content_tree->node, false);
-		if (view->title_text_buf)
-			wlr_scene_node_set_enabled(
-				&view->title_text_buf->node, false);
-
-		wlr_scene_node_set_position(&view->scene_tree->node,
-			view->saved_geometry.x, view->saved_geometry.y);
 		for (int i = 0; i < 4; i++)
 			if (view->border_rects[i])
 				wlr_scene_node_set_enabled(
-					&view->border_rects[i]->node, false);
+					&view->border_rects[i]->node, true);
+		if (view->title_text_buf)
+			wlr_scene_node_set_enabled(
+				&view->title_text_buf->node, true);
+
+		wlr_scene_node_set_position(&view->scene_tree->node,
+			view->saved_geometry.x, view->saved_geometry.y);
 
 		if (view->xdg_surface && view->xdg_surface->configured)
 			wlr_xdg_toplevel_set_size(view->xdg_surface->toplevel,
@@ -1122,11 +1110,12 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 		view->anim_overlay = ov;
 
-		animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+		animation_create_with_fade(server, ov, 200, HSDWL_EASE_OUT_QUAD,
 			(double)src_abs_x, (double)src_abs_y,
 			src_full_w, src_full_h,
 			(double)tgt_abs_x, (double)tgt_abs_y,
 			tgt_full_w, tgt_full_h,
+			1.0f, 0.0f,
 			view_anim_unmaximize_finish, view);
 
 		view->maximized = false;
@@ -1233,17 +1222,6 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		src_abs_x, src_abs_y);
 	if (!ov) return;
 
-	if (view->content_tree)
-		wlr_scene_node_set_enabled(
-			&view->content_tree->node, false);
-	for (int i = 0; i < 4; i++)
-		if (view->border_rects[i])
-			wlr_scene_node_set_enabled(
-				&view->border_rects[i]->node, false);
-	if (view->title_text_buf)
-		wlr_scene_node_set_enabled(
-			&view->title_text_buf->node, false);
-
 	wlr_scene_node_set_position(&view->scene_tree->node, pad, 0);
 
 	if (view->xdg_surface && view->xdg_surface->configured)
@@ -1254,11 +1232,12 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 	view->anim_overlay = ov;
 
-	animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+	animation_create_with_fade(server, ov, 200, HSDWL_EASE_OUT_QUAD,
 		(double)src_abs_x, (double)src_abs_y,
 		src_full_w, src_full_h,
 		(double)tgt_abs_x, (double)tgt_abs_y,
 		tgt_full_w, tgt_full_h,
+		1.0f, 0.0f,
 		view_anim_zoom_finish, view);
 
 	view->zoomed = true;
