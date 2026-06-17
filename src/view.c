@@ -17,6 +17,7 @@
 #include <wlr/render/allocator.h>
 #include <wlr/render/pass.h>
 #include <wlr/render/wlr_renderer.h>
+#include <wlr/render/wlr_texture.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -773,19 +774,37 @@ struct wlr_buffer *view_capture_full_window(
 		? server->config.titlebar_color_focused
 		: server->config.titlebar_color;
 
-	/* titlebar background */
-	if (tb > 0)
+	/* titlebar — use actual rendered buffer (includes text) */
+	if (tb > 0 && view->title_text_buf && view->title_text_buf->buffer)
 	{
-		int tw = content_w + 2 * bw;
-		int r = server->config.titlebar_radius;
-		if (r > tb / 2) r = tb / 2;
-		/* full titlebar rect */
-		wlr_render_pass_add_rect(pass,
-			&(struct wlr_render_rect_options){
-				.box = { .width = tw, .height = tb },
-				.color = { tcol[0], tcol[1], tcol[2], tcol[3] },
-			});
-		(void)r; /* simple rect is close enough for a 200ms animation */
+		struct wlr_texture *title_tex = wlr_texture_from_buffer(
+			server->renderer, view->title_text_buf->buffer);
+		if (title_tex)
+		{
+			int tw = content_w + 2 * bw;
+			const float alpha = 1.0f;
+			wlr_render_pass_add_texture(pass,
+				&(struct wlr_render_texture_options){
+					.texture = title_tex,
+					.dst_box = {
+						.x = 0, .y = 0,
+						.width = tw, .height = tb,
+					},
+					.alpha = &alpha,
+					.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+				});
+			/* wlr_texture_from_buffer adds a reference; we must drop it */
+			wlr_texture_destroy(title_tex);
+		}
+		else
+		{
+			/* fallback: solid color rect */
+			wlr_render_pass_add_rect(pass,
+				&(struct wlr_render_rect_options){
+					.box = { .width = content_w + 2 * bw, .height = tb },
+					.color = { tcol[0], tcol[1], tcol[2], tcol[3] },
+				});
+		}
 	}
 
 	/* borders */

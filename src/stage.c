@@ -654,23 +654,72 @@ void stage_manager_switch(struct hsdwl_server *server,
 	/* Old stage windows: animate from canvas position to thumbnail */
 	if (old) {
 		struct custom_window *cw;
+		struct hsdwl_tab_group *seen_tg[64];
+		int n_seen_tg = 0;
 		wl_list_for_each(cw, &old->windows, link)
 		{
 			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			int fw, fh, fx, fy, tw, th;
+
+			if (cw->view && cw->view->tab_group) {
+				struct hsdwl_tab_group *g = cw->view->tab_group;
+				/* skip if we already made an overlay for this group */
+				bool skip = false;
+				for (int i = 0; i < n_seen_tg; i++)
+					if (seen_tg[i] == g) { skip = true; break; }
+				if (skip) continue;
+				seen_tg[n_seen_tg++] = g;
+
+				struct hsdwl_view *av = g->active;
+				if (!av) continue;
+				int cw_ = g->content_area_box.width;
+				int ch_ = g->content_area_box.height;
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, av, cw_, ch_, 0, 0);
+				if (!buf) continue;
+
+				fw = cw_;  fh = ch_;
+				fx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
+				fy = (int)g->scene_tree->node.y
+					+ g->tab_bar_thickness;
+
+				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+				th = (int)((float)ch_ * tw / cw_);
+				if (th > 300) {
+					float ar = (float)cw_ / ch_;
+					th = 300;
+					tw = (int)(300 * ar);
+				}
+
+				struct wlr_scene_buffer *ov =
+					wlr_scene_buffer_create(
+						server->animation_tree, buf);
+				wlr_buffer_drop(buf);
+				wlr_scene_node_set_position(&ov->node,fx,fy);
+				wlr_scene_buffer_set_dest_size(ov,fw,fh);
+				wlr_scene_node_raise_to_top(&ov->node);
+				ssa->overlays[ssa->n_overlays++] = ov;
+				ssa->remaining++;
+				animation_create(server, ov,200,HSDWL_EASE_OUT_QUAD,
+					fx,fy,fw,fh,
+					target->thumb_x,target->thumb_y,tw,th,
+					stage_switch_on_anim_done,ssa);
+				continue;
+			}
 
 			struct wlr_buffer *buf = view_capture_full_window(
 				server, cw->view, (int)cw->w, (int)cw->h,
 				bw, tb);
 			if (!buf) continue;
 
-			int fw = (int)cw->w + 2 * bw;
-			int fh = (int)cw->h + tb + bw;
-			int fx = SIDEBAR_WIDTH + (int)cw->x;
-			int fy = (int)cw->y;
+			fw = (int)cw->w + 2 * bw;
+			fh = (int)cw->h + tb + bw;
+			fx = SIDEBAR_WIDTH + (int)cw->x;
+			fy = (int)cw->y;
 
-			/* per-window thumbnail size */
-			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			int th = (int)((float)cw->h * tw / cw->w);
+			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			th = (int)((float)cw->h * tw / cw->w);
 			if (th > 300) {
 				float ar = (float)cw->w / cw->h;
 				th = 300;
@@ -697,23 +746,71 @@ void stage_manager_switch(struct hsdwl_server *server,
 	/* Target stage windows: animate from thumbnail to canvas position */
 	{
 		struct custom_window *cw;
+		struct hsdwl_tab_group *seen_tg[64];
+		int n_seen_tg = 0;
 		wl_list_for_each(cw, &target->windows, link)
 		{
 			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			int tw, th, ttx, tty, tx, ty;
+
+			if (cw->view && cw->view->tab_group) {
+				struct hsdwl_tab_group *g = cw->view->tab_group;
+				bool skip = false;
+				for (int i = 0; i < n_seen_tg; i++)
+					if (seen_tg[i] == g) { skip = true; break; }
+				if (skip) continue;
+				seen_tg[n_seen_tg++] = g;
+
+				struct hsdwl_view *av = g->active;
+				if (!av) continue;
+				int cw_ = g->content_area_box.width;
+				int ch_ = g->content_area_box.height;
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, av, cw_, ch_, 0, 0);
+				if (!buf) continue;
+
+				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+				th = (int)((float)ch_ * tw / cw_);
+				if (th > 300) {
+					float ar = (float)cw_ / ch_;
+					th = 300;
+					tw = (int)(300 * ar);
+				}
+				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
+				tty = (int)g->scene_tree->node.y
+					+ g->tab_bar_thickness;
+				tx = cw_;  ty = ch_;
+
+				struct wlr_scene_buffer *ov =
+					wlr_scene_buffer_create(
+						server->animation_tree, buf);
+				wlr_buffer_drop(buf);
+				wlr_scene_node_set_position(&ov->node,
+					target->thumb_x, target->thumb_y);
+				wlr_scene_buffer_set_dest_size(ov, tw, th);
+				wlr_scene_node_raise_to_top(&ov->node);
+				ssa->overlays[ssa->n_overlays++] = ov;
+				ssa->remaining++;
+				animation_create(server, ov,200,HSDWL_EASE_OUT_QUAD,
+					target->thumb_x,target->thumb_y,tw,th,
+					ttx,tty,tx,ty,
+					stage_switch_on_anim_done,ssa);
+				continue;
+			}
 
 			struct wlr_buffer *buf = view_capture_full_window(
 				server, cw->view, (int)cw->w, (int)cw->h,
 				bw, tb);
 			if (!buf) continue;
 
-			int tx = (int)cw->w + 2 * bw;
-			int ty = (int)cw->h + tb + bw;
-			int ttx = SIDEBAR_WIDTH + (int)cw->x;
-			int tty = (int)cw->y;
+			tx = (int)cw->w + 2 * bw;
+			ty = (int)cw->h + tb + bw;
+			ttx = SIDEBAR_WIDTH + (int)cw->x;
+			tty = (int)cw->y;
 
-			/* per-window thumbnail size */
-			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			int th = (int)((float)cw->h * tw / cw->w);
+			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			th = (int)((float)cw->h * tw / cw->w);
 			if (th > 300) {
 				float ar = (float)cw->w / cw->h;
 				th = 300;
@@ -793,22 +890,71 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	/* Old stage windows: animate from canvas position to thumbnail */
 	if (old) {
 		struct custom_window *cw;
+		struct hsdwl_tab_group *seen_tg[64];
+		int n_seen_tg = 0;
 		wl_list_for_each(cw, &old->windows, link)
 		{
 			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			int fw, fh, fx, fy, tw, th;
+
+			if (cw->view && cw->view->tab_group) {
+				struct hsdwl_tab_group *g = cw->view->tab_group;
+				bool skip = false;
+				for (int i = 0; i < n_seen_tg; i++)
+					if (seen_tg[i] == g) { skip = true; break; }
+				if (skip) continue;
+				seen_tg[n_seen_tg++] = g;
+
+				struct hsdwl_view *av = g->active;
+				if (!av) continue;
+				int cw_ = g->content_area_box.width;
+				int ch_ = g->content_area_box.height;
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, av, cw_, ch_, 0, 0);
+				if (!buf) continue;
+
+				fw = cw_;  fh = ch_;
+				fx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
+				fy = (int)g->scene_tree->node.y
+					+ g->tab_bar_thickness;
+
+				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+				th = (int)((float)ch_ * tw / cw_);
+				if (th > 300) {
+					float ar = (float)cw_ / ch_;
+					th = 300;
+					tw = (int)(300 * ar);
+				}
+
+				struct wlr_scene_buffer *ov =
+					wlr_scene_buffer_create(
+						server->animation_tree, buf);
+				wlr_buffer_drop(buf);
+				wlr_scene_node_set_position(&ov->node,fx,fy);
+				wlr_scene_buffer_set_dest_size(ov,fw,fh);
+				wlr_scene_node_raise_to_top(&ov->node);
+				ssa->overlays[ssa->n_overlays++] = ov;
+				ssa->remaining++;
+				animation_create(server, ov,200,HSDWL_EASE_OUT_QUAD,
+					fx,fy,fw,fh,
+					target->thumb_x,target->thumb_y,tw,th,
+					stage_switch_on_anim_done,ssa);
+				continue;
+			}
 
 			struct wlr_buffer *buf = view_capture_full_window(
 				server, cw->view, (int)cw->w, (int)cw->h,
 				bw, tb);
 			if (!buf) continue;
 
-			int fw = (int)cw->w + 2 * bw;
-			int fh = (int)cw->h + tb + bw;
-			int fx = SIDEBAR_WIDTH + (int)cw->x;
-			int fy = (int)cw->y;
+			fw = (int)cw->w + 2 * bw;
+			fh = (int)cw->h + tb + bw;
+			fx = SIDEBAR_WIDTH + (int)cw->x;
+			fy = (int)cw->y;
 
-			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			int th = (int)((float)cw->h * tw / cw->w);
+			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			th = (int)((float)cw->h * tw / cw->w);
 			if (th > 300) {
 				float ar = (float)cw->w / cw->h;
 				th = 300;
@@ -835,22 +981,71 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	/* Target stage windows: animate from thumbnail to canvas position */
 	{
 		struct custom_window *cw;
+		struct hsdwl_tab_group *seen_tg[64];
+		int n_seen_tg = 0;
 		wl_list_for_each(cw, &target->windows, link)
 		{
 			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			int tw, th, ttx, tty, tx, ty;
+
+			if (cw->view && cw->view->tab_group) {
+				struct hsdwl_tab_group *g = cw->view->tab_group;
+				bool skip = false;
+				for (int i = 0; i < n_seen_tg; i++)
+					if (seen_tg[i] == g) { skip = true; break; }
+				if (skip) continue;
+				seen_tg[n_seen_tg++] = g;
+
+				struct hsdwl_view *av = g->active;
+				if (!av) continue;
+				int cw_ = g->content_area_box.width;
+				int ch_ = g->content_area_box.height;
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, av, cw_, ch_, 0, 0);
+				if (!buf) continue;
+
+				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+				th = (int)((float)ch_ * tw / cw_);
+				if (th > 300) {
+					float ar = (float)cw_ / ch_;
+					th = 300;
+					tw = (int)(300 * ar);
+				}
+				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
+				tty = (int)g->scene_tree->node.y
+					+ g->tab_bar_thickness;
+				tx = cw_;  ty = ch_;
+
+				struct wlr_scene_buffer *ov =
+					wlr_scene_buffer_create(
+						server->animation_tree, buf);
+				wlr_buffer_drop(buf);
+				wlr_scene_node_set_position(&ov->node,
+					target->thumb_x, target->thumb_y);
+				wlr_scene_buffer_set_dest_size(ov, tw, th);
+				wlr_scene_node_raise_to_top(&ov->node);
+				ssa->overlays[ssa->n_overlays++] = ov;
+				ssa->remaining++;
+				animation_create(server, ov,200,HSDWL_EASE_OUT_QUAD,
+					target->thumb_x,target->thumb_y,tw,th,
+					ttx,tty,tx,ty,
+					stage_switch_on_anim_done,ssa);
+				continue;
+			}
 
 			struct wlr_buffer *buf = view_capture_full_window(
 				server, cw->view, (int)cw->w, (int)cw->h,
 				bw, tb);
 			if (!buf) continue;
 
-			int tx = (int)cw->w + 2 * bw;
-			int ty = (int)cw->h + tb + bw;
-			int ttx = SIDEBAR_WIDTH + (int)cw->x;
-			int tty = (int)cw->y;
+			tx = (int)cw->w + 2 * bw;
+			ty = (int)cw->h + tb + bw;
+			ttx = SIDEBAR_WIDTH + (int)cw->x;
+			tty = (int)cw->y;
 
-			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			int th = (int)((float)cw->h * tw / cw->w);
+			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			th = (int)((float)cw->h * tw / cw->w);
 			if (th > 300) {
 				float ar = (float)cw->w / cw->h;
 				th = 300;
@@ -924,22 +1119,71 @@ void stage_manager_merge(struct hsdwl_server *server,
 	/* Source stage windows: animate from thumbnail to canvas */
 	{
 		struct custom_window *scw;
+		struct hsdwl_tab_group *seen_tg[64];
+		int n_seen_tg = 0;
 		wl_list_for_each(scw, &source->windows, link)
 		{
 			if (sma->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			int tx, ty, ttx, tty, tw, th;
+
+			if (scw->view && scw->view->tab_group) {
+				struct hsdwl_tab_group *g = scw->view->tab_group;
+				bool skip = false;
+				for (int i = 0; i < n_seen_tg; i++)
+					if (seen_tg[i] == g) { skip = true; break; }
+				if (skip) continue;
+				seen_tg[n_seen_tg++] = g;
+
+				struct hsdwl_view *av = g->active;
+				if (!av) continue;
+				int cw_ = g->content_area_box.width;
+				int ch_ = g->content_area_box.height;
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, av, cw_, ch_, 0, 0);
+				if (!buf) continue;
+
+				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+				th = (int)((float)ch_ * tw / cw_);
+				if (th > 300) {
+					float ar = (float)cw_ / ch_;
+					th = 300;
+					tw = (int)(300 * ar);
+				}
+				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
+				tty = (int)g->scene_tree->node.y
+					+ g->tab_bar_thickness;
+				tx = cw_;  ty = ch_;
+
+				struct wlr_scene_buffer *ov =
+					wlr_scene_buffer_create(
+						server->animation_tree, buf);
+				wlr_buffer_drop(buf);
+				wlr_scene_node_set_position(&ov->node,
+					source->thumb_x, source->thumb_y);
+				wlr_scene_buffer_set_dest_size(ov, tw, th);
+				wlr_scene_node_raise_to_top(&ov->node);
+				sma->overlays[sma->n_overlays++] = ov;
+				sma->remaining++;
+				animation_create(server, ov,200,HSDWL_EASE_OUT_QUAD,
+					source->thumb_x,source->thumb_y,tw,th,
+					ttx,tty,tx,ty,
+					stage_merge_on_anim_done,sma);
+				continue;
+			}
 
 			struct wlr_buffer *buf = view_capture_full_window(
 				server, scw->view, (int)scw->w, (int)scw->h,
 				bw, tb);
 			if (!buf) continue;
 
-			int tx = (int)scw->w + 2 * bw;
-			int ty = (int)scw->h + tb + bw;
-			int ttx = SIDEBAR_WIDTH + (int)scw->x;
-			int tty = (int)scw->y;
+			tx = (int)scw->w + 2 * bw;
+			ty = (int)scw->h + tb + bw;
+			ttx = SIDEBAR_WIDTH + (int)scw->x;
+			tty = (int)scw->y;
 
-			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			int th = (int)((float)scw->h * tw / scw->w);
+			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			th = (int)((float)scw->h * tw / scw->w);
 			if (th > 300) {
 				float ar = (float)scw->w / scw->h;
 				th = 300;
