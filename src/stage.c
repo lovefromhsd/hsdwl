@@ -557,9 +557,10 @@ void stage_manager_new_window(struct hsdwl_server *server,
 		server, view, vw, vh, bw, tb);
 	if (cap && view->scene_tree)
 	{
-		double start_x = SIDEBAR_WIDTH;
-		double start_y = fmax(0,
-			(canvas_h - (vh + tb + bw)) / 2);
+		double center_x = (SIDEBAR_WIDTH + ox) + (vw + 2 * bw) / 2.0;
+		double center_y = oy + (vh + tb + bw) / 2.0;
+		double start_x = center_x;
+		double start_y = center_y;
 		int start_w = 1;
 		int start_h = 1;
 
