@@ -808,13 +808,14 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 	group->saved_geometry.height =
 		group->content_area_box.height + group->tab_bar_thickness;
 
-	int zw = obox.width - SIDEBAR_WIDTH;
+	int pad = 16;
+	int zw = obox.width - SIDEBAR_WIDTH - pad;
 	if (zw < 1) zw = 1;
 	int zh = obox.height - group->tab_bar_thickness;
 	if (zh < 1) zh = 1;
 
 	wlr_scene_node_set_position(&group->scene_tree->node,
-		SIDEBAR_WIDTH, 0);
+		pad, 0);
 	group->content_area_box.width = zw;
 	group->content_area_box.height = zh;
 
@@ -852,7 +853,8 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		struct wlr_box obox;
 		wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
 
-		wlr_scene_node_set_position(&group->scene_tree->node, 0, 0);
+		wlr_scene_node_set_position(&group->scene_tree->node,
+			-SIDEBAR_WIDTH, 0);
 		wlr_scene_node_raise_to_top(&group->scene_tree->node);
 
 		int fh = obox.height - group->tab_bar_thickness;
