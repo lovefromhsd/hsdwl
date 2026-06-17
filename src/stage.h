@@ -8,6 +8,7 @@
 
 struct hsdwl_server;
 struct hsdwl_view;
+struct wlr_buffer;
 struct wlr_scene_tree;
 struct wlr_scene_rect;
 struct wlr_scene_buffer;
@@ -25,6 +26,8 @@ struct custom_window
 	double x, y, w, h;
 };
 
+struct custom_stage;
+
 struct custom_stage
 {
 	struct wl_list link;           /* into workspace_stage_mgr->inactive_stages */
@@ -34,6 +37,7 @@ struct custom_stage
 	struct wlr_scene_buffer *thumb_buf;
 	struct wlr_scene_rect *thumb_bg;
 	bool thumb_dirty;
+	int thumb_x, thumb_y;          /* cached sidebar position for animations */
 };
 
 struct workspace_stage_mgr

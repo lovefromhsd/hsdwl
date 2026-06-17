@@ -230,7 +230,18 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wl_list_init(&server->keyboards);
 	wl_list_init(&server->views);
 	wl_list_init(&server->outputs);
+	wl_list_init(&server->animations);
 	hsdwl_tab_group_init(server);
+
+	server->animation_tree = wlr_scene_tree_create(
+		&server->scene->tree);
+	if (!server->animation_tree)
+	{
+		wlr_log(WLR_ERROR, "animation_tree create failed");
+		return false;
+	}
+	wlr_scene_node_raise_to_top(
+		&server->animation_tree->node);
 
 	if (!output_manager_init(server))
 	{
@@ -420,6 +431,9 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wlr_cursor_destroy(server->cursor);
 	if (server->preview_tree)
 		wlr_scene_node_destroy(&server->preview_tree->node);
+	animation_cancel_all(server);
+	if (server->animation_tree)
+		wlr_scene_node_destroy(&server->animation_tree->node);
 	stage_manager_destroy(server);
 	hsdwl_tab_group_finish(server);
 	hsdwl_xwayland_finish(server);

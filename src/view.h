@@ -45,6 +45,7 @@ struct hsdwl_view
 	bool maximized;
 	bool zoomed;
 	struct wlr_box saved_geometry;
+	struct wlr_scene_buffer *anim_overlay;
 };
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data);
@@ -56,10 +57,16 @@ struct hsdwl_view *view_next(struct hsdwl_server *server,
 struct hsdwl_view *view_prev(struct hsdwl_server *server,
 		struct hsdwl_view *current);
 struct wlr_surface *view_get_surface(struct hsdwl_view *view);
+struct wlr_buffer *view_capture_full_window(struct hsdwl_server *server,
+	struct hsdwl_view *view, int content_w, int content_h,
+	int bw, int tb);
 void decoration_handle_request_mode(struct wl_listener *listener, void *data);
 void view_close(struct hsdwl_view *view);
 void titlebar_text_update(struct hsdwl_view *view);
 void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view);
 bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws);
+struct wlr_buffer *view_capture_full_window(struct hsdwl_server *server,
+    struct hsdwl_view *view, int content_w, int content_h,
+    int bw, int tb);
 
 #endif

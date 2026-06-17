@@ -2,6 +2,7 @@
 #define WLR_USE_UNSTABLE
 
 #include "stage.h"
+#include "animation.h"
 #include "output.h"
 #include "server.h"
 #include "view.h"
@@ -20,6 +21,30 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
+
+#define MAX_STAGE_WINDOWS 64
+
+/* ── animation helper structs ── */
+
+struct stage_switch_anim {
+	struct hsdwl_server *server;
+	struct custom_stage *old_stage;
+	struct custom_stage *new_stage;
+	size_t ws;
+	int remaining;
+	bool insert_tail;
+	int n_overlays;
+	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
+};
+
+struct stage_merge_anim {
+	struct hsdwl_server *server;
+	struct custom_stage *source;
+	size_t ws;
+	int remaining;
+	int n_overlays;
+	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
+};
 
 /* ── helpers ── */
 
@@ -132,7 +157,7 @@ static void stage_free(struct custom_stage *stage)
 	free(stage);
 }
 
-/* ── offscreen thumbnail rendering ── */
+/* ── thumbnail rendering ── */
 
 static void stage_render_thumbnail(struct hsdwl_server *server,
 		struct custom_stage *stage, int thumb_w, int thumb_h)
@@ -168,7 +193,6 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 	if (bbox.width < 1 || bbox.height < 1)
 		return;
 
-	/* allocate offscreen buffer at thumbnail size */
 	uint64_t mods[] = { DRM_FORMAT_MOD_INVALID };
 	struct wlr_drm_format fmt = {
 		.format = DRM_FORMAT_ARGB8888,
@@ -177,22 +201,12 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 	};
 	struct wlr_buffer *buf = wlr_allocator_create_buffer(
 		server->allocator, thumb_w, thumb_h, &fmt);
-	if (!buf)
-	{
-		wlr_log(WLR_ERROR, "allocator create buffer failed");
-		return;
-	}
+	if (!buf) return;
 
 	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
 		server->renderer, buf, NULL);
-	if (!pass)
-	{
-		wlr_log(WLR_ERROR, "begin buffer pass failed");
-		wlr_buffer_drop(buf);
-		return;
-	}
+	if (!pass) { wlr_buffer_drop(buf); return; }
 
-	/* clear with fully transparent */
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 		.box = { .width = thumb_w, .height = thumb_h },
 		.color = { 0.0f, 0.0f, 0.0f, 0.0f },
@@ -210,52 +224,45 @@ static void stage_render_thumbnail(struct hsdwl_server *server,
 		if (sw < 2 || sh < 2)
 			continue;
 
-		/* render actual window content texture, scaled down */
 		struct wlr_surface *surface = view_get_surface(cw->view);
-		if (surface)
-		{
-			struct wlr_texture *texture =
-				wlr_surface_get_texture(surface);
-			if (texture)
-			{
-				/* use the texture's actual buffer dimensions
-				   so the aspect ratio is always correct even
-				   when buffer != geometry (e.g. CSD windows) */
-				float tex_w = surface->current.width;
-				float tex_h = surface->current.height;
-				if (tex_w < 1 || tex_h < 1)
-				{
-					tex_w = cw->w;
-					tex_h = cw->h;
-				}
-				float fit_scale = fmin(
-					sw / tex_w, sh / tex_h);
-				float fit_w = tex_w * fit_scale;
-				float fit_h = tex_h * fit_scale;
-				float fit_x = sx + (sw - fit_w) / 2;
-				float fit_y = sy + (sh - fit_h) / 2;
+		if (!surface) continue;
+		struct wlr_texture *texture = wlr_surface_get_texture(surface);
+		if (!texture) continue;
 
-				const float tex_alpha = 1.0f;
-				wlr_render_pass_add_texture(pass,
-					&(struct wlr_render_texture_options){
-					.texture = texture,
-					.dst_box = {
-						.x = (int)(fit_x + 0.5f),
-						.y = (int)(fit_y + 0.5f),
-						.width = (int)(fit_w + 0.5f),
-						.height = (int)(fit_h + 0.5f),
-					},
-					.alpha = &tex_alpha,
-					.transform = WL_OUTPUT_TRANSFORM_NORMAL,
-				});
-			}
+		float tex_w = surface->current.width;
+		float tex_h = surface->current.height;
+		if (tex_w < 1 || tex_h < 1)
+		{
+			tex_w = cw->w;
+			tex_h = cw->h;
 		}
+		float fit_scale = fmin(sw / tex_w, sh / tex_h);
+		float fit_w = tex_w * fit_scale;
+		float fit_h = tex_h * fit_scale;
+		float fit_x = sx + (sw - fit_w) / 2;
+		float fit_y = sy + (sh - fit_h) / 2;
+		const float alpha = 1.0f;
+
+		wlr_render_pass_add_texture(pass,
+			&(struct wlr_render_texture_options){
+			.texture = texture,
+			.dst_box = {
+				.x = (int)(fit_x + 0.5f),
+				.y = (int)(fit_y + 0.5f),
+				.width = (int)(fit_w + 0.5f),
+				.height = (int)(fit_h + 0.5f),
+			},
+			.alpha = &alpha,
+			.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+		});
 	}
 
 	if (!wlr_render_pass_submit(pass))
-		wlr_log(WLR_ERROR, "render pass submit failed");
+	{
+		wlr_buffer_drop(buf);
+		return;
+	}
 
-	/* display the rendered thumbnail in the sidebar */
 	wlr_scene_buffer_set_buffer(stage->thumb_buf, buf);
 	wlr_scene_buffer_set_dest_size(stage->thumb_buf, thumb_w, thumb_h);
 	wlr_buffer_drop(buf);
@@ -283,6 +290,80 @@ static const char *stage_get_app_name(struct custom_stage *stage)
 		return view_get_app_name(cw->view);
 	}
 	return "Unknown";
+}
+
+/* ── animation completion callbacks ── */
+
+static void stage_switch_on_anim_done(struct hsdwl_server *server,
+		void *user_data)
+{
+	struct stage_switch_anim *ssa = user_data;
+	ssa->remaining--;
+	if (ssa->remaining > 0) return;
+
+	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ssa->ws];
+
+	for (int i = 0; i < ssa->n_overlays; i++)
+		wlr_scene_node_destroy(&ssa->overlays[i]->node);
+
+	if (ssa->old_stage) {
+		stage_set_views_enabled(ssa->old_stage, false);
+		if (ssa->insert_tail)
+			wl_list_insert(mgr->inactive_stages.prev,
+				&ssa->old_stage->link);
+		else
+			wl_list_insert(&mgr->inactive_stages,
+				&ssa->old_stage->link);
+	}
+	wl_list_remove(&ssa->new_stage->link);
+	mgr->active_stage = ssa->new_stage;
+	stage_reparent_to_canvas(ssa->new_stage, server);
+
+	struct custom_window *cw;
+	wl_list_for_each(cw, &ssa->new_stage->windows, link) {
+		view_focus(server, cw->view);
+		break;
+	}
+	stage_manager_render_sidebar(server, ssa->ws);
+
+	free(ssa);
+}
+
+static void stage_merge_on_anim_done(struct hsdwl_server *server,
+		void *user_data)
+{
+	struct stage_merge_anim *sma = user_data;
+	sma->remaining--;
+	if (sma->remaining > 0) return;
+
+	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[sma->ws];
+	struct custom_stage *source = sma->source;
+
+	for (int i = 0; i < sma->n_overlays; i++)
+		wlr_scene_node_destroy(&sma->overlays[i]->node);
+
+	struct custom_window *cw, *tmp;
+	wl_list_for_each_safe(cw, tmp, &source->windows, link)
+	{
+		wl_list_remove(&cw->link);
+		if (cw->view && cw->view->scene_tree)
+		{
+			wlr_scene_node_reparent(
+				&cw->view->scene_tree->node,
+				mgr->active_stage->tree);
+			wlr_scene_node_set_position(
+				&cw->view->scene_tree->node,
+				cw->x, cw->y);
+			wlr_scene_node_set_enabled(
+				&cw->view->scene_tree->node, true);
+		}
+		wl_list_insert(&mgr->active_stage->windows, &cw->link);
+	}
+
+	wl_list_remove(&source->link);
+	stage_free(source);
+	stage_manager_render_sidebar(server, sma->ws);
+	free(sma);
 }
 
 /* ── public API ── */
@@ -555,24 +636,129 @@ void stage_manager_switch(struct hsdwl_server *server,
 	if (!target || target == mgr->active_stage)
 		return;
 
-	if (mgr->active_stage)
-	{
-		stage_set_views_enabled(mgr->active_stage, false);
-		wl_list_insert(&mgr->inactive_stages,
-			&mgr->active_stage->link);
+	struct custom_stage *old = mgr->active_stage;
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
+
+	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
+	if (!ssa)
+		goto instant_switch;
+	ssa->server = server;
+	ssa->old_stage = old;
+	ssa->new_stage = target;
+	ssa->ws = ws;
+	ssa->remaining = 0;
+	ssa->insert_tail = false;
+	ssa->n_overlays = 0;
+
+	/* Old stage windows: animate from canvas position to thumbnail */
+	if (old) {
+		struct custom_window *cw;
+		wl_list_for_each(cw, &old->windows, link)
+		{
+			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			struct wlr_buffer *buf = view_capture_full_window(
+				server, cw->view, (int)cw->w, (int)cw->h,
+				bw, tb);
+			if (!buf) continue;
+
+			int fw = (int)cw->w + 2 * bw;
+			int fh = (int)cw->h + tb + bw;
+			int fx = SIDEBAR_WIDTH + (int)cw->x;
+			int fy = (int)cw->y;
+
+			/* per-window thumbnail size */
+			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			int th = (int)((float)cw->h * tw / cw->w);
+			if (th > 300) {
+				float ar = (float)cw->w / cw->h;
+				th = 300;
+				tw = (int)(300 * ar);
+			}
+
+			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
+				server->animation_tree, buf);
+			wlr_buffer_drop(buf);
+			wlr_scene_node_set_position(&ov->node, fx, fy);
+			wlr_scene_buffer_set_dest_size(ov, fw, fh);
+			wlr_scene_node_raise_to_top(&ov->node);
+
+			ssa->overlays[ssa->n_overlays++] = ov;
+			ssa->remaining++;
+
+			animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+				fx, fy, fw, fh,
+				target->thumb_x, target->thumb_y, tw, th,
+				stage_switch_on_anim_done, ssa);
+		}
 	}
 
+	/* Target stage windows: animate from thumbnail to canvas position */
+	{
+		struct custom_window *cw;
+		wl_list_for_each(cw, &target->windows, link)
+		{
+			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			struct wlr_buffer *buf = view_capture_full_window(
+				server, cw->view, (int)cw->w, (int)cw->h,
+				bw, tb);
+			if (!buf) continue;
+
+			int tx = (int)cw->w + 2 * bw;
+			int ty = (int)cw->h + tb + bw;
+			int ttx = SIDEBAR_WIDTH + (int)cw->x;
+			int tty = (int)cw->y;
+
+			/* per-window thumbnail size */
+			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			int th = (int)((float)cw->h * tw / cw->w);
+			if (th > 300) {
+				float ar = (float)cw->w / cw->h;
+				th = 300;
+				tw = (int)(300 * ar);
+			}
+
+			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
+				server->animation_tree, buf);
+			wlr_buffer_drop(buf);
+			wlr_scene_node_set_position(&ov->node,
+				target->thumb_x, target->thumb_y);
+			wlr_scene_buffer_set_dest_size(ov, tw, th);
+			wlr_scene_node_raise_to_top(&ov->node);
+
+			ssa->overlays[ssa->n_overlays++] = ov;
+			ssa->remaining++;
+
+			animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+				target->thumb_x, target->thumb_y, tw, th,
+				ttx, tty, tx, ty,
+				stage_switch_on_anim_done, ssa);
+		}
+	}
+
+	/* hide real views (captured before hiding) */
+	if (old) stage_set_views_enabled(old, false);
+	stage_set_views_enabled(target, false);
+
+	if (ssa->remaining > 0) return;
+
+	free(ssa);
+
+instant_switch:
+	if (old) {
+		stage_set_views_enabled(old, false);
+		wl_list_insert(&mgr->inactive_stages, &old->link);
+	}
 	wl_list_remove(&target->link);
 	mgr->active_stage = target;
 	stage_reparent_to_canvas(target, server);
-
 	struct custom_window *cw;
-	wl_list_for_each(cw, &target->windows, link)
-	{
+	wl_list_for_each(cw, &target->windows, link) {
 		view_focus(server, cw->view);
 		break;
 	}
-
 	stage_manager_render_sidebar(server, ws);
 }
 
@@ -589,30 +775,130 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	if (!target || target == mgr->active_stage)
 		return;
 
-	stage_set_views_enabled(mgr->active_stage, false);
+	struct custom_stage *old = mgr->active_stage;
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
 
-	/* remove target from the inactive list */
+	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
+	if (!ssa)
+		goto instant_cycle;
+	ssa->server = server;
+	ssa->old_stage = old;
+	ssa->new_stage = target;
+	ssa->ws = ws;
+	ssa->remaining = 0;
+	ssa->insert_tail = !reverse;
+	ssa->n_overlays = 0;
+
+	/* Old stage windows: animate from canvas position to thumbnail */
+	if (old) {
+		struct custom_window *cw;
+		wl_list_for_each(cw, &old->windows, link)
+		{
+			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			struct wlr_buffer *buf = view_capture_full_window(
+				server, cw->view, (int)cw->w, (int)cw->h,
+				bw, tb);
+			if (!buf) continue;
+
+			int fw = (int)cw->w + 2 * bw;
+			int fh = (int)cw->h + tb + bw;
+			int fx = SIDEBAR_WIDTH + (int)cw->x;
+			int fy = (int)cw->y;
+
+			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			int th = (int)((float)cw->h * tw / cw->w);
+			if (th > 300) {
+				float ar = (float)cw->w / cw->h;
+				th = 300;
+				tw = (int)(300 * ar);
+			}
+
+			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
+				server->animation_tree, buf);
+			wlr_buffer_drop(buf);
+			wlr_scene_node_set_position(&ov->node, fx, fy);
+			wlr_scene_buffer_set_dest_size(ov, fw, fh);
+			wlr_scene_node_raise_to_top(&ov->node);
+
+			ssa->overlays[ssa->n_overlays++] = ov;
+			ssa->remaining++;
+
+			animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+				fx, fy, fw, fh,
+				target->thumb_x, target->thumb_y, tw, th,
+				stage_switch_on_anim_done, ssa);
+		}
+	}
+
+	/* Target stage windows: animate from thumbnail to canvas position */
+	{
+		struct custom_window *cw;
+		wl_list_for_each(cw, &target->windows, link)
+		{
+			if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			struct wlr_buffer *buf = view_capture_full_window(
+				server, cw->view, (int)cw->w, (int)cw->h,
+				bw, tb);
+			if (!buf) continue;
+
+			int tx = (int)cw->w + 2 * bw;
+			int ty = (int)cw->h + tb + bw;
+			int ttx = SIDEBAR_WIDTH + (int)cw->x;
+			int tty = (int)cw->y;
+
+			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			int th = (int)((float)cw->h * tw / cw->w);
+			if (th > 300) {
+				float ar = (float)cw->w / cw->h;
+				th = 300;
+				tw = (int)(300 * ar);
+			}
+
+			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
+				server->animation_tree, buf);
+			wlr_buffer_drop(buf);
+			wlr_scene_node_set_position(&ov->node,
+				target->thumb_x, target->thumb_y);
+			wlr_scene_buffer_set_dest_size(ov, tw, th);
+			wlr_scene_node_raise_to_top(&ov->node);
+
+			ssa->overlays[ssa->n_overlays++] = ov;
+			ssa->remaining++;
+
+			animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+				target->thumb_x, target->thumb_y, tw, th,
+				ttx, tty, tx, ty,
+				stage_switch_on_anim_done, ssa);
+		}
+	}
+
+	/* hide real views */
+	if (old) stage_set_views_enabled(old, false);
+	stage_set_views_enabled(target, false);
+
+	if (ssa->remaining > 0) return;
+
+	free(ssa);
+
+instant_cycle:
+	if (old) stage_set_views_enabled(old, false);
 	wl_list_remove(&target->link);
-
-	/* pick from HEAD for forward, TAIL for reverse.
-	   push old active to the opposite end so it cycles through all. */
 	if (reverse)
-		wl_list_insert(&mgr->inactive_stages,               /* HEAD */
-			&mgr->active_stage->link);
+		wl_list_insert(&mgr->inactive_stages,
+			&old->link);
 	else
-		wl_list_insert(mgr->inactive_stages.prev,           /* TAIL */
-			&mgr->active_stage->link);
-
+		wl_list_insert(mgr->inactive_stages.prev,
+			&old->link);
 	mgr->active_stage = target;
 	stage_reparent_to_canvas(target, server);
-
 	struct custom_window *cw;
-	wl_list_for_each(cw, &target->windows, link)
-	{
+	wl_list_for_each(cw, &target->windows, link) {
 		view_focus(server, cw->view);
 		break;
 	}
-
 	stage_manager_render_sidebar(server, ws);
 }
 
@@ -623,6 +909,71 @@ void stage_manager_merge(struct hsdwl_server *server,
 	if (!source || !mgr->active_stage || source == mgr->active_stage)
 		return;
 
+	int bw = server->config.border_width;
+	int tb = server->config.titlebar_height;
+
+	struct stage_merge_anim *sma = calloc(1, sizeof(*sma));
+	if (!sma)
+		goto instant_merge;
+	sma->server = server;
+	sma->source = source;
+	sma->ws = ws;
+	sma->remaining = 0;
+	sma->n_overlays = 0;
+
+	/* Source stage windows: animate from thumbnail to canvas */
+	{
+		struct custom_window *scw;
+		wl_list_for_each(scw, &source->windows, link)
+		{
+			if (sma->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+			struct wlr_buffer *buf = view_capture_full_window(
+				server, scw->view, (int)scw->w, (int)scw->h,
+				bw, tb);
+			if (!buf) continue;
+
+			int tx = (int)scw->w + 2 * bw;
+			int ty = (int)scw->h + tb + bw;
+			int ttx = SIDEBAR_WIDTH + (int)scw->x;
+			int tty = (int)scw->y;
+
+			int tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+			int th = (int)((float)scw->h * tw / scw->w);
+			if (th > 300) {
+				float ar = (float)scw->w / scw->h;
+				th = 300;
+				tw = (int)(300 * ar);
+			}
+
+			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
+				server->animation_tree, buf);
+			wlr_buffer_drop(buf);
+			wlr_scene_node_set_position(&ov->node,
+				source->thumb_x, source->thumb_y);
+			wlr_scene_buffer_set_dest_size(ov, tw, th);
+			wlr_scene_node_raise_to_top(&ov->node);
+
+			sma->overlays[sma->n_overlays++] = ov;
+			sma->remaining++;
+
+			animation_create(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+				source->thumb_x, source->thumb_y, tw, th,
+				ttx, tty, tx, ty,
+				stage_merge_on_anim_done, sma);
+		}
+	}
+
+	/* hide source views (captured before hiding) */
+	stage_set_views_enabled(source, false);
+
+	if (sma->remaining > 0) return;
+
+	/* no overlays created */
+	free(sma);
+
+instant_merge:
+	;
 	struct custom_window *cw, *tmp;
 	wl_list_for_each_safe(cw, tmp, &source->windows, link)
 	{
@@ -757,6 +1108,8 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 			entries[i].tw, entries[i].th);
 		wlr_scene_node_set_position(
 			&entries[i].st->thumb_tree->node, x, y);
+		entries[i].st->thumb_x = x;
+		entries[i].st->thumb_y = y;
 		y += entries[i].th + entries[i].gap;
 		entries[i].st->thumb_dirty = false;
 	}

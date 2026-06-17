@@ -1,4 +1,5 @@
 hsdwl_src = files(
+  'animation.c',
   'binding.c',
   'config.c',
   'layer-shell.c',

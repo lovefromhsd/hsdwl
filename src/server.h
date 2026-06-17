@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <wayland-server-core.h>
 
+#include "animation.h"
 #include "config.h"
 #include "stage.h"
 #include "tab-group.h"
@@ -117,6 +118,10 @@ struct hsdwl_server
 	struct wlr_scene_rect *ws_sidebar_bgs[HSDWL_NUM_WORKSPACES];
 	struct wlr_scene_tree *ws_stage_canvases[HSDWL_NUM_WORKSPACES];
 	struct custom_stage *drag_source_stage;
+
+	/* animation */
+	struct wl_list animations;
+	struct wlr_scene_tree *animation_tree;
 };
 
 bool hsdwl_server_init(struct hsdwl_server *server);

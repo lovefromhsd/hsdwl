@@ -270,6 +270,24 @@ static void xwayland_view_handle_destroy(
 		wl_list_remove(&view->unmap.link);
 		wl_list_remove(&view->commit.link);
 	}
+	/* cancel any active animation for this view */
+	{
+		struct hsdwl_animation *anim, *tmp;
+		wl_list_for_each_safe(anim, tmp,
+			&view->server->animations, link)
+		{
+			if (anim->user_data == view)
+			{
+				wl_list_remove(&anim->link);
+				free(anim);
+			}
+		}
+	}
+	if (view->anim_overlay)
+	{
+		wlr_scene_node_destroy(&view->anim_overlay->node);
+		view->anim_overlay = NULL;
+	}
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
 	free(view);

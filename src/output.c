@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 
+#include "animation.h"
 #include "layer-shell.h"
 #include "output.h"
 #include "output-management.h"
@@ -23,6 +24,11 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
+
+	animation_tick(output->server, &now);
+
+	if (!wl_list_empty(&output->server->animations))
+		wlr_output_schedule_frame(output->wlr_output);
 
 	if (!wlr_scene_output_commit(scene_output, NULL))
 		return;
