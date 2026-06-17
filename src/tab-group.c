@@ -888,6 +888,15 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 	int zh = obox.height - group->tab_bar_thickness;
 	if (zh < 1) zh = 1;
 
+	group->content_area_box.width = zw;
+	group->content_area_box.height = zh;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, zw, zh);
+
+	hsdwl_tab_group_update_layout(group);
+
 	double cur_x = group->saved_geometry.x;
 	double cur_y = group->saved_geometry.y;
 	double tgt_x = pad;
@@ -902,6 +911,8 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 		200, HSDWL_EASE_OUT_QUAD,
 		cur_x, cur_y, tgt_x, tgt_y,
 		tg_anim_zoom_finish, st);
+
+	wlr_output_schedule_frame(wlr_o);
 
 	group->zoomed = true;
 	group->maximized = false;
@@ -935,6 +946,15 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		int fh = obox.height - group->tab_bar_thickness;
 		if (fh < 1) fh = 1;
 
+		group->content_area_box.width = obox.width;
+		group->content_area_box.height = fh;
+
+		struct hsdwl_view *vi;
+		wl_list_for_each(vi, &group->views, tab_group_link)
+			view_configure_size(vi, obox.width, fh);
+
+		hsdwl_tab_group_update_layout(group);
+
 		double cur_x = group->scene_tree->node.x;
 		double cur_y = group->scene_tree->node.y;
 		double tgt_x = -SIDEBAR_WIDTH;
@@ -949,6 +969,8 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 			200, HSDWL_EASE_OUT_QUAD,
 			cur_x, cur_y, tgt_x, tgt_y,
 			tg_anim_full_finish, st);
+
+		wlr_output_schedule_frame(wlr_o);
 
 		group->zoomed = false;
 		group->maximized = true;
@@ -967,6 +989,15 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 	int tgt_h = group->saved_geometry.height
 		- group->tab_bar_thickness;
 
+	group->content_area_box.width = tgt_w;
+	group->content_area_box.height = tgt_h;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, tgt_w, tgt_h);
+
+	hsdwl_tab_group_update_layout(group);
+
 	double cur_x = group->scene_tree->node.x;
 	double cur_y = group->scene_tree->node.y;
 	double tgt_x = group->saved_geometry.x;
@@ -981,6 +1012,13 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 		200, HSDWL_EASE_OUT_QUAD,
 		cur_x, cur_y, tgt_x, tgt_y,
 		tg_anim_restore_finish, st);
+
+	struct wlr_output *wlr_o = wlr_output_layout_output_at(
+		group->server->output_layout,
+		group->saved_geometry.x + group->saved_geometry.width / 2,
+		group->saved_geometry.y + group->saved_geometry.height / 2);
+	if (wlr_o)
+		wlr_output_schedule_frame(wlr_o);
 
 	group->maximized = false;
 	group->zoomed = false;
