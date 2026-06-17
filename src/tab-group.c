@@ -801,25 +801,63 @@ struct hsdwl_view *hsdwl_tab_group_next(struct hsdwl_tab_group *group,
 
 /* ── animation completion callbacks ── */
 
+struct tg_anim_state {
+	struct hsdwl_tab_group *group;
+	int cw, ch;
+};
+
 static void tg_anim_zoom_finish(struct hsdwl_server *server, void *user_data)
 {
 	(void)server;
-	struct hsdwl_tab_group *group = user_data;
+	struct tg_anim_state *st = user_data;
+	struct hsdwl_tab_group *group = st->group;
+
+	group->content_area_box.width = st->cw;
+	group->content_area_box.height = st->ch;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, st->cw, st->ch);
+
 	hsdwl_tab_group_update_layout(group);
+
+	free(st);
 }
 
 static void tg_anim_full_finish(struct hsdwl_server *server, void *user_data)
 {
 	(void)server;
-	struct hsdwl_tab_group *group = user_data;
+	struct tg_anim_state *st = user_data;
+	struct hsdwl_tab_group *group = st->group;
+
+	group->content_area_box.width = st->cw;
+	group->content_area_box.height = st->ch;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, st->cw, st->ch);
+
 	hsdwl_tab_group_update_layout(group);
+
+	free(st);
 }
 
 static void tg_anim_restore_finish(struct hsdwl_server *server, void *user_data)
 {
 	(void)server;
-	struct hsdwl_tab_group *group = user_data;
+	struct tg_anim_state *st = user_data;
+	struct hsdwl_tab_group *group = st->group;
+
+	group->content_area_box.width = st->cw;
+	group->content_area_box.height = st->ch;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, st->cw, st->ch);
+
 	hsdwl_tab_group_update_layout(group);
+
+	free(st);
 }
 
 /* ── maximize / restore ── */
@@ -855,21 +893,18 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 	double tgt_x = pad;
 	double tgt_y = 0;
 
-	group->content_area_box.width = zw;
-	group->content_area_box.height = zh;
-
-	struct hsdwl_view *vi;
-	wl_list_for_each(vi, &group->views, tab_group_link)
-		view_configure_size(vi, zw, zh);
+	struct tg_anim_state *st = calloc(1, sizeof(*st));
+	st->group = group;
+	st->cw = zw;
+	st->ch = zh;
 
 	animation_create_node_pos(server, &group->scene_tree->node,
 		200, HSDWL_EASE_OUT_QUAD,
 		cur_x, cur_y, tgt_x, tgt_y,
-		tg_anim_zoom_finish, group);
+		tg_anim_zoom_finish, st);
 
 	group->zoomed = true;
 	group->maximized = false;
-	hsdwl_tab_group_update_layout(group);
 }
 
 void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
@@ -905,21 +940,18 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		double tgt_x = -SIDEBAR_WIDTH;
 		double tgt_y = 0;
 
-		group->content_area_box.width = obox.width;
-		group->content_area_box.height = fh;
-
-		struct hsdwl_view *vi;
-		wl_list_for_each(vi, &group->views, tab_group_link)
-			view_configure_size(vi, obox.width, fh);
+		struct tg_anim_state *st = calloc(1, sizeof(*st));
+		st->group = group;
+		st->cw = obox.width;
+		st->ch = fh;
 
 		animation_create_node_pos(server, &group->scene_tree->node,
 			200, HSDWL_EASE_OUT_QUAD,
 			cur_x, cur_y, tgt_x, tgt_y,
-			tg_anim_full_finish, group);
+			tg_anim_full_finish, st);
 
 		group->zoomed = false;
 		group->maximized = true;
-		hsdwl_tab_group_update_layout(group);
 		return;
 	}
 
@@ -940,21 +972,18 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 	double tgt_x = group->saved_geometry.x;
 	double tgt_y = group->saved_geometry.y;
 
-	group->content_area_box.width = tgt_w;
-	group->content_area_box.height = tgt_h;
-
-	struct hsdwl_view *vi;
-	wl_list_for_each(vi, &group->views, tab_group_link)
-		view_configure_size(vi, tgt_w, tgt_h);
+	struct tg_anim_state *st = calloc(1, sizeof(*st));
+	st->group = group;
+	st->cw = tgt_w;
+	st->ch = tgt_h;
 
 	animation_create_node_pos(group->server, &group->scene_tree->node,
 		200, HSDWL_EASE_OUT_QUAD,
 		cur_x, cur_y, tgt_x, tgt_y,
-		tg_anim_restore_finish, group);
+		tg_anim_restore_finish, st);
 
 	group->maximized = false;
 	group->zoomed = false;
-	hsdwl_tab_group_update_layout(group);
 }
 
 /* ── preview overlay ── */

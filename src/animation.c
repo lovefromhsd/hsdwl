@@ -145,3 +145,15 @@ void animation_cancel_all(struct hsdwl_server *server)
 		free(anim);
 	}
 }
+
+void animation_cancel_buffer(struct hsdwl_server *server,
+	struct wlr_scene_buffer *buffer)
+{
+	struct hsdwl_animation *anim, *tmp;
+	wl_list_for_each_safe(anim, tmp, &server->animations, link) {
+		if (anim->buffer == buffer) {
+			wl_list_remove(&anim->link);
+			free(anim);
+		}
+	}
+}

@@ -54,4 +54,7 @@ void animation_create_node_pos(struct hsdwl_server *server,
 
 void animation_cancel_all(struct hsdwl_server *server);
 
+void animation_cancel_buffer(struct hsdwl_server *server,
+	struct wlr_scene_buffer *buffer);
+
 #endif
