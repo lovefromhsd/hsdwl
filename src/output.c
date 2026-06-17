@@ -5,6 +5,7 @@
 #include "output.h"
 #include "output-management.h"
 #include "server.h"
+#include "stage-3d.h"
 #include "stage.h"
 
 #include <stdlib.h>
@@ -26,6 +27,7 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
+	stage_3d_tick(output->server, &now);
 	animation_tick(output->server, &now);
 
 	stage_manager_check_sidebar_overlap(output->server,

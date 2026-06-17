@@ -2,6 +2,7 @@
 #define WLR_USE_UNSTABLE
 
 #include "stage.h"
+#include "stage-3d.h"
 #include "stage-sidebar.h"
 #include "server.h"
 #include "view.h"
@@ -13,6 +14,7 @@
 #include <wlr/render/allocator.h>
 #include <wlr/render/pass.h>
 #include <wlr/render/wlr_renderer.h>
+#include <wlr/render/wlr_texture.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_scene.h>
@@ -30,6 +32,7 @@ struct stage_switch_anim {
 	size_t ws;
 	int remaining;
 	bool insert_tail;
+	bool use_3d;
 	int n_overlays;
 	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
 };
@@ -54,8 +57,10 @@ static void stage_switch_on_anim_done(struct hsdwl_server *server,
 
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ssa->ws];
 
-	for (int i = 0; i < ssa->n_overlays; i++)
-		wlr_scene_node_destroy(&ssa->overlays[i]->node);
+	if (!ssa->use_3d) {
+		for (int i = 0; i < ssa->n_overlays; i++)
+			wlr_scene_node_destroy(&ssa->overlays[i]->node);
+	}
 
 	if (ssa->old_stage) {
 		stage_set_views_enabled(ssa->old_stage, false);
@@ -140,6 +145,76 @@ void stage_manager_switch(struct hsdwl_server *server,
 	ssa->remaining = 0;
 	ssa->insert_tail = false;
 	ssa->n_overlays = 0;
+	ssa->use_3d = server->config.stage_3d_flip_enabled;
+
+	if (ssa->use_3d) {
+		stage_3d_cancel(server);
+		if (old) {
+			struct custom_window *cw;
+			wl_list_for_each(cw, &old->windows, link)
+			{
+				if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, cw->view, (int)cw->w, (int)cw->h,
+					bw, tb);
+				if (!buf) continue;
+
+				struct wlr_texture *tex = wlr_texture_from_buffer(
+					server->renderer, buf);
+				wlr_buffer_drop(buf);
+				if (!tex) continue;
+
+				int fw = (int)cw->w + 2 * bw;
+				int fh = (int)cw->h + tb + bw;
+				int fx = SIDEBAR_WIDTH + (int)cw->x;
+				int fy = (int)cw->y;
+
+				stage_3d_start_flip(server,
+					tex, fw, fh, fx, fy,
+					NULL, 0, 0, fx, fy,
+					400, 0.0f,
+					stage_switch_on_anim_done, ssa);
+				ssa->n_overlays++;
+				ssa->remaining++;
+			}
+		}
+
+		{
+			struct custom_window *cw;
+			wl_list_for_each(cw, &target->windows, link)
+			{
+				if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, cw->view, (int)cw->w, (int)cw->h,
+					bw, tb);
+				if (!buf) continue;
+
+				struct wlr_texture *tex = wlr_texture_from_buffer(
+					server->renderer, buf);
+				wlr_buffer_drop(buf);
+				if (!tex) continue;
+
+				int tx = (int)cw->w + 2 * bw;
+				int ty = (int)cw->h + tb + bw;
+				int ttx = SIDEBAR_WIDTH + (int)cw->x;
+				int tty = (int)cw->y;
+
+				stage_3d_start_flip(server,
+					NULL, 0, 0, ttx, tty,
+					tex, tx, ty, ttx, tty,
+					400, 0.0f,
+					stage_switch_on_anim_done, ssa);
+				ssa->n_overlays++;
+				ssa->remaining++;
+			}
+		}
+
+		if (old) stage_set_views_enabled(old, false);
+		stage_set_views_enabled(target, false);
+		goto after_captures;
+	}
 
 	
 	if (old) {
@@ -328,6 +403,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 	if (old) stage_set_views_enabled(old, false);
 	stage_set_views_enabled(target, false);
 
+after_captures:
 	if (ssa->remaining > 0) return;
 
 	free(ssa);
@@ -384,6 +460,76 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	ssa->remaining = 0;
 	ssa->insert_tail = insert_tail;
 	ssa->n_overlays = 0;
+	ssa->use_3d = server->config.stage_3d_flip_enabled;
+
+	if (ssa->use_3d) {
+		stage_3d_cancel(server);
+		if (old) {
+			struct custom_window *cw;
+			wl_list_for_each(cw, &old->windows, link)
+			{
+				if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, cw->view, (int)cw->w, (int)cw->h,
+					bw, tb);
+				if (!buf) continue;
+
+				struct wlr_texture *tex = wlr_texture_from_buffer(
+					server->renderer, buf);
+				wlr_buffer_drop(buf);
+				if (!tex) continue;
+
+				int fw = (int)cw->w + 2 * bw;
+				int fh = (int)cw->h + tb + bw;
+				int fx = SIDEBAR_WIDTH + (int)cw->x;
+				int fy = (int)cw->y;
+
+				stage_3d_start_flip(server,
+					tex, fw, fh, fx, fy,
+					NULL, 0, 0, fx, fy,
+					400, 0.0f,
+					stage_switch_on_anim_done, ssa);
+				ssa->n_overlays++;
+				ssa->remaining++;
+			}
+		}
+
+		{
+			struct custom_window *cw;
+			wl_list_for_each(cw, &target->windows, link)
+			{
+				if (ssa->n_overlays >= MAX_STAGE_WINDOWS) break;
+
+				struct wlr_buffer *buf = view_capture_full_window(
+					server, cw->view, (int)cw->w, (int)cw->h,
+					bw, tb);
+				if (!buf) continue;
+
+				struct wlr_texture *tex = wlr_texture_from_buffer(
+					server->renderer, buf);
+				wlr_buffer_drop(buf);
+				if (!tex) continue;
+
+				int tx = (int)cw->w + 2 * bw;
+				int ty = (int)cw->h + tb + bw;
+				int ttx = SIDEBAR_WIDTH + (int)cw->x;
+				int tty = (int)cw->y;
+
+				stage_3d_start_flip(server,
+					NULL, 0, 0, ttx, tty,
+					tex, tx, ty, ttx, tty,
+					400, 0.0f,
+					stage_switch_on_anim_done, ssa);
+				ssa->n_overlays++;
+				ssa->remaining++;
+			}
+		}
+
+		if (old) stage_set_views_enabled(old, false);
+		stage_set_views_enabled(target, false);
+		goto after_captures_cycle;
+	}
 
 	if (old) {
 		struct custom_window *cw;
@@ -569,6 +715,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	if (old) stage_set_views_enabled(old, false);
 	stage_set_views_enabled(target, false);
 
+after_captures_cycle:
 	if (ssa->remaining > 0) return;
 
 	free(ssa);

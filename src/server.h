@@ -10,6 +10,7 @@
 
 #include "animation.h"
 #include "config.h"
+#include "stage-3d.h"
 #include "stage.h"
 #include "tab-group.h"
 
@@ -121,6 +122,7 @@ struct hsdwl_server
 
 	
 	struct wl_list animations;
+	struct wl_list flip_animations;
 	struct wlr_scene_tree *animation_tree;
 };
 

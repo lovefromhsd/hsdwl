@@ -6,6 +6,7 @@ hsdwl_src = files(
   'layer-shell.c',
   'main.c',
   'server.c',
+  'stage-3d.c',
   'stage-anim.c',
   'tab-group-anim.c',
   'tab-group-layout.c',

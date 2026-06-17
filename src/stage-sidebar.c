@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #define WLR_USE_UNSTABLE
 
+#include "stage-3d.h"
 #include "stage-sidebar.h"
 #include "output.h"
 #include "server.h"
@@ -16,6 +17,7 @@
 #include <wlr/render/allocator.h>
 #include <wlr/render/pass.h>
 #include <wlr/render/wlr_renderer.h>
+#include <wlr/render/wlr_texture.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_scene.h>
 
@@ -149,8 +151,52 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 		return;
 	}
 
+	bool do_tilt = server->config.stage_3d_flip_enabled;
+
+	if (do_tilt) {
+		struct wlr_texture *tex = wlr_texture_from_buffer(
+			server->renderer, buf);
+		if (tex) {
+			struct wlr_buffer *tilted = wlr_allocator_create_buffer(
+				server->allocator, thumb_w, thumb_h, &fmt);
+			if (tilted) {
+				struct wlr_render_pass *tpass =
+					wlr_renderer_begin_buffer_pass(
+						server->renderer, tilted, NULL);
+				if (tpass) {
+					wlr_render_pass_add_rect(tpass,
+						&(struct wlr_render_rect_options){
+							.box = { .width = thumb_w,
+								.height = thumb_h },
+							.color = { 0, 0, 0, 0 },
+						});
+					stage_3d_render_tilted(tpass, tex,
+						thumb_w, thumb_h,
+						0, 0, thumb_w, thumb_h,
+						12.0f, 1.0f);
+					if (wlr_render_pass_submit(tpass)) {
+						wlr_scene_buffer_set_buffer(
+							stage->thumb_buf, tilted);
+						wlr_scene_buffer_set_dest_size(
+							stage->thumb_buf,
+							thumb_w, thumb_h);
+						wlr_buffer_drop(tilted);
+						wlr_texture_destroy(tex);
+						wlr_buffer_drop(buf);
+						return;
+					}
+					wlr_buffer_drop(tilted);
+				} else {
+					wlr_buffer_drop(tilted);
+				}
+			}
+			wlr_texture_destroy(tex);
+		}
+	}
+
 	wlr_scene_buffer_set_buffer(stage->thumb_buf, buf);
-	wlr_scene_buffer_set_dest_size(stage->thumb_buf, thumb_w, thumb_h);
+	wlr_scene_buffer_set_dest_size(stage->thumb_buf,
+		thumb_w, thumb_h);
 	wlr_buffer_drop(buf);
 }
 

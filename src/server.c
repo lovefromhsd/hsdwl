@@ -7,6 +7,7 @@
 #include "output-management.h"
 #include "pointer.h"
 #include "seat.h"
+#include "stage-3d.h"
 #include "stage.h"
 #include "tab-group.h"
 #include "view.h"
@@ -234,6 +235,7 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wl_list_init(&server->views);
 	wl_list_init(&server->outputs);
 	wl_list_init(&server->animations);
+	wl_list_init(&server->flip_animations);
 	hsdwl_tab_group_init(server);
 
 	server->animation_tree = wlr_scene_tree_create(
@@ -441,6 +443,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	if (server->preview_tree)
 		wlr_scene_node_destroy(&server->preview_tree->node);
 	animation_cancel_all(server);
+	stage_3d_cancel(server);
 	if (server->animation_tree)
 		wlr_scene_node_destroy(&server->animation_tree->node);
 	stage_manager_destroy(server);

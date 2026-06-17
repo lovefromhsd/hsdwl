@@ -1,0 +1,9 @@
+[32m  INFO[0m: Launching config: "/home/hsd/.config/quickshell/shell.qml"
+[32m  INFO[0m: Shell ID: "3964377f6bc6263864d9ba62fa28fa14" Path ID "3964377f6bc6263864d9ba62fa28fa14"
+[32m  INFO[0m: Saving logs to "/run/user/1000/quickshell/by-id/ny87cisgt/log.qslog"
+[33m  WARN[97m scene[0m: QML PanelWindow (parent or ancestor of WlrLayershell) at @shell.qml[6:5]: Setting `width` is deprecated. Set `implicitWidth` instead.
+[33m  WARN[97m scene[0m: QML PanelWindow (parent or ancestor of WlrLayershell) at @shell.qml[6:5]: Setting `height` is deprecated. Set `implicitHeight` instead.
+[32m  INFO[0m: Configuration Loaded
+[33m  WARN[97m scene[0m: QML WlrLayershell at @shell.qml[-1:-1]: Setting `width` is deprecated. Set `implicitWidth` instead.
+[33m  WARN[97m scene[0m: QML WlrLayershell at @shell.qml[-1:-1]: Setting `height` is deprecated. Set `implicitHeight` instead.
+[33m  WARN[0m: The Wayland connection broke. Did the Wayland compositor die?
