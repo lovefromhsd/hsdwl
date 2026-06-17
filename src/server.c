@@ -100,6 +100,8 @@ void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 			&server->workspaces[i]->node, i == ws);
 	server->current_workspace = ws;
 
+	stage_manager_check_sidebar_overlap(server, ws);
+
 	struct hsdwl_view *next = server->focused_views[ws];
 	if (next)
 	{

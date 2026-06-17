@@ -881,6 +881,10 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 		wl_list_for_each(__tg, &server->tab_groups, link)
 			hsdwl_tab_group_update_layout(__tg);
 
+		if (server->config.stage_manager_enabled)
+			stage_manager_check_sidebar_overlap(server,
+				server->current_workspace);
+
 		server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 		server->grabbed_view = NULL;
 		server->grab_target = NULL;

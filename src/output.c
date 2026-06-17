@@ -5,6 +5,7 @@
 #include "output.h"
 #include "output-management.h"
 #include "server.h"
+#include "stage.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -26,6 +27,9 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 	clock_gettime(CLOCK_MONOTONIC, &now);
 
 	animation_tick(output->server, &now);
+
+	stage_manager_check_sidebar_overlap(output->server,
+		output->server->current_workspace);
 
 	if (!wl_list_empty(&output->server->animations))
 		wlr_output_schedule_frame(output->wlr_output);

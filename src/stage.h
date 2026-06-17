@@ -44,6 +44,7 @@ struct workspace_stage_mgr
 {
 	struct custom_stage *active_stage;
 	struct wl_list inactive_stages;  /* of custom_stage, max MAX_INACTIVE_STAGES */
+	bool sidebar_hidden;
 };
 
 /* internal helpers shared across stage modules */
@@ -83,5 +84,8 @@ void stage_manager_migrate_existing(struct hsdwl_server *server);
 
 void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 		struct hsdwl_view *view);
+
+void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
+		size_t ws);
 
 #endif

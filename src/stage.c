@@ -175,6 +175,7 @@ void stage_manager_init(struct hsdwl_server *server)
 
 		server->ws_stage_mgrs[i].active_stage = NULL;
 		wl_list_init(&server->ws_stage_mgrs[i].inactive_stages);
+		server->ws_stage_mgrs[i].sidebar_hidden = false;
 	}
 }
 
@@ -622,4 +623,117 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 
 		stage_manager_render_sidebar(server, ws);
 	}
+}
+
+void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
+		size_t ws)
+{
+	if (!server->config.stage_manager_enabled)
+		return;
+
+	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
+	if (!mgr->active_stage)
+		return;
+
+	int output_h = 1080;
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			output_h = o->wlr_output->height;
+	}
+
+	struct wlr_box sidebar = {
+		.x = 0, .y = 0,
+		.width = SIDEBAR_WIDTH,
+		.height = output_h,
+	};
+
+	bool overlap = false;
+	struct custom_window *cw;
+	wl_list_for_each(cw, &mgr->active_stage->windows, link)
+	{
+		if (!cw->view || !cw->view->scene_tree)
+			continue;
+
+		double abs_x, abs_y, abs_w, abs_h;
+
+		if (cw->view->tab_group
+				&& cw->view->tab_group->scene_tree)
+		{
+			struct hsdwl_tab_group *g = cw->view->tab_group;
+			double cx = server->ws_stage_canvases[ws]->node.x;
+			double cy = server->ws_stage_canvases[ws]->node.y;
+			abs_x = cx + g->scene_tree->node.x;
+			abs_y = cy + g->scene_tree->node.y;
+			abs_w = g->content_area_box.width;
+			abs_h = g->content_area_box.height
+				+ g->tab_bar_thickness;
+		}
+		else
+		{
+			int bw = server->config.border_width;
+			int tb = server->config.titlebar_height;
+			if (tb < 0) tb = 0;
+			double cx = server->ws_stage_canvases[ws]->node.x;
+			double cy = server->ws_stage_canvases[ws]->node.y;
+			abs_x = cx + cw->view->scene_tree->node.x;
+			abs_y = cy + cw->view->scene_tree->node.y;
+			abs_w = cw->w + 2 * bw;
+			abs_h = cw->h + (tb > 0 ? tb + bw : bw);
+		}
+
+		struct wlr_box win = {
+			.x = (int)abs_x, .y = (int)abs_y,
+			.width = (int)abs_w, .height = (int)abs_h,
+		};
+
+		int ix = win.x > sidebar.x ? win.x : sidebar.x;
+		int iy = win.y > sidebar.y ? win.y : sidebar.y;
+		int ix2 = (win.x + win.width) < (sidebar.x + sidebar.width)
+			? (win.x + win.width)
+			: (sidebar.x + sidebar.width);
+		int iy2 = (win.y + win.height) < (sidebar.y + sidebar.height)
+			? (win.y + win.height)
+			: (sidebar.y + sidebar.height);
+		if (ix < ix2 && iy < iy2) {
+			overlap = true;
+			break;
+		}
+	}
+
+	bool should_hide = overlap;
+	if (should_hide == mgr->sidebar_hidden)
+		return;
+
+	/* Cancel any existing animations on these nodes */
+	struct hsdwl_animation *anim, *tmp;
+	wl_list_for_each_safe(anim, tmp, &server->animations, link) {
+		if (anim->pos_node
+				== &server->ws_sidebar_trees[ws]->node
+			|| anim->pos_node
+				== &server->ws_stage_canvases[ws]->node)
+		{
+			wl_list_remove(&anim->link);
+			free(anim);
+		}
+	}
+
+	double sidebar_cur = server->ws_sidebar_trees[ws]->node.x;
+	double canvas_cur = server->ws_stage_canvases[ws]->node.x;
+	double sidebar_to = should_hide ? -SIDEBAR_WIDTH : 0;
+	double canvas_to = should_hide ? 0 : SIDEBAR_WIDTH;
+
+	animation_create_node_pos(server,
+		&server->ws_sidebar_trees[ws]->node,
+		200, HSDWL_EASE_BEZIER,
+		sidebar_cur, 0, sidebar_to, 0,
+		NULL, NULL);
+	animation_create_node_pos(server,
+		&server->ws_stage_canvases[ws]->node,
+		200, HSDWL_EASE_BEZIER,
+		canvas_cur, 0, canvas_to, 0,
+		NULL, NULL);
+
+	mgr->sidebar_hidden = should_hide;
 }
