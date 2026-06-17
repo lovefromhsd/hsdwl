@@ -20,6 +20,44 @@ static inline double ease_out_cubic(double t)
 	return t1 * t1 * t1 + 1.0;
 }
 
+static inline double bezier_point(
+	double p0, double p1, double p2, double p3, double t)
+{
+	double u = 1.0 - t;
+	return u * u * u * p0
+		+ 3.0 * u * u * t * p1
+		+ 3.0 * u * t * t * p2
+		+ t * t * t * p3;
+}
+
+static inline double bezier_deriv(
+	double p0, double p1, double p2, double p3, double t)
+{
+	double u = 1.0 - t;
+	return 3.0 * u * u * (p1 - p0)
+		+ 6.0 * u * t * (p2 - p1)
+		+ 3.0 * t * t * (p3 - p2);
+}
+
+static double ease_bezier(double t,
+	double x1, double y1, double x2, double y2)
+{
+	if (t <= 0.0) return 0.0;
+	if (t >= 1.0) return 1.0;
+
+	double u = t;
+	for (int i = 0; i < 8; i++) {
+		double x = bezier_point(0.0, x1, x2, 1.0, u);
+		double dx = bezier_deriv(0.0, x1, x2, 1.0, u);
+		if (fabs(dx) < 1e-10) break;
+		u = u - (x - t) / dx;
+	}
+	if (u < 0.0) u = 0.0;
+	if (u > 1.0) u = 1.0;
+
+	return bezier_point(0.0, y1, y2, 1.0, u);
+}
+
 void animation_create(struct hsdwl_server *server,
 	struct wlr_scene_buffer *buffer,
 	int duration_ms, enum hsdwl_easing easing,
@@ -164,6 +202,13 @@ void animation_tick(struct hsdwl_server *server, struct timespec *now)
 			break;
 		case HSDWL_EASE_OUT_CUBIC:
 			eased_t = ease_out_cubic(t);
+			break;
+		case HSDWL_EASE_BEZIER:
+			eased_t = ease_bezier(t,
+				server->config.anim_bezier_x1,
+				server->config.anim_bezier_y1,
+				server->config.anim_bezier_x2,
+				server->config.anim_bezier_y2);
 			break;
 		default:
 			eased_t = ease_linear(t);

@@ -53,6 +53,10 @@ struct hsdwl_config
 	float group_overlap_threshold;
 	char mod_key[32];
 	char kb_layout[128];
+	float anim_bezier_x1;
+	float anim_bezier_y1;
+	float anim_bezier_x2;
+	float anim_bezier_y2;
 	bool smart_gaps;
 	bool stage_manager_enabled;
 	struct wl_list bindings;

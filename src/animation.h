@@ -13,6 +13,7 @@ enum hsdwl_easing
 	HSDWL_EASE_LINEAR,
 	HSDWL_EASE_OUT_QUAD,
 	HSDWL_EASE_OUT_CUBIC,
+	HSDWL_EASE_BEZIER,
 };
 
 struct hsdwl_animation

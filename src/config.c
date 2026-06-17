@@ -63,6 +63,7 @@ static const char *default_config_text =
 	"smart_gaps = true\n"
 	"stage_manager = true\n"
 	"group_overlap_threshold = 0.5\n"
+	"animation_bezier = 0.25, 0.1, 0.25, 1.0\n"
 	"\n"
 	"bind = mod_key+Return, foot\n"
 	"bind = mod_key+Escape, quit\n"
@@ -198,6 +199,10 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	cfg->smart_gaps = true;
 	cfg->stage_manager_enabled = true;
 	cfg->group_overlap_threshold = 0.5f;
+	cfg->anim_bezier_x1 = 0.25f;
+	cfg->anim_bezier_y1 = 0.1f;
+	cfg->anim_bezier_x2 = 0.25f;
+	cfg->anim_bezier_y2 = 1.0f;
 	parse_hex_color("#334466", cfg->preview_color);
 
 	if (num_vars < HSDWL_MAX_VARS) {
@@ -333,6 +338,16 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			cfg->stage_manager_enabled = strcmp(val, "true") == 0;
 		else if (strcmp(key, "group_overlap_threshold") == 0)
 			cfg->group_overlap_threshold = atof(val);
+		else if (strcmp(key, "animation_bezier") == 0) {
+			float x1, y1, x2, y2;
+			if (sscanf(val, "%f, %f, %f, %f",
+					&x1, &y1, &x2, &y2) == 4) {
+				cfg->anim_bezier_x1 = x1;
+				cfg->anim_bezier_y1 = y1;
+				cfg->anim_bezier_x2 = x2;
+				cfg->anim_bezier_y2 = y2;
+			}
+		}
 
 		/* store every key=value pair in var table for bind resolution */
 		if (num_vars < HSDWL_MAX_VARS) {

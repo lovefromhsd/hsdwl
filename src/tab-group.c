@@ -908,7 +908,7 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 	st->ch = zh;
 
 	animation_create_node_pos(server, &group->scene_tree->node,
-		200, HSDWL_EASE_OUT_QUAD,
+		200, HSDWL_EASE_BEZIER,
 		cur_x, cur_y, tgt_x, tgt_y,
 		tg_anim_zoom_finish, st);
 
@@ -966,7 +966,7 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		st->ch = fh;
 
 		animation_create_node_pos(server, &group->scene_tree->node,
-			200, HSDWL_EASE_OUT_QUAD,
+			200, HSDWL_EASE_BEZIER,
 			cur_x, cur_y, tgt_x, tgt_y,
 			tg_anim_full_finish, st);
 
@@ -1009,7 +1009,7 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 	st->ch = tgt_h;
 
 	animation_create_node_pos(group->server, &group->scene_tree->node,
-		200, HSDWL_EASE_OUT_QUAD,
+		200, HSDWL_EASE_BEZIER,
 		cur_x, cur_y, tgt_x, tgt_y,
 		tg_anim_restore_finish, st);
 

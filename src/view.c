@@ -1119,7 +1119,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 		view->anim_overlay = ov;
 
-		animation_create_with_fade(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+		animation_create_with_fade(server, ov, 200, HSDWL_EASE_BEZIER,
 			(double)src_abs_x, (double)src_abs_y,
 			src_full_w, src_full_h,
 			(double)tgt_abs_x, (double)tgt_abs_y,
@@ -1170,7 +1170,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		double cur_y = view->scene_tree->node.y;
 
 		animation_create_node_pos(server, &view->scene_tree->node,
-			200, HSDWL_EASE_OUT_QUAD,
+			200, HSDWL_EASE_BEZIER,
 			cur_x, cur_y,
 			(double)-SIDEBAR_WIDTH, 0.0,
 			view_anim_full_finish, view);
@@ -1241,7 +1241,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 
 	view->anim_overlay = ov;
 
-	animation_create_with_fade(server, ov, 200, HSDWL_EASE_OUT_QUAD,
+	animation_create_with_fade(server, ov, 200, HSDWL_EASE_BEZIER,
 		(double)src_abs_x, (double)src_abs_y,
 		src_full_w, src_full_h,
 		(double)tgt_abs_x, (double)tgt_abs_y,
