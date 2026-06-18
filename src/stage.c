@@ -211,7 +211,7 @@ static void stage_new_window_anim_done(struct hsdwl_server *server,
 }
 
 void stage_manager_new_window(struct hsdwl_server *server,
-		struct hsdwl_view *view)
+		struct hsdwl_view *view, bool animate)
 {
 	size_t ws = server->current_workspace;
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
@@ -318,6 +318,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	mgr->active_stage = stage;
 
 	
+	if (animate)
 	{
 		int cap_h = cw->h;
 		int cap_w = cw->w;
@@ -358,6 +359,77 @@ void stage_manager_new_window(struct hsdwl_server *server,
 
 	view_focus(server, view);
 	stage_manager_render_sidebar(server, ws);
+}
+
+bool stage_manager_remove_view(struct hsdwl_server *server,
+		struct hsdwl_view *view, size_t ws)
+{
+	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
+	if (!mgr->active_stage) return false;
+
+	struct custom_window *cw = find_custom_window(
+		mgr->active_stage, view);
+	if (!cw)
+	{
+		struct custom_stage *st;
+		wl_list_for_each(st, &mgr->inactive_stages, link)
+		{
+			cw = find_custom_window(st, view);
+			if (cw) break;
+		}
+		if (!cw) return false;
+
+		wl_list_remove(&cw->link);
+		if (view->scene_tree)
+		{
+			wlr_scene_node_reparent(
+				&view->scene_tree->node,
+				server->workspaces[ws]);
+		}
+		free(cw);
+
+		if (wl_list_empty(&st->windows))
+		{
+			wl_list_remove(&st->link);
+			stage_reparent_to_canvas(st, server);
+			stage_free(st);
+		}
+		return true;
+	}
+
+	wl_list_remove(&cw->link);
+	if (view->scene_tree)
+	{
+		wlr_scene_node_reparent(
+			&view->scene_tree->node,
+			server->workspaces[ws]);
+	}
+	free(cw);
+
+	if (wl_list_empty(&mgr->active_stage->windows))
+	{
+		if (!wl_list_empty(&mgr->inactive_stages))
+		{
+			struct custom_stage *promote = wl_container_of(
+				mgr->inactive_stages.next, promote, link);
+			wl_list_remove(&promote->link);
+			stage_free(mgr->active_stage);
+			mgr->active_stage = promote;
+			stage_reparent_to_canvas(promote, server);
+			struct custom_window *cw2;
+			wl_list_for_each(cw2, &promote->windows, link)
+			{
+				view_focus(server, cw2->view);
+				break;
+			}
+		}
+		else
+		{
+			stage_free(mgr->active_stage);
+			mgr->active_stage = NULL;
+		}
+	}
+	return true;
 }
 
 void stage_manager_notify_view_removed(struct hsdwl_server *server,

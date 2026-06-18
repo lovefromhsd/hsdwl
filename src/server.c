@@ -151,9 +151,20 @@ void hsdwl_server_move_to_workspace(struct hsdwl_server *server,
 			|| !view->scene_tree)
 		return;
 
+	size_t src_ws = server->current_workspace;
+
+	if (server->config.stage_manager_enabled)
+	{
+		stage_manager_remove_view(server, view, src_ws);
+		stage_manager_render_sidebar(server, src_ws);
+	}
+
 	wlr_scene_node_reparent(&view->scene_tree->node,
 		server->workspaces[ws]);
 	hsdwl_server_switch_workspace(server, ws);
+
+	if (server->config.stage_manager_enabled)
+		stage_manager_new_window(server, view, false);
 }
 
 static int sig[2];

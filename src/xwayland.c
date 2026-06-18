@@ -104,7 +104,7 @@ static void xwayland_view_handle_surface_map(
 	if (view->server->config.stage_manager_enabled
 			&& !xsurface->override_redirect)
 	{
-		stage_manager_new_window(view->server, view);
+		stage_manager_new_window(view->server, view, true);
 	}
 	else if (!xsurface->override_redirect
 			|| wlr_xwayland_surface_override_redirect_wants_focus(

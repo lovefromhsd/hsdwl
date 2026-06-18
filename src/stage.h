@@ -62,7 +62,10 @@ void stage_manager_init(struct hsdwl_server *server);
 void stage_manager_destroy(struct hsdwl_server *server);
 
 void stage_manager_new_window(struct hsdwl_server *server,
-		struct hsdwl_view *view);
+		struct hsdwl_view *view, bool animate);
+
+bool stage_manager_remove_view(struct hsdwl_server *server,
+		struct hsdwl_view *view, size_t ws);
 
 void stage_manager_notify_view_removed(struct hsdwl_server *server,
 		struct hsdwl_view *view);

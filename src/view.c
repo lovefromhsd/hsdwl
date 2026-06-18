@@ -77,7 +77,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 
 	titlebar_text_update(view);
 	if (view->server->config.stage_manager_enabled)
-		stage_manager_new_window(view->server, view);
+		stage_manager_new_window(view->server, view, true);
 	else
 		view_focus(view->server, view);
 }
