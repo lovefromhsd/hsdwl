@@ -135,6 +135,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
 
+	stage_3d_cancel(server);
 	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
 	if (!ssa)
 		goto instant_switch;
@@ -259,7 +260,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				wlr_buffer_drop(buf);
+				
+					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,fx,fy);
 				wlr_scene_buffer_set_dest_size(ov,fw,fh);
 				wlr_scene_node_raise_to_top(&ov->node);
@@ -269,6 +272,11 @@ void stage_manager_switch(struct hsdwl_server *server,
 					fx,fy,fw,fh,
 					target->thumb_x,target->thumb_y,tw,th,
 					stage_switch_on_anim_done,ssa);
+					ssa->remaining++;
+					if (tex) {
+						stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa);
+					}
+
 				continue;
 			}
 
@@ -292,7 +300,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			wlr_buffer_drop(buf);
+			
+				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node, fx, fy);
 			wlr_scene_buffer_set_dest_size(ov, fw, fh);
 			wlr_scene_node_raise_to_top(&ov->node);
@@ -304,6 +314,11 @@ void stage_manager_switch(struct hsdwl_server *server,
 				fx, fy, fw, fh,
 				target->thumb_x, target->thumb_y, tw, th,
 				stage_switch_on_anim_done, ssa);
+				ssa->remaining++;
+				if (tex) {
+					stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa);
+				}
+
 		}
 	}
 
@@ -349,7 +364,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				wlr_buffer_drop(buf);
+				
+					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,
 					target->thumb_x, target->thumb_y);
 				wlr_scene_buffer_set_dest_size(ov, tw, th);
@@ -360,6 +377,11 @@ void stage_manager_switch(struct hsdwl_server *server,
 					target->thumb_x,target->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_switch_on_anim_done,ssa);
+					ssa->remaining++;
+					if (tex) {
+						stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa);
+					}
+
 				continue;
 			}
 
@@ -383,7 +405,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			wlr_buffer_drop(buf);
+			
+				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node,
 				target->thumb_x, target->thumb_y);
 			wlr_scene_buffer_set_dest_size(ov, tw, th);
@@ -396,6 +420,11 @@ void stage_manager_switch(struct hsdwl_server *server,
 				target->thumb_x, target->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_switch_on_anim_done, ssa);
+				ssa->remaining++;
+				if (tex) {
+					stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa);
+				}
+
 		}
 	}
 
@@ -450,6 +479,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
 
+	stage_3d_cancel(server);
 	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
 	if (!ssa)
 		goto instant_switch;
@@ -573,7 +603,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				wlr_buffer_drop(buf);
+				
+					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,fx,fy);
 				wlr_scene_buffer_set_dest_size(ov,fw,fh);
 				wlr_scene_node_raise_to_top(&ov->node);
@@ -583,6 +615,11 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 					fx,fy,fw,fh,
 					target->thumb_x,target->thumb_y,tw,th,
 					stage_switch_on_anim_done,ssa);
+					ssa->remaining++;
+					if (tex) {
+						stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa);
+					}
+
 				continue;
 			}
 
@@ -606,7 +643,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			wlr_buffer_drop(buf);
+			
+				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node, fx, fy);
 			wlr_scene_buffer_set_dest_size(ov, fw, fh);
 			wlr_scene_node_raise_to_top(&ov->node);
@@ -618,6 +657,11 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				fx, fy, fw, fh,
 				target->thumb_x, target->thumb_y, tw, th,
 				stage_switch_on_anim_done, ssa);
+				ssa->remaining++;
+				if (tex) {
+					stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa);
+				}
+
 		}
 	}
 
@@ -662,7 +706,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				wlr_buffer_drop(buf);
+				
+					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,
 					target->thumb_x, target->thumb_y);
 				wlr_scene_buffer_set_dest_size(ov, tw, th);
@@ -673,6 +719,11 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 					target->thumb_x,target->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_switch_on_anim_done,ssa);
+					ssa->remaining++;
+					if (tex) {
+						stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa);
+					}
+
 				continue;
 			}
 
@@ -696,7 +747,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			wlr_buffer_drop(buf);
+			
+				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node,
 				target->thumb_x, target->thumb_y);
 			wlr_scene_buffer_set_dest_size(ov, tw, th);
@@ -709,6 +762,11 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				target->thumb_x, target->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_switch_on_anim_done, ssa);
+				ssa->remaining++;
+				if (tex) {
+					stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa);
+				}
+
 		}
 	}
 
@@ -752,6 +810,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
 
+	stage_3d_cancel(server);
 	struct stage_merge_anim *sma = calloc(1, sizeof(*sma));
 	if (!sma)
 		goto instant_merge;
@@ -803,7 +862,9 @@ void stage_manager_merge(struct hsdwl_server *server,
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				wlr_buffer_drop(buf);
+				
+					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,
 					source->thumb_x, source->thumb_y);
 				wlr_scene_buffer_set_dest_size(ov, tw, th);
@@ -814,6 +875,11 @@ void stage_manager_merge(struct hsdwl_server *server,
 					source->thumb_x,source->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_merge_on_anim_done,sma);
+					sma->remaining++;
+					if (tex) {
+						stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, source->z_offset, 0.0f, 0.5f, 0.0f, stage_merge_on_anim_done, sma);
+					}
+
 				continue;
 			}
 
@@ -837,7 +903,9 @@ void stage_manager_merge(struct hsdwl_server *server,
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			wlr_buffer_drop(buf);
+			
+				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node,
 				source->thumb_x, source->thumb_y);
 			wlr_scene_buffer_set_dest_size(ov, tw, th);
@@ -850,6 +918,11 @@ void stage_manager_merge(struct hsdwl_server *server,
 				source->thumb_x, source->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_merge_on_anim_done, sma);
+				sma->remaining++;
+				if (tex) {
+					stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, source->z_offset, 0.0f, 0.5f, 0.0f, stage_merge_on_anim_done, sma);
+				}
+
 		}
 	}
 

@@ -21,6 +21,55 @@ void stage_3d_render_tilted(
 	float alpha,
 	float tilt_dir);
 
+struct hsdwl_tilt_state {
+
+	struct wl_list link;
+
+	struct timespec start;
+
+	int duration_ms;
+
+	struct wlr_texture *tex;
+
+	int tex_w, tex_h;
+
+	struct wlr_scene_buffer *overlay;
+
+	float start_angle, end_angle;
+
+	float start_z, end_z;
+
+	float start_tilt_dir, end_tilt_dir;
+
+	void (*on_finish)(struct hsdwl_server *, void *);
+
+	void *user_data;
+
+};
+
+
+
+struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
+
+	struct hsdwl_server *server,
+
+	struct wlr_texture *tex, int tex_w, int tex_h,
+
+	struct wlr_scene_buffer *overlay,
+
+	int duration_ms,
+
+	float start_angle, float end_angle,
+
+	float start_z, float end_z,
+
+	float start_tilt_dir, float end_tilt_dir,
+
+	void (*on_finish)(struct hsdwl_server *, void *),
+
+	void *user_data);
+
+
 	struct hsdwl_flip_state {
 	struct wl_list link;
 	struct timespec start;
