@@ -37,7 +37,6 @@ static void view_handle_set_title(struct wl_listener *listener, void *data)
 
 static void view_handle_map(struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: view_handle_map\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, map);
 	if (!view->scene_tree)
@@ -95,7 +94,6 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view)
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 {
-	fprintf(stderr, "TRACE: view_focus view=%p\n", (void*)view);
 	server->focused_layer = NULL;
 
 	if (!view)
@@ -282,7 +280,6 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: view_handle_unmap\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
 	if (view->scene_tree)
@@ -300,7 +297,6 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 
 static void view_handle_commit(struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: view_handle_commit\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, commit);
 	if (!view->xdg_surface)
@@ -342,7 +338,6 @@ static void view_handle_commit(struct wl_listener *listener, void *data)
 
 static void view_handle_toplevel_destroy(struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: view_handle_toplevel_destroy\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, toplevel_destroy);
 	wl_list_remove(&view->set_title.link);
@@ -352,7 +347,6 @@ static void view_handle_toplevel_destroy(struct wl_listener *listener, void *dat
 
 static void view_handle_destroy(struct wl_listener *listener, void *data)
 {
-	fprintf(stderr, "TRACE: view_handle_destroy\n");
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, destroy);
 	if (view->server->grabbed_view == view)

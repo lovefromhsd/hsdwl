@@ -448,28 +448,6 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 	float *pc = server->config.preview_color;
 	int r = server->config.titlebar_radius;
 
-	cairo_surface_t *surf = cairo_image_surface_create(
-		CAIRO_FORMAT_ARGB32, total_w, total_h);
-	cairo_t *cr = cairo_create(surf);
-
-	cairo_set_source_rgba(cr, 0, 0, 0, 0);
-	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
-	cairo_paint(cr);
-	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-
-	cairo_move_to(cr, 0, r);
-	cairo_arc(cr, r, r, r, M_PI, 3 * M_PI_2);
-	cairo_arc(cr, total_w - r, r, r, 3 * M_PI_2, 0);
-	cairo_line_to(cr, total_w, total_h);
-	cairo_line_to(cr, 0, total_h);
-	cairo_close_path(cr);
-
-	cairo_set_source_rgba(cr, pc[0], pc[1], pc[2], pc[3] * PREVIEW_ALPHA);
-	cairo_fill(cr);
-
-	cairo_surface_destroy(surf);
-	cairo_destroy(cr);
-
 	server->preview_tree = wlr_scene_tree_create(
 		&server->scene->tree);
 	if (!server->preview_tree)

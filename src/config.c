@@ -198,7 +198,6 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
 	cfg->smart_gaps = true;
 	cfg->stage_manager_enabled = true;
-	cfg->stage_3d_flip_enabled = true;
 	cfg->group_overlap_threshold = 0.5f;
 	cfg->anim_bezier_x1 = 0.25f;
 	cfg->anim_bezier_y1 = 0.1f;
@@ -337,8 +336,6 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 			cfg->smart_gaps = strcmp(val, "true") == 0;
 		else if (strcmp(key, "stage_manager") == 0)
 			cfg->stage_manager_enabled = strcmp(val, "true") == 0;
-		else if (strcmp(key, "stage_3d_flip") == 0)
-			cfg->stage_3d_flip_enabled = strcmp(val, "true") == 0;
 		else if (strcmp(key, "group_overlap_threshold") == 0)
 			cfg->group_overlap_threshold = atof(val);
 		else if (strcmp(key, "animation_bezier") == 0) {

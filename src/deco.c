@@ -203,7 +203,6 @@ void titlebar_text_update(struct hsdwl_view *view)
 
 void view_borders_create(struct hsdwl_view *view)
 {
-	fprintf(stderr, "TRACE: view_borders_create\n");
 	if (view->xwayland_surface
 			&& view->xwayland_surface->override_redirect)
 		return;
@@ -224,7 +223,6 @@ void view_borders_create(struct hsdwl_view *view)
 
 void view_borders_update(struct hsdwl_view *view)
 {
-	fprintf(stderr, "TRACE: view_borders_update\n");
 	if (!view->scene_tree || !view->content_tree)
 		return;
 	if (!view->border_rects[0])

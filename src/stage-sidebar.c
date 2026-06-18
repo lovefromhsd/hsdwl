@@ -152,8 +152,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 		return;
 	}
 
-	bool do_tilt = server->config.stage_3d_flip_enabled
-		&& tilt_dir != 0.0f;
+	bool do_tilt = tilt_dir != 0.0f;
 
 	if (do_tilt) {
 		struct wlr_texture *tex = wlr_texture_from_buffer(
