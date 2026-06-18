@@ -5,6 +5,7 @@
 #include "stage-3d.h"
 #include "stage-sidebar.h"
 #include "server.h"
+#include "output.h"
 #include "view.h"
 #include "view-maximize.h"
 
@@ -22,6 +23,14 @@
 #include "animation.h"
 
 #define MAX_STAGE_WINDOWS 64
+
+static inline float pos_tilt_angle(float win_cx, float screen_cx)
+{
+	float a = -atan2f(win_cx - screen_cx, 800.0f) * (180.0f / (float)M_PI);
+	if (a > 30.0f) a = 30.0f;
+	if (a < -30.0f) a = -30.0f;
+	return a;
+}
 
 static inline void get_thumb_size(int src_w, int src_h, int max_sz,
 		int *out_w, int *out_h)
@@ -149,6 +158,15 @@ void stage_manager_switch(struct hsdwl_server *server,
 	struct custom_stage *old = mgr->active_stage;
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
+
+	int scene_w = 1920;
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			scene_w = o->wlr_output->width;
+	}
+	float scene_cx = (float)scene_w / 2.0f;
 
 	stage_3d_cancel(server);
 	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
@@ -281,8 +299,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 					fx,fy,fw,fh,
 					target->thumb_x,target->thumb_y,tw,th,
 					stage_switch_on_anim_done,ssa);
+    float out_angle = pos_tilt_angle(fx + fw / 2.0f, scene_cx);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -30.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, out_angle, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -317,8 +336,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 				fx, fy, fw, fh,
 				target->thumb_x, target->thumb_y, tw, th,
 				stage_switch_on_anim_done, ssa);
+				float out_angle = pos_tilt_angle(fx + fw / 2.0f, scene_cx);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -30.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, out_angle, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -374,8 +394,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 					target->thumb_x,target->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_switch_on_anim_done,ssa);
+    float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -30.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, in_angle, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -411,8 +432,9 @@ void stage_manager_switch(struct hsdwl_server *server,
 				target->thumb_x, target->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_switch_on_anim_done, ssa);
+				float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -30.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, in_angle, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -469,6 +491,15 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
+
+	int scene_w = 1920;
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			scene_w = o->wlr_output->width;
+	}
+	float scene_cx = (float)scene_w / 2.0f;
 
 	stage_3d_cancel(server);
 	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
@@ -600,8 +631,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 					fx,fy,fw,fh,
 					target->thumb_x,target->thumb_y,tw,th,
 					stage_switch_on_anim_done,ssa);
+    float out_angle = pos_tilt_angle(fx + fw / 2.0f, scene_cx);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -30.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, out_angle, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -636,8 +668,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				fx, fy, fw, fh,
 				target->thumb_x, target->thumb_y, tw, th,
 				stage_switch_on_anim_done, ssa);
+				float out_angle = pos_tilt_angle(fx + fw / 2.0f, scene_cx);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -30.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, out_angle, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -692,8 +725,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 					target->thumb_x,target->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_switch_on_anim_done,ssa);
+    float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -30.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, in_angle, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -729,8 +763,9 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				target->thumb_x, target->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_switch_on_anim_done, ssa);
+				float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -30.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, in_angle, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -776,6 +811,15 @@ void stage_manager_merge(struct hsdwl_server *server,
 
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
+
+	int scene_w = 1920;
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			scene_w = o->wlr_output->width;
+	}
+	float scene_cx = (float)scene_w / 2.0f;
 
 	stage_3d_cancel(server);
 	struct stage_merge_anim *sma = calloc(1, sizeof(*sma));
@@ -836,8 +880,9 @@ void stage_manager_merge(struct hsdwl_server *server,
 					source->thumb_x,source->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_merge_on_anim_done,sma);
+    float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -30.0f, 0.0f, source->z_offset, 0.0f, 800.0f, stage_merge_on_anim_done, sma))
+        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, in_angle, 0.0f, source->z_offset, 0.0f, 800.0f, stage_merge_on_anim_done, sma))
             sma->remaining++;
     }
 
@@ -873,8 +918,9 @@ void stage_manager_merge(struct hsdwl_server *server,
 				source->thumb_x, source->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_merge_on_anim_done, sma);
+				float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -30.0f, 0.0f, source->z_offset, 0.0f, 800.0f, stage_merge_on_anim_done, sma))
+					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, in_angle, 0.0f, source->z_offset, 0.0f, 800.0f, stage_merge_on_anim_done, sma))
 						sma->remaining++;
 				}
 

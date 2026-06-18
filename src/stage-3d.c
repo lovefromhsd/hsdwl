@@ -15,7 +15,7 @@
 #include <wlr/types/wlr_scene.h>
 #include <wlr/util/log.h>
 
-#define STRIPS 48
+#define STRIPS 192
 
 void stage_3d_render_tilted(
 	struct wlr_render_pass *pass,
