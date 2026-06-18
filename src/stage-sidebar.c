@@ -152,7 +152,8 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 		return;
 	}
 
-	bool do_tilt = server->config.stage_3d_flip_enabled;
+	bool do_tilt = server->config.stage_3d_flip_enabled
+		&& tilt_dir != 0.0f;
 
 	if (do_tilt) {
 		struct wlr_texture *tex = wlr_texture_from_buffer(
@@ -228,7 +229,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	
 	struct entry {
 		struct custom_stage *st;
-		int tw, th, gap;
+		int tw, th;
 	} entries[64];
 	int nentries = 0;
 
@@ -273,24 +274,14 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 			if (tw < 20) tw = 20;
 		}
 
-		int gap = STAGE_THUMB_GAP + th / 16;
-
 		entries[nentries].st = st;
 		entries[nentries].tw = tw;
 		entries[nentries].th = th;
-		entries[nentries].gap = gap;
 		nentries++;
 	}
 	if (nentries == 0) return;
 
 	
-	int total_h = 0;
-	for (int i = 0; i < nentries; i++)
-	{
-		total_h += entries[i].th;
-		if (i > 0) total_h += entries[i].gap;
-	}
-
 	int sidebar_h = 1050;
 	if (!wl_list_empty(&server->outputs))
 	{
@@ -300,29 +291,35 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 			sidebar_h = o->wlr_output->height;
 	}
 
-	int y = (sidebar_h - total_h) / 2;
-	if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
+	int slot_h = sidebar_h / nentries;
 
 	for (int i = 0; i < nentries; i++)
 	{
 		int x = STAGE_THUMB_PAD;
 
-		float tilt_dir = nentries > 1
-			? (float)i / (float)(nentries - 1) * 2.0f - 1.0f
-			: 0.0f;
-
 		
+		int max_th = slot_h - STAGE_THUMB_PAD * 2;
+		if (max_th < 20) max_th = 20;
+		if (entries[i].th > max_th) {
+			float ar = (float)entries[i].tw / entries[i].th;
+			entries[i].th = max_th;
+			entries[i].tw = (int)(max_th * ar);
+			if (entries[i].tw > thumb_w)
+				entries[i].tw = thumb_w;
+		}
+
+		int y = i * slot_h + (slot_h - entries[i].th) / 2;
+		if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
+
 		entries[i].st->z_offset = (float)i * 30.0f;
 
 		stage_hide_thumb(entries[i].st, false);
 		stage_render_thumbnail(server, entries[i].st,
-			entries[i].tw, entries[i].th, tilt_dir);
+			entries[i].tw, entries[i].th, 0.0f);
 		wlr_scene_node_set_position(
 			&entries[i].st->thumb_tree->node, x, y);
 		entries[i].st->thumb_x = x;
 		entries[i].st->thumb_y = y;
-		int overlap = i > 0 ? 8 : 0;
-		y += entries[i].th + entries[i].gap - overlap;
 		entries[i].st->thumb_dirty = false;
 	}
 }

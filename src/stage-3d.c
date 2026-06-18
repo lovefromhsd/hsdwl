@@ -33,8 +33,7 @@ void stage_3d_render_tilted(
 
 	float rad = angle_deg * (float)(M_PI / 180.0);
 	float cos_a = cosf(rad);
-	float sin_a = sinf(rad);
-	float focal = (float)tex_w * 1.5f;
+	(void)z_offset;
 
 	float ramp_amp = (float)dst_h * 0.18f * fabs(tilt_dir);
 	float total_h = (float)tex_h + ramp_amp;
@@ -49,34 +48,28 @@ void stage_3d_render_tilted(
 	float bot_y = ((float)dst_h + strip_h) * 0.5f + ramp_amp * 0.5f;
 	float global_shift = ((float)dst_h - (top_y + bot_y)) * 0.5f;
 
+	
+	float boundaries[STRIPS + 1];
+	for (int i = 0; i <= STRIPS; i++) {
+		float p = (float)i / (float)STRIPS;
+		float x = (p - 0.5f) * (float)tex_w;
+		float sx = x * cos_a;
+		boundaries[i] = (float)dst_w / 2.0f + sx * vscale;
+	}
+
 	for (int i = 0; i < STRIPS; i++)
 	{
-		float p0 = (float)i / (float)STRIPS;
-		float p1 = (float)(i + 1) / (float)STRIPS;
-		float pc = (p0 + p1) * 0.5f;
+		float pc = ((float)i + 0.5f) / (float)STRIPS;
 
-		float x0 = (p0 - 0.5f) * (float)tex_w;
-		float x1 = (p1 - 0.5f) * (float)tex_w;
-
-		float z0 = x0 * sin_a + z_offset;
-		float z1 = x1 * sin_a + z_offset;
-
-		float x0p = x0 * cos_a;
-		float x1p = x1 * cos_a;
-
-		float sx0 = x0p * (focal / (focal + z0));
-		float sx1 = x1p * (focal / (focal + z1));
-
-		float strip_x = (float)dst_w / 2.0f + sx0 * vscale;
-		float strip_w = (sx1 - sx0) * vscale;
-
-		if (strip_w < 1.0f) strip_w = 1.0f;
+		int bx = dst_x + (int)(boundaries[i] + 0.5f);
+		int bw = (int)(boundaries[i + 1] + 0.5f) - bx;
+		if (bw < 1) bw = 1;
 
 		float ramp = -(pc - 0.5f) * ramp_amp * tilt_dir;
 		float strip_y = (float)dst_h * 0.5f - strip_h * 0.5f + ramp + global_shift;
 
-		float src_x = p0 * (float)tex_w;
-		float src_w = (p1 - p0) * (float)tex_w;
+		float src_x = pc * (float)tex_w - (float)tex_w / (float)STRIPS * 0.5f;
+		float src_w = (float)tex_w / (float)STRIPS;
 
 		wlr_render_pass_add_texture(pass,
 			&(struct wlr_render_texture_options){
@@ -88,9 +81,9 @@ void stage_3d_render_tilted(
 					.height = (float)tex_h,
 				},
 				.dst_box = {
-					.x = dst_x + (int)(strip_x + 0.5f),
+					.x = bx,
 					.y = dst_y + (int)(strip_y + 0.5f),
-					.width = (int)(strip_w + 1.5f),
+					.width = bw,
 					.height = (int)(strip_h + 0.5f),
 				},
 				.alpha = &alpha,
