@@ -26,50 +26,65 @@ void stage_3d_render_tilted(
 	float z_offset,
 	float angle_deg,
 	float alpha,
-	float tilt_dir)
+	float focal_length)
 {
 	if (tex_w < 1 || tex_h < 1 || dst_w < 1 || dst_h < 1)
 		return;
 
 	float rad = angle_deg * (float)(M_PI / 180.0);
 	float cos_a = cosf(rad);
-	(void)z_offset;
+	float sin_a = sinf(rad);
+	float f = focal_length;
+	if (f < 1.0f) f = 1.0f;
 
-	float ramp_amp = (float)dst_h * 0.18f * fabs(tilt_dir);
-	float total_h = (float)tex_h + ramp_amp;
-	float vscale = 1.0f;
-	if (total_h > (float)dst_h && total_h > 0.0f) {
-		vscale = (float)dst_h / total_h * 0.97f;
-	}
-	ramp_amp *= vscale;
+	float src_strip_w = (float)tex_w / (float)STRIPS;
 
-	float strip_h = (float)tex_h * vscale;
-	float top_y = ((float)dst_h - strip_h) * 0.5f - ramp_amp * 0.5f;
-	float bot_y = ((float)dst_h + strip_h) * 0.5f + ramp_amp * 0.5f;
-	float global_shift = ((float)dst_h - (top_y + bot_y)) * 0.5f;
-
-	
-	float boundaries[STRIPS + 1];
-	for (int i = 0; i <= STRIPS; i++) {
-		float p = (float)i / (float)STRIPS;
-		float x = (p - 0.5f) * (float)tex_w;
-		float sx = x * cos_a;
-		boundaries[i] = (float)dst_w / 2.0f + sx * vscale;
+	int start, end, step;
+	if (sin_a >= 0.0f) {
+		start = STRIPS - 1; end = -1; step = -1;
+	} else {
+		start = 0; end = STRIPS; step = 1;
 	}
 
-	for (int i = 0; i < STRIPS; i++)
+	for (int idx = start; idx != end; idx += step)
 	{
-		float pc = ((float)i + 0.5f) / (float)STRIPS;
+		float p_left = (float)idx / (float)STRIPS;
+		float p_right = (float)(idx + 1) / (float)STRIPS;
 
-		int bx = dst_x + (int)(boundaries[i] + 0.5f);
-		int bw = (int)(boundaries[i + 1] + 0.5f) - bx;
+		float x_left = (p_left - 0.5f) * (float)tex_w;
+		float x_right = (p_right - 0.5f) * (float)tex_w;
+
+		float xl_rot = x_left * cos_a;
+		float zl_rot = -x_left * sin_a + z_offset;
+		float xr_rot = x_right * cos_a;
+		float zr_rot = -x_right * sin_a + z_offset;
+
+		float wl = f / (f + zl_rot);
+		float wr = f / (f + zr_rot);
+		if (wl < 0.01f) wl = 0.01f;
+		if (wr < 0.01f) wr = 0.01f;
+
+		float screen_left = (float)dst_w / 2.0f + xl_rot * wl;
+		float screen_right = (float)dst_w / 2.0f + xr_rot * wr;
+
+		int bx = dst_x + (int)(screen_left + 0.5f);
+		int bw = (int)(screen_right + 0.5f) - bx;
 		if (bw < 1) bw = 1;
 
-		float ramp = -(pc - 0.5f) * ramp_amp * tilt_dir;
-		float strip_y = (float)dst_h * 0.5f - strip_h * 0.5f + ramp + global_shift;
+		float pc = (p_left + p_right) / 2.0f;
+		float xc = (pc - 0.5f) * (float)tex_w;
+		float zc = -xc * sin_a + z_offset;
+		float wc = f / (f + zc);
+		if (wc < 0.01f) wc = 0.01f;
 
-		float src_x = pc * (float)tex_w - (float)tex_w / (float)STRIPS * 0.5f;
-		float src_w = (float)tex_w / (float)STRIPS;
+		float strip_h = (float)tex_h * wc;
+		if (strip_h < 1.0f) strip_h = 1.0f;
+
+		float center_y = (float)dst_h / 2.0f;
+		float strip_y = center_y - strip_h / 2.0f;
+
+		float src_x = p_left * (float)tex_w;
+		float src_w = src_strip_w;
 
 		wlr_render_pass_add_texture(pass,
 			&(struct wlr_render_texture_options){
@@ -98,7 +113,8 @@ static struct wlr_buffer *render_flip_frame(
 	int tex_w, int tex_h,
 	int dst_w, int dst_h,
 	float z_offset,
-	float angle_deg)
+	float angle_deg,
+	float focal_length)
 {
 	uint64_t mods[] = { DRM_FORMAT_MOD_INVALID };
 	struct wlr_drm_format fmt = {
@@ -127,7 +143,7 @@ static struct wlr_buffer *render_flip_frame(
 	stage_3d_render_tilted(pass, tex, tex_w, tex_h,
 		0, 0, dst_w, dst_h,
 		z_offset,
-		angle_deg, 1.0f, 0.0f);
+		angle_deg, 1.0f, focal_length);
 
 	if (!wlr_render_pass_submit(pass)) {
 		wlr_buffer_drop(buf);
@@ -144,7 +160,7 @@ struct hsdwl_flip_state *stage_3d_start_flip(
 	struct wlr_texture *in_tex, int in_w, int in_h,
 	int in_x, int in_y,
 	int duration_ms, float tilt_angle,
-	float z_offset,
+	float z_offset, float focal_length,
 	void (*on_finish)(struct hsdwl_server *, void *),
 	void *user_data)
 {
@@ -165,6 +181,7 @@ struct hsdwl_flip_state *stage_3d_start_flip(
 	fs->duration_ms = duration_ms;
 	fs->tilt_angle = tilt_angle;
 	fs->z_offset = z_offset;
+	fs->focal_length = focal_length;
 	fs->on_finish = on_finish;
 	fs->user_data = user_data;
 
@@ -221,7 +238,7 @@ static struct wlr_buffer *render_tilt_frame(
 
 	float angle_deg,
 
-	float tilt_dir)
+	float focal_length)
 
 {
 
@@ -275,7 +292,7 @@ static struct wlr_buffer *render_tilt_frame(
 
 		0, 0, dst_w, dst_h,
 
-		z_offset, angle_deg, 1.0f, tilt_dir);
+		z_offset, angle_deg, 1.0f, focal_length);
 
 
 
@@ -309,7 +326,7 @@ struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
 	int duration_ms,
 	float start_angle, float end_angle,
 	float start_z, float end_z,
-	float start_tilt_dir, float end_tilt_dir,
+	float focal_length,
 	void (*on_finish)(struct hsdwl_server *, void *),
 	void *user_data)
 {
@@ -325,8 +342,7 @@ struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
 	ts->end_angle = end_angle;
 	ts->start_z = start_z;
 	ts->end_z = end_z;
-	ts->start_tilt_dir = start_tilt_dir;
-	ts->end_tilt_dir = end_tilt_dir;
+	ts->focal_length = focal_length;
 	ts->on_finish = on_finish;
 	ts->user_data = user_data;
 
@@ -363,7 +379,8 @@ void stage_3d_tick(struct hsdwl_server *server, struct timespec *now)
 				fs->out_w, fs->out_h,
 				fs->out_w, fs->out_h,
 				fs->z_offset,
-				(float)out_angle);
+				(float)out_angle,
+				fs->focal_length);
 			if (buf) {
 				wlr_scene_buffer_set_buffer(
 					fs->out_overlay, buf);
@@ -388,7 +405,8 @@ void stage_3d_tick(struct hsdwl_server *server, struct timespec *now)
 				fs->in_w, fs->in_h,
 				fs->in_w, fs->in_h,
 				fs->z_offset,
-				(float)in_angle);
+				(float)in_angle,
+				fs->focal_length);
 			if (buf) {
 				wlr_scene_buffer_set_buffer(
 					fs->in_overlay, buf);
@@ -423,19 +441,17 @@ void stage_3d_tick(struct hsdwl_server *server, struct timespec *now)
 		if (t < 0.0) t = 0.0;
 		if (t > 1.0) t = 1.0;
 
-		// Easing function for smoother tilt (ease out cubic)
 		double t1 = t - 1.0;
 		double eased_t = t1 * t1 * t1 + 1.0;
 
 		float angle = ts->start_angle + (ts->end_angle - ts->start_angle) * (float)eased_t;
 		float z = ts->start_z + (ts->end_z - ts->start_z) * (float)eased_t;
-		float tilt_dir = ts->start_tilt_dir + (ts->end_tilt_dir - ts->start_tilt_dir) * (float)eased_t;
 
 		struct wlr_buffer *buf = render_tilt_frame(
 			server, ts->tex,
 			ts->tex_w, ts->tex_h,
 			ts->tex_w, ts->tex_h,
-			z, angle, tilt_dir);
+			z, angle, ts->focal_length);
 		if (buf) {
 			wlr_scene_buffer_set_buffer(ts->overlay, buf);
 			wlr_buffer_drop(buf);
@@ -460,4 +476,3 @@ void stage_3d_cancel(struct hsdwl_server *server)
 		tilt_cleanup(server, ts);
 	}
 }
-

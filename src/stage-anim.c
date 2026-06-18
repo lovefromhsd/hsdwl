@@ -174,7 +174,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 				stage_3d_start_flip(server,
 					tex, fw, fh, fx, fy,
 					NULL, 0, 0, fx, fy,
-					400, 0.0f, 0.0f,
+					400, 0.0f, 0.0f, 800.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -205,7 +205,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 				stage_3d_start_flip(server,
 					NULL, 0, 0, ttx, tty,
 					tex, tx, ty, ttx, tty,
-					400, 0.0f, 0.0f,
+					400, 0.0f, 0.0f, 800.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -263,12 +263,12 @@ void stage_manager_switch(struct hsdwl_server *server,
 				wlr_scene_node_raise_to_top(&ov->node);
 				ssa->overlays[ssa->n_overlays++] = ov;
 				ssa->remaining++;
-				animation_create(server, ov,200,HSDWL_EASE_BEZIER,
+				animation_create(server, ov,400,HSDWL_EASE_BEZIER,
 					fx,fy,fw,fh,
 					target->thumb_x,target->thumb_y,tw,th,
 					stage_switch_on_anim_done,ssa);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -25.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -300,12 +300,12 @@ void stage_manager_switch(struct hsdwl_server *server,
 			ssa->overlays[ssa->n_overlays++] = ov;
 			ssa->remaining++;
 
-			animation_create(server, ov, 200, HSDWL_EASE_BEZIER,
+			animation_create(server, ov, 400, HSDWL_EASE_BEZIER,
 				fx, fy, fw, fh,
 				target->thumb_x, target->thumb_y, tw, th,
 				stage_switch_on_anim_done, ssa);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -25.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -358,12 +358,12 @@ void stage_manager_switch(struct hsdwl_server *server,
 				wlr_scene_node_raise_to_top(&ov->node);
 				ssa->overlays[ssa->n_overlays++] = ov;
 				ssa->remaining++;
-				animation_create(server, ov,200,HSDWL_EASE_BEZIER,
+				animation_create(server, ov,400,HSDWL_EASE_BEZIER,
 					target->thumb_x,target->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_switch_on_anim_done,ssa);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -25.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -396,12 +396,12 @@ void stage_manager_switch(struct hsdwl_server *server,
 			ssa->overlays[ssa->n_overlays++] = ov;
 			ssa->remaining++;
 
-			animation_create(server, ov, 200, HSDWL_EASE_BEZIER,
+			animation_create(server, ov, 400, HSDWL_EASE_BEZIER,
 				target->thumb_x, target->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_switch_on_anim_done, ssa);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -25.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -498,7 +498,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				stage_3d_start_flip(server,
 					tex, fw, fh, fx, fy,
 					NULL, 0, 0, fx, fy,
-					400, 0.0f, 0.0f,
+					400, 0.0f, 0.0f, 800.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -529,7 +529,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				stage_3d_start_flip(server,
 					NULL, 0, 0, ttx, tty,
 					tex, tx, ty, ttx, tty,
-					400, 0.0f, 0.0f,
+					400, 0.0f, 0.0f, 800.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -586,12 +586,12 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				wlr_scene_node_raise_to_top(&ov->node);
 				ssa->overlays[ssa->n_overlays++] = ov;
 				ssa->remaining++;
-				animation_create(server, ov,200,HSDWL_EASE_BEZIER,
+				animation_create(server, ov,400,HSDWL_EASE_BEZIER,
 					fx,fy,fw,fh,
 					target->thumb_x,target->thumb_y,tw,th,
 					stage_switch_on_anim_done,ssa);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -25.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -623,12 +623,12 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 			ssa->overlays[ssa->n_overlays++] = ov;
 			ssa->remaining++;
 
-			animation_create(server, ov, 200, HSDWL_EASE_BEZIER,
+			animation_create(server, ov, 400, HSDWL_EASE_BEZIER,
 				fx, fy, fw, fh,
 				target->thumb_x, target->thumb_y, tw, th,
 				stage_switch_on_anim_done, ssa);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 200, 0.0f, -12.0f, 0.0f, old->z_offset, 0.0f, 0.5f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, fw, fh, ov, 400, 0.0f, -25.0f, 0.0f, old->z_offset, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -680,12 +680,12 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				wlr_scene_node_raise_to_top(&ov->node);
 				ssa->overlays[ssa->n_overlays++] = ov;
 				ssa->remaining++;
-				animation_create(server, ov,200,HSDWL_EASE_BEZIER,
+				animation_create(server, ov,400,HSDWL_EASE_BEZIER,
 					target->thumb_x,target->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_switch_on_anim_done,ssa);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa))
+        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -25.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
             ssa->remaining++;
     }
 
@@ -718,12 +718,12 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 			ssa->overlays[ssa->n_overlays++] = ov;
 			ssa->remaining++;
 
-			animation_create(server, ov, 200, HSDWL_EASE_BEZIER,
+			animation_create(server, ov, 400, HSDWL_EASE_BEZIER,
 				target->thumb_x, target->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_switch_on_anim_done, ssa);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, target->z_offset, 0.0f, 0.5f, 0.0f, stage_switch_on_anim_done, ssa))
+					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -25.0f, 0.0f, target->z_offset, 0.0f, 800.0f, stage_switch_on_anim_done, ssa))
 						ssa->remaining++;
 				}
 
@@ -826,12 +826,12 @@ void stage_manager_merge(struct hsdwl_server *server,
 				wlr_scene_node_raise_to_top(&ov->node);
 				sma->overlays[sma->n_overlays++] = ov;
 				sma->remaining++;
-				animation_create(server, ov,200,HSDWL_EASE_BEZIER,
+				animation_create(server, ov,400,HSDWL_EASE_BEZIER,
 					source->thumb_x,source->thumb_y,tw,th,
 					ttx,tty,tx,ty,
 					stage_merge_on_anim_done,sma);
     if (tex) {
-        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, source->z_offset, 0.0f, 0.5f, 0.0f, stage_merge_on_anim_done, sma))
+        if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -25.0f, 0.0f, source->z_offset, 0.0f, 800.0f, stage_merge_on_anim_done, sma))
             sma->remaining++;
     }
 
@@ -864,12 +864,12 @@ void stage_manager_merge(struct hsdwl_server *server,
 			sma->overlays[sma->n_overlays++] = ov;
 			sma->remaining++;
 
-			animation_create(server, ov, 200, HSDWL_EASE_BEZIER,
+			animation_create(server, ov, 400, HSDWL_EASE_BEZIER,
 				source->thumb_x, source->thumb_y, tw, th,
 				ttx, tty, tx, ty,
 				stage_merge_on_anim_done, sma);
 				if (tex) {
-					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 200, -12.0f, 0.0f, source->z_offset, 0.0f, 0.5f, 0.0f, stage_merge_on_anim_done, sma))
+					if (stage_3d_start_tilt_anim(server, tex, tx, ty, ov, 400, -25.0f, 0.0f, source->z_offset, 0.0f, 800.0f, stage_merge_on_anim_done, sma))
 						sma->remaining++;
 				}
 
