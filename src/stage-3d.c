@@ -36,37 +36,24 @@ void stage_3d_render_tilted(
 	float sin_a = sinf(rad);
 	float focal = (float)tex_w * 1.5f;
 
-	float max_persp = focal / (focal - (float)tex_w / 2.0f * fabsf(sin_a) + z_offset);
-	if (max_persp < 1.0f) max_persp = 1.0f;
-	float min_persp = focal / (focal + (float)tex_w / 2.0f * fabsf(sin_a) + z_offset);
-	if (min_persp > 1.0f) min_persp = 1.0f;
-
 	float ramp_amp = (float)dst_h * 0.18f;
-	float total_span = ((max_persp + min_persp) * 0.5f) * (float)tex_h + ramp_amp;
+	float total_h = (float)tex_h + ramp_amp;
 	float vscale = 1.0f;
-	if (total_span > (float)dst_h && total_span > 0.0f) {
-		vscale = (float)dst_h / total_span * 0.97f;
+	if (total_h > (float)dst_h && total_h > 0.0f) {
+		vscale = (float)dst_h / total_h * 0.97f;
 	}
 	ramp_amp *= vscale;
 
-	float near_h = (float)tex_h * max_persp * vscale;
-	float near_top = (float)dst_h * 0.5f - near_h * 0.5f - ramp_amp * 0.5f;
-	float far_h = (float)tex_h * min_persp * vscale;
-	float far_bot = (float)dst_h * 0.5f + far_h * 0.5f + ramp_amp * 0.5f;
-	float global_shift = ((float)dst_h - (near_top + far_bot)) * 0.5f;
+	float strip_h = (float)tex_h * vscale;
+	float top_y = ((float)dst_h - strip_h) * 0.5f - ramp_amp * 0.5f;
+	float bot_y = ((float)dst_h + strip_h) * 0.5f + ramp_amp * 0.5f;
+	float global_shift = ((float)dst_h - (top_y + bot_y)) * 0.5f;
 
 	for (int i = 0; i < STRIPS; i++)
 	{
 		float p0 = (float)i / (float)STRIPS;
 		float p1 = (float)(i + 1) / (float)STRIPS;
 		float pc = (p0 + p1) * 0.5f;
-
-		float xc = (pc - 0.5f) * (float)tex_w;
-
-		float zc = xc * sin_a + z_offset;
-
-		float perspc = focal / (focal + zc);
-		if (perspc < 0.05f) perspc = 0.05f;
 
 		float x0 = (p0 - 0.5f) * (float)tex_w;
 		float x1 = (p1 - 0.5f) * (float)tex_w;
@@ -85,7 +72,6 @@ void stage_3d_render_tilted(
 
 		if (strip_w < 1.0f) strip_w = 1.0f;
 
-		float strip_h = (float)tex_h * perspc * vscale;
 		float ramp = -(pc - 0.5f) * ramp_amp * tilt_dir;
 		float strip_y = (float)dst_h * 0.5f - strip_h * 0.5f + ramp + global_shift;
 
