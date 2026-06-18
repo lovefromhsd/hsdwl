@@ -250,12 +250,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 					+ g->tab_bar_thickness;
 
 				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-				th = (int)((float)ch_ * tw / cw_);
-				if (th > 300) {
-					float ar = (float)cw_ / ch_;
-					th = 300;
-					tw = (int)(300 * ar);
-				}
+				th = tw;
 
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
@@ -291,12 +286,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 			fy = (int)cw->y;
 
 			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			th = (int)((float)cw->h * tw / cw->w);
-			if (th > 300) {
-				float ar = (float)cw->w / cw->h;
-				th = 300;
-				tw = (int)(300 * ar);
-			}
+			th = tw;
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
@@ -350,12 +340,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 				if (!buf) continue;
 
 				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-				th = (int)((float)ch_ * tw / cw_);
-				if (th > 300) {
-					float ar = (float)cw_ / ch_;
-					th = 300;
-					tw = (int)(300 * ar);
-				}
+				th = tw;
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
 				tty = (int)g->scene_tree->node.y
 					+ g->tab_bar_thickness;
@@ -396,12 +381,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 			tty = (int)cw->y;
 
 			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			th = (int)((float)cw->h * tw / cw->w);
-			if (th > 300) {
-				float ar = (float)cw->w / cw->h;
-				th = 300;
-				tw = (int)(300 * ar);
-			}
+			th = tw;
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
@@ -593,12 +573,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 					+ g->tab_bar_thickness;
 
 				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-				th = (int)((float)ch_ * tw / cw_);
-				if (th > 300) {
-					float ar = (float)cw_ / ch_;
-					th = 300;
-					tw = (int)(300 * ar);
-				}
+				th = tw;
 
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
@@ -634,12 +609,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 			fy = (int)cw->y;
 
 			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			th = (int)((float)cw->h * tw / cw->w);
-			if (th > 300) {
-				float ar = (float)cw->w / cw->h;
-				th = 300;
-				tw = (int)(300 * ar);
-			}
+			th = tw;
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
@@ -692,12 +662,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				if (!buf) continue;
 
 				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-				th = (int)((float)ch_ * tw / cw_);
-				if (th > 300) {
-					float ar = (float)cw_ / ch_;
-					th = 300;
-					tw = (int)(300 * ar);
-				}
+				th = tw;
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
 				tty = (int)g->scene_tree->node.y
 					+ g->tab_bar_thickness;
@@ -738,12 +703,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 			tty = (int)cw->y;
 
 			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			th = (int)((float)cw->h * tw / cw->w);
-			if (th > 300) {
-				float ar = (float)cw->w / cw->h;
-				th = 300;
-				tw = (int)(300 * ar);
-			}
+			th = tw;
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
@@ -848,12 +808,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 				if (!buf) continue;
 
 				tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-				th = (int)((float)ch_ * tw / cw_);
-				if (th > 300) {
-					float ar = (float)cw_ / ch_;
-					th = 300;
-					tw = (int)(300 * ar);
-				}
+				th = tw;
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
 				tty = (int)g->scene_tree->node.y
 					+ g->tab_bar_thickness;
@@ -894,12 +849,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 			tty = (int)cw->y;
 
 			tw = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-			th = (int)((float)cw->h * tw / cw->w);
-			if (th > 300) {
-				float ar = (float)cw->w / cw->h;
-				th = 300;
-				tw = (int)(300 * ar);
-			}
+			th = tw;
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);

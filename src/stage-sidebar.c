@@ -265,14 +265,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		if (bbox.width < 1 || bbox.height < 1) continue;
 
 		int tw = thumb_w;
-		int th = (int)(bbox.height * (float)tw / bbox.width);
-		if (th > 500)
-		{
-			float ar = (float)bbox.width / bbox.height;
-			th = 500;
-			tw = (int)(500 * ar);
-			if (tw < 20) tw = 20;
-		}
+		int th = thumb_w;
 
 		entries[nentries].st = st;
 		entries[nentries].tw = tw;
@@ -298,15 +291,11 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		int x = STAGE_THUMB_PAD;
 
 		
-		int max_th = slot_h - STAGE_THUMB_PAD * 2;
-		if (max_th < 20) max_th = 20;
-		if (entries[i].th > max_th) {
-			float ar = (float)entries[i].tw / entries[i].th;
-			entries[i].th = max_th;
-			entries[i].tw = (int)(max_th * ar);
-			if (entries[i].tw > thumb_w)
-				entries[i].tw = thumb_w;
-		}
+		int max_sz = slot_h - STAGE_THUMB_PAD * 2;
+		if (max_sz < 20) max_sz = 20;
+		if (entries[i].tw > max_sz)
+			entries[i].tw = max_sz;
+		entries[i].th = entries[i].tw;
 
 		int y = i * slot_h + (slot_h - entries[i].th) / 2;
 		if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
