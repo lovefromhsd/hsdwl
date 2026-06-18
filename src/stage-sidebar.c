@@ -301,14 +301,18 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
 
 		entries[i].st->z_offset = (float)i * 30.0f;
+		entries[i].st->thumb_x = x;
+		entries[i].st->thumb_y = y;
+
+		float td = (float)(y - sidebar_h / 2) / (float)(sidebar_h / 2);
+		if (td < -1.0f) td = -1.0f;
+		if (td > 1.0f) td = 1.0f;
 
 		stage_hide_thumb(entries[i].st, false);
 		stage_render_thumbnail(server, entries[i].st,
-			entries[i].tw, entries[i].th, 0.0f);
+			entries[i].tw, entries[i].th, td);
 		wlr_scene_node_set_position(
 			&entries[i].st->thumb_tree->node, x, y);
-		entries[i].st->thumb_x = x;
-		entries[i].st->thumb_y = y;
 		entries[i].st->thumb_dirty = false;
 	}
 }

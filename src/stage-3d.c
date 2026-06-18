@@ -46,6 +46,22 @@ void stage_3d_render_tilted(
 		start = 0; end = STRIPS; step = 1;
 	}
 
+	float max_strip_h = 0.0f;
+	for (int i = 0; i < STRIPS; i++) {
+		float pc = ((float)i + 0.5f) / (float)STRIPS;
+		float xc = (pc - 0.5f) * (float)tex_w;
+		float zc = -xc * sin_a + z_offset;
+		float wc = f / (f + zc);
+		if (wc < 0.01f) wc = 0.01f;
+		float sh = (float)tex_h * wc;
+		if (sh > max_strip_h) max_strip_h = sh;
+	}
+
+	float vscale = 1.0f;
+	if (max_strip_h > (float)dst_h && max_strip_h > 0.0f) {
+		vscale = (float)dst_h / max_strip_h;
+	}
+
 	for (int idx = start; idx != end; idx += step)
 	{
 		float p_left = (float)idx / (float)STRIPS;
@@ -64,8 +80,8 @@ void stage_3d_render_tilted(
 		if (wl < 0.01f) wl = 0.01f;
 		if (wr < 0.01f) wr = 0.01f;
 
-		float screen_left = (float)dst_w / 2.0f + xl_rot * wl;
-		float screen_right = (float)dst_w / 2.0f + xr_rot * wr;
+		float screen_left = (float)dst_w / 2.0f + xl_rot * wl * vscale;
+		float screen_right = (float)dst_w / 2.0f + xr_rot * wr * vscale;
 
 		int bx = dst_x + (int)(screen_left + 0.5f);
 		int bw = (int)(screen_right + 0.5f) - bx;
@@ -77,11 +93,10 @@ void stage_3d_render_tilted(
 		float wc = f / (f + zc);
 		if (wc < 0.01f) wc = 0.01f;
 
-		float strip_h = (float)tex_h * wc;
+		float strip_h = (float)tex_h * wc * vscale;
 		if (strip_h < 1.0f) strip_h = 1.0f;
 
-		float center_y = (float)dst_h / 2.0f;
-		float strip_y = center_y - strip_h / 2.0f;
+		float strip_y = ((float)dst_h - strip_h) * 0.5f;
 
 		float src_x = p_left * (float)tex_w;
 		float src_w = src_strip_w;
