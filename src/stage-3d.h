@@ -16,11 +16,12 @@ void stage_3d_render_tilted(
 	int tex_w, int tex_h,
 	int dst_x, int dst_y,
 	int dst_w, int dst_h,
+	float z_offset,
 	float angle_deg,
 	float alpha,
 	float tilt_dir);
 
-struct hsdwl_flip_state {
+	struct hsdwl_flip_state {
 	struct wl_list link;
 	struct timespec start;
 	int duration_ms;
@@ -33,6 +34,7 @@ struct hsdwl_flip_state {
 	struct wlr_scene_buffer *out_overlay;
 	struct wlr_scene_buffer *in_overlay;
 	float tilt_angle;
+	float z_offset;
 	void (*on_finish)(struct hsdwl_server *server, void *user_data);
 	void *user_data;
 };
@@ -44,6 +46,7 @@ struct hsdwl_flip_state *stage_3d_start_flip(
 	struct wlr_texture *in_tex, int in_w, int in_h,
 	int in_x, int in_y,
 	int duration_ms, float tilt_angle,
+	float z_offset,
 	void (*on_finish)(struct hsdwl_server *, void *),
 	void *user_data);
 

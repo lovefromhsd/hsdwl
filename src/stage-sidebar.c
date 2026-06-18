@@ -171,10 +171,11 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 								.height = thumb_h },
 							.color = { 0, 0, 0, 0 },
 						});
-					stage_3d_render_tilted(tpass, tex,
-						thumb_w, thumb_h,
-						0, 0, thumb_w, thumb_h,
-						-12.0f, 1.0f, tilt_dir);
+				stage_3d_render_tilted(tpass, tex,
+					thumb_w, thumb_h,
+					0, 0, thumb_w, thumb_h,
+					stage->z_offset,
+					-12.0f, 1.0f, tilt_dir);
 					if (wlr_render_pass_submit(tpass)) {
 						wlr_scene_buffer_set_buffer(
 							stage->thumb_buf, tilted);
@@ -298,10 +299,10 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		if (o->wlr_output)
 			sidebar_h = o->wlr_output->height;
 	}
+
 	int y = (sidebar_h - total_h) / 2;
 	if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
 
-	
 	for (int i = 0; i < nentries; i++)
 	{
 		int x = STAGE_THUMB_PAD;
@@ -310,6 +311,9 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 			? (float)i / (float)(nentries - 1) * 2.0f - 1.0f
 			: 0.0f;
 
+		
+		entries[i].st->z_offset = (float)i * 30.0f;
+
 		stage_hide_thumb(entries[i].st, false);
 		stage_render_thumbnail(server, entries[i].st,
 			entries[i].tw, entries[i].th, tilt_dir);
@@ -317,7 +321,8 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 			&entries[i].st->thumb_tree->node, x, y);
 		entries[i].st->thumb_x = x;
 		entries[i].st->thumb_y = y;
-		y += entries[i].th + entries[i].gap;
+		int overlap = i > 0 ? 8 : 0;
+		y += entries[i].th + entries[i].gap - overlap;
 		entries[i].st->thumb_dirty = false;
 	}
 }

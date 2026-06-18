@@ -23,6 +23,7 @@ void stage_3d_render_tilted(
 	int tex_w, int tex_h,
 	int dst_x, int dst_y,
 	int dst_w, int dst_h,
+	float z_offset,
 	float angle_deg,
 	float alpha,
 	float tilt_dir)
@@ -35,9 +36,9 @@ void stage_3d_render_tilted(
 	float sin_a = sinf(rad);
 	float focal = (float)tex_w * 1.5f;
 
-	float max_persp = focal / (focal - (float)tex_w / 2.0f * fabsf(sin_a));
+	float max_persp = focal / (focal - (float)tex_w / 2.0f * fabsf(sin_a) + z_offset);
 	if (max_persp < 1.0f) max_persp = 1.0f;
-	float min_persp = focal / (focal + (float)tex_w / 2.0f * fabsf(sin_a));
+	float min_persp = focal / (focal + (float)tex_w / 2.0f * fabsf(sin_a) + z_offset);
 	if (min_persp > 1.0f) min_persp = 1.0f;
 
 	float ramp_amp = (float)dst_h * 0.18f;
@@ -62,7 +63,7 @@ void stage_3d_render_tilted(
 
 		float xc = (pc - 0.5f) * (float)tex_w;
 
-		float zc = xc * sin_a;
+		float zc = xc * sin_a + z_offset;
 
 		float perspc = focal / (focal + zc);
 		if (perspc < 0.05f) perspc = 0.05f;
@@ -70,8 +71,8 @@ void stage_3d_render_tilted(
 		float x0 = (p0 - 0.5f) * (float)tex_w;
 		float x1 = (p1 - 0.5f) * (float)tex_w;
 
-		float z0 = x0 * sin_a;
-		float z1 = x1 * sin_a;
+		float z0 = x0 * sin_a + z_offset;
+		float z1 = x1 * sin_a + z_offset;
 
 		float x0p = x0 * cos_a;
 		float x1p = x1 * cos_a;
@@ -117,6 +118,7 @@ static struct wlr_buffer *render_flip_frame(
 	struct wlr_texture *tex,
 	int tex_w, int tex_h,
 	int dst_w, int dst_h,
+	float z_offset,
 	float angle_deg)
 {
 	uint64_t mods[] = { DRM_FORMAT_MOD_INVALID };
@@ -144,7 +146,9 @@ static struct wlr_buffer *render_flip_frame(
 	});
 
 	stage_3d_render_tilted(pass, tex, tex_w, tex_h,
-		0, 0, dst_w, dst_h, angle_deg, 1.0f, 0.0f);
+		0, 0, dst_w, dst_h,
+		z_offset,
+		angle_deg, 1.0f, 0.0f);
 
 	if (!wlr_render_pass_submit(pass)) {
 		wlr_buffer_drop(buf);
@@ -161,6 +165,7 @@ struct hsdwl_flip_state *stage_3d_start_flip(
 	struct wlr_texture *in_tex, int in_w, int in_h,
 	int in_x, int in_y,
 	int duration_ms, float tilt_angle,
+	float z_offset,
 	void (*on_finish)(struct hsdwl_server *, void *),
 	void *user_data)
 {
@@ -180,6 +185,7 @@ struct hsdwl_flip_state *stage_3d_start_flip(
 	fs->in_y = in_y;
 	fs->duration_ms = duration_ms;
 	fs->tilt_angle = tilt_angle;
+	fs->z_offset = z_offset;
 	fs->on_finish = on_finish;
 	fs->user_data = user_data;
 
@@ -248,6 +254,7 @@ void stage_3d_tick(struct hsdwl_server *server, struct timespec *now)
 				server, fs->out_tex,
 				fs->out_w, fs->out_h,
 				fs->out_w, fs->out_h,
+				fs->z_offset,
 				(float)out_angle);
 			if (buf) {
 				wlr_scene_buffer_set_buffer(
@@ -272,6 +279,7 @@ void stage_3d_tick(struct hsdwl_server *server, struct timespec *now)
 				server, fs->in_tex,
 				fs->in_w, fs->in_h,
 				fs->in_w, fs->in_h,
+				fs->z_offset,
 				(float)in_angle);
 			if (buf) {
 				wlr_scene_buffer_set_buffer(

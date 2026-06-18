@@ -173,7 +173,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 				stage_3d_start_flip(server,
 					tex, fw, fh, fx, fy,
 					NULL, 0, 0, fx, fy,
-					400, 0.0f,
+					400, 0.0f, 0.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -204,7 +204,7 @@ void stage_manager_switch(struct hsdwl_server *server,
 				stage_3d_start_flip(server,
 					NULL, 0, 0, ttx, tty,
 					tex, tx, ty, ttx, tty,
-					400, 0.0f,
+					400, 0.0f, 0.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -488,7 +488,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				stage_3d_start_flip(server,
 					tex, fw, fh, fx, fy,
 					NULL, 0, 0, fx, fy,
-					400, 0.0f,
+					400, 0.0f, 0.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
@@ -519,7 +519,7 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 				stage_3d_start_flip(server,
 					NULL, 0, 0, ttx, tty,
 					tex, tx, ty, ttx, tty,
-					400, 0.0f,
+					400, 0.0f, 0.0f,
 					stage_switch_on_anim_done, ssa);
 				ssa->n_overlays++;
 				ssa->remaining++;
