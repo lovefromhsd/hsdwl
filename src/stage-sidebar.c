@@ -176,7 +176,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 					thumb_w, thumb_h,
 					0, 0, thumb_w, thumb_h,
 					stage->z_offset,
-					-25.0f, 1.0f, 800.0f);
+					-30.0f, 1.0f, 800.0f);
 					if (wlr_render_pass_submit(tpass)) {
 						wlr_scene_buffer_set_buffer(
 							stage->thumb_buf, tilted);
