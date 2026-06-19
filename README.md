@@ -1,2 +1,4 @@
-<h1 align="center">hsdwl</h1>
-<p align="center"><sub>a better sequel to hsdwl</sub></p>
+<div align="center">
+  <h1>hsdwl</h1>
+  <sub>a better sequel to hsdwl</sub>
+</div>
