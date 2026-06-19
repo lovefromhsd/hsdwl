@@ -58,6 +58,10 @@ static const bool def_stage_manager_enabled = true;
 static const bool def_stage_3d_enabled = true;
 static const int def_stage_float_max_size = 360;
 static const int def_titlebar_height = -1;
+static const bool def_shadow_enabled = false;
+static const int def_shadow_x_offset = 4;
+static const int def_shadow_y_offset = 4;
+static const float def_shadow_opacity = 0.35f;
 
 const struct config_field config_fields[] = {
 	{"cursor_size",             FIELD_INT,    offsetof(struct hsdwl_config, cursor_size),             0, &def_cursor_size},
@@ -85,6 +89,11 @@ const struct config_field config_fields[] = {
 	{"stage_anim_duration",     FIELD_INT,    offsetof(struct hsdwl_config, stage_anim_duration),     0, &def_stage_anim_duration},
 	{"stage_3d_enabled",        FIELD_BOOL,   offsetof(struct hsdwl_config, stage_3d_enabled),        0, &def_stage_3d_enabled},
 	{"stage_float_max_size",    FIELD_INT,    offsetof(struct hsdwl_config, stage_float_max_size),    0, &def_stage_float_max_size},
+	{"shadow_enabled",          FIELD_BOOL,   offsetof(struct hsdwl_config, shadow_enabled),           0, &def_shadow_enabled},
+	{"shadow_x_offset",         FIELD_INT,    offsetof(struct hsdwl_config, shadow_x_offset),          0, &def_shadow_x_offset},
+	{"shadow_y_offset",         FIELD_INT,    offsetof(struct hsdwl_config, shadow_y_offset),          0, &def_shadow_y_offset},
+	{"shadow_color",            FIELD_COLOR,  offsetof(struct hsdwl_config, shadow_color),             0, "#000000"},
+	{"shadow_opacity",          FIELD_FLOAT,  offsetof(struct hsdwl_config, shadow_opacity),           0, &def_shadow_opacity},
 	{"group_overlap_threshold", FIELD_FLOAT,  offsetof(struct hsdwl_config, group_overlap_threshold), 0, &def_group_overlap_threshold},
 	{"animation_bezier",        FIELD_BEZIER, offsetof(struct hsdwl_config, anim_bezier_x1),          16, "0.25, 0.1, 0.25, 1.0"},
 };

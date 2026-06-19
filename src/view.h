@@ -27,6 +27,7 @@ struct hsdwl_view
 	struct wlr_scene_tree *content_tree;
 	struct wlr_scene_rect *border_rects[4];
 	struct wlr_scene_buffer *title_text_buf;
+	struct wlr_scene_rect *shadow_rect;
 	char cached_title[256];
 	struct wlr_xdg_toplevel_decoration_v1 *decoration;
 	struct wl_listener decoration_destroy;

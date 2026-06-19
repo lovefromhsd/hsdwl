@@ -62,6 +62,11 @@ struct hsdwl_config
 	int stage_anim_duration;
 	bool stage_3d_enabled;
 	int stage_float_max_size;
+	bool shadow_enabled;
+	int shadow_x_offset;
+	int shadow_y_offset;
+	float shadow_color[4];
+	float shadow_opacity;
 
 	struct wl_list bindings;
 };

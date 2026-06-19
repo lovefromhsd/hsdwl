@@ -7,6 +7,7 @@
 #include "layer-shell.h"
 #include "output.h"
 #include "server.h"
+#include "deco.h"
 #include "view.h"
 #include "view-maximize.h"
 #include "stage-util.h"
@@ -294,6 +295,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 			stage->tree);
 		wlr_scene_node_set_position(&view->scene_tree->node,
 			cw->x, cw->y);
+		view_borders_update(view);
 	}
 
 	if (view->xwayland_surface)

@@ -207,6 +207,20 @@ void view_borders_create(struct hsdwl_view *view)
 			&& view->xwayland_surface->override_redirect)
 		return;
 	struct hsdwl_config *cfg = &view->server->config;
+
+	if (cfg->shadow_enabled && !view->shadow_rect) {
+		float color[4] = {
+			cfg->shadow_color[0],
+			cfg->shadow_color[1],
+			cfg->shadow_color[2],
+			cfg->shadow_opacity,
+		};
+		view->shadow_rect = wlr_scene_rect_create(
+			view->scene_tree, 1, 1, color);
+		wlr_scene_node_lower_to_bottom(
+			&view->shadow_rect->node);
+	}
+
 	for (int i = 0; i < 4; i++)
 	{
 		view->border_rects[i] = wlr_scene_rect_create(
@@ -243,6 +257,31 @@ void view_borders_update(struct hsdwl_view *view)
 	int bw = view->server->config.border_width;
 	int tb = view->server->config.titlebar_height;
 	if (tb < 0) tb = 0;
+	if (view->shadow_rect)
+	{
+		int shadow_w = cw + 2 * bw;
+		int shadow_h;
+		if (tb > 0)
+			shadow_h = tb + ch + bw;
+		else
+			shadow_h = ch + 2 * bw;
+
+		struct hsdwl_config *cfg = &view->server->config;
+		float color[4] = {
+			cfg->shadow_color[0],
+			cfg->shadow_color[1],
+			cfg->shadow_color[2],
+			cfg->shadow_opacity,
+		};
+		wlr_scene_rect_set_size(view->shadow_rect,
+			shadow_w, shadow_h);
+		wlr_scene_rect_set_color(view->shadow_rect, color);
+		wlr_scene_node_set_position(
+			&view->shadow_rect->node,
+			cfg->shadow_x_offset,
+			cfg->shadow_y_offset);
+	}
+
 	if (bw < 1)
 	{
 		for (int i = 0; i < 4; i++)
@@ -296,4 +335,5 @@ void view_borders_update(struct hsdwl_view *view)
 		wlr_scene_node_set_position(
 			&view->title_text_buf->node, 0, 0);
 	}
+
 }

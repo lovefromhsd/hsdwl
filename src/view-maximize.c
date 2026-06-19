@@ -33,6 +33,9 @@ static void view_set_deco_visible(struct hsdwl_view *view, bool visible)
 			wlr_scene_node_set_enabled(&view->border_rects[i]->node, visible);
 	if (view->title_text_buf)
 		wlr_scene_node_set_enabled(&view->title_text_buf->node, visible);
+	if (view->shadow_rect)
+		wlr_scene_node_set_enabled(
+			&view->shadow_rect->node, visible);
 }
 
 
