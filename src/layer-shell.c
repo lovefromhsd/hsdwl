@@ -341,6 +341,21 @@ void layer_shell_rearrange(struct hsdwl_server *server)
 		{
 			struct wlr_box layer_area = area;
 
+			/* When the sidebar is visible, exclude it from the area of
+			 * the bottom and top layers (1 & 2) so that bars, panels and
+			 * toolbars stay aligned with the stage-managed content area.
+			 * Background (0) and overlay (3) layers always span the full
+			 * output — wallpaper shows through the transparent sidebar,
+			 * and tools like slurp need the full screen. */
+			if ((l == 1 || l == 2) && server->config.stage_manager_enabled) {
+				struct workspace_stage_mgr *mgr =
+					&server->ws_stage_mgrs[server->current_workspace];
+				if (!mgr->sidebar_hidden) {
+					layer_area.x += SIDEBAR_WIDTH;
+					layer_area.width -= SIDEBAR_WIDTH;
+				}
+			}
+
 			struct hsdwl_layer_surface *layer;
 			wl_list_for_each(layer,
 				&server->layer_surfaces, link)
