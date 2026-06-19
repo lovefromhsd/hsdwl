@@ -8,6 +8,7 @@
 #include "server.h"
 #include "view.h"
 #include "view-maximize.h"
+#include "stage-util.h"
 
 #include <drm_fourcc.h>
 #include <math.h>
@@ -31,18 +32,9 @@ void stage_set_views_enabled(struct custom_stage *stage, bool enabled)
 	struct custom_window *cw;
 	wl_list_for_each(cw, &stage->windows, link)
 	{
-		if (cw->view && cw->view->tab_group
-				&& cw->view->tab_group->scene_tree)
-		{
-			wlr_scene_node_set_enabled(
-				&cw->view->tab_group->scene_tree->node,
-				enabled);
-		}
-		else if (cw->view && cw->view->scene_tree)
-		{
-			wlr_scene_node_set_enabled(
-				&cw->view->scene_tree->node, enabled);
-		}
+		struct wlr_scene_node *node = stage_window_node(cw);
+		if (node)
+			wlr_scene_node_set_enabled(node, enabled);
 	}
 }
 
@@ -288,23 +280,8 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	cw->y = canvas_y;
 
 	
-	stage->thumb_tree = wlr_scene_tree_create(
-		server->ws_sidebar_trees[ws]);
-	if (!stage->thumb_tree)
-	{
-		wlr_log(WLR_ERROR, "thumb_bg create failed");
-	}
-	else
-	{
-		stage->thumb_tree->node.data = stage;
-		stage->thumb_bg = wlr_scene_rect_create(
-			stage->thumb_tree, 40, 40,
-			(float[]){0.0f, 0.0f, 0.0f, 0.3f});
-		stage->thumb_buf = wlr_scene_buffer_create(
-			stage->thumb_tree, NULL);
-		if (!stage->thumb_buf)
-			wlr_log(WLR_ERROR, "thumb_buf create failed");
-	}
+	if (!stage_thumb_init(stage, server, ws))
+		wlr_log(WLR_ERROR, "thumb_tree create failed");
 
 	
 	if (view->scene_tree)
@@ -416,12 +393,7 @@ bool stage_manager_remove_view(struct hsdwl_server *server,
 			stage_free(mgr->active_stage);
 			mgr->active_stage = promote;
 			stage_reparent_to_canvas(promote, server);
-			struct custom_window *cw2;
-			wl_list_for_each(cw2, &promote->windows, link)
-			{
-				view_focus(server, cw2->view);
-				break;
-			}
+			stage_focus_first(promote, server);
 		}
 		else
 		{
@@ -480,12 +452,7 @@ void stage_manager_notify_view_removed(struct hsdwl_server *server,
 				stage_free(mgr->active_stage);
 				mgr->active_stage = promote;
 				stage_reparent_to_canvas(promote, server);
-				struct custom_window *cw2;
-				wl_list_for_each(cw2, &promote->windows, link)
-				{
-					view_focus(server, cw2->view);
-					break;
-				}
+				stage_focus_first(promote, server);
 			}
 			else
 			{
@@ -633,16 +600,7 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 		if (!active->tree) { stage_free(active); continue; }
 		active->tree->node.data = active;
 
-		active->thumb_tree = wlr_scene_tree_create(
-			server->ws_sidebar_trees[ws]);
-		if (active->thumb_tree)
-			active->thumb_tree->node.data = active;
-
-		active->thumb_bg = wlr_scene_rect_create(
-			active->thumb_tree, 40, 40,
-			(float[]){0.0f, 0.0f, 0.0f, 0.3f});
-		active->thumb_buf = wlr_scene_buffer_create(
-			active->thumb_tree, NULL);
+		stage_thumb_init(active, server, ws);
 
 		mgr->active_stage = active;
 
@@ -664,17 +622,7 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 			if (!st->tree) { free(st); break; }
 			st->tree->node.data = st;
 
-			st->thumb_tree = wlr_scene_tree_create(
-				server->ws_sidebar_trees[ws]);
-			if (st->thumb_tree)
-			{
-				st->thumb_tree->node.data = st;
-				st->thumb_bg = wlr_scene_rect_create(
-					st->thumb_tree, 40, 40,
-					(float[]){0.0f, 0.0f, 0.0f, 0.3f});
-				st->thumb_buf = wlr_scene_buffer_create(
-					st->thumb_tree, NULL);
-			}
+			stage_thumb_init(st, server, ws);
 
 			struct custom_window *ocw = calloc(1, sizeof(*ocw));
 			if (!ocw) { stage_free(st); break; }

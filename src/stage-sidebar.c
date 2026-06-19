@@ -6,6 +6,7 @@
 #include "output.h"
 #include "server.h"
 #include "view.h"
+#include "stage-util.h"
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/xwayland.h>
@@ -55,31 +56,8 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 		return;
 
 	
-	struct wlr_box bbox = {0};
-	bool first = true;
-	struct custom_window *cw;
-	wl_list_for_each(cw, &stage->windows, link)
-	{
-		if (first)
-		{
-			bbox.x = cw->x; bbox.y = cw->y;
-			bbox.width = cw->w; bbox.height = cw->h;
-			first = false;
-		}
-		else
-		{
-			double x1 = fmin(bbox.x, cw->x);
-			double y1 = fmin(bbox.y, cw->y);
-			double x2 = fmax(bbox.x + bbox.width,
-				cw->x + cw->w);
-			double y2 = fmax(bbox.y + bbox.height,
-				cw->y + cw->h);
-			bbox.x = x1; bbox.y = y1;
-			bbox.width = x2 - x1;
-			bbox.height = y2 - y1;
-		}
-	}
-	if (bbox.width < 1 || bbox.height < 1)
+	struct wlr_box bbox;
+	if (!stage_compute_bbox(stage, &bbox))
 		return;
 
 	uint64_t mods[] = { DRM_FORMAT_MOD_INVALID };
@@ -103,6 +81,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 
 	float scale = (float)thumb_w / bbox.width;
 
+	struct custom_window *cw;
 	wl_list_for_each(cw, &stage->windows, link)
 	{
 		float sx = (cw->x - bbox.x) * scale;
@@ -237,31 +216,8 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 		if (wl_list_empty(&st->windows) || nentries >= 64)
 			continue;
 
-		struct wlr_box bbox = {0};
-		bool first = true;
-		struct custom_window *cw;
-		wl_list_for_each(cw, &st->windows, link)
-		{
-			if (first)
-			{
-				bbox.x = cw->x; bbox.y = cw->y;
-				bbox.width = cw->w; bbox.height = cw->h;
-				first = false;
-			}
-			else
-			{
-				double x1 = fmin(bbox.x, cw->x);
-				double y1 = fmin(bbox.y, cw->y);
-				double x2 = fmax(bbox.x + bbox.width,
-					cw->x + cw->w);
-				double y2 = fmax(bbox.y + bbox.height,
-					cw->y + cw->h);
-				bbox.x = x1; bbox.y = y1;
-				bbox.width = x2 - x1;
-				bbox.height = y2 - y1;
-			}
-		}
-		if (bbox.width < 1 || bbox.height < 1) continue;
+		struct wlr_box bbox;
+		if (!stage_compute_bbox(st, &bbox)) continue;
 
 		int tw = thumb_w;
 		int th = thumb_w;
@@ -274,14 +230,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	if (nentries == 0) return;
 
 	
-	int sidebar_h = 1050;
-	if (!wl_list_empty(&server->outputs))
-	{
-		struct hsdwl_output *o = wl_container_of(
-			server->outputs.next, o, link);
-		if (o->wlr_output)
-			sidebar_h = o->wlr_output->height;
-	}
+	int sidebar_h = output_get_height(server);
 
 	int slot_h = sidebar_h / nentries;
 

@@ -8,7 +8,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <stddef.h>
 #include "config.h"
+#include "config_defs.h"
 
 #define HSDWL_MAX_VARS 64
 
@@ -41,65 +43,113 @@ struct config_var
 	char val[256];
 };
 
-static const char *default_config_text =
-	"cursor_size = 24\n"
-	"keyboard_repeat_rate = 25\n"
-	"keyboard_repeat_delay = 600\n"
-	"edge_threshold = 10\n"
-	"min_window_size = 50\n"
-	"border_width = 2\n"
-	"border_color = #333333\n"
-	"border_color_focused = #335577\n"
-	"titlebar_color = #333333\n"
-	"titlebar_color_focused = #335577\n"
-	"title_font = sans-serif\n"
-	"title_font_size = 12\n"
-	"title_font_weight = \n"
-	"titlebar_radius = 8\n"
-	"title_text_color = #aaaaaa\n"
-	"title_text_color_focused = #ffffff\n"
-	"mod_key = Mod1\n"
-	"kb_layout = us\n"
-	"smart_gaps = true\n"
-	"stage_manager = true\n"
-	"stage_anim_duration = 400\n"
-	"stage_3d_enabled = true\n"
-	"group_overlap_threshold = 0.5\n"
-	"animation_bezier = 0.25, 0.1, 0.25, 1.0\n"
-	"\n"
-	"bind = mod_key+Return, foot\n"
-	"bind = mod_key+Escape, quit\n"
-	"bind = mod_key+Tab, cycle_focus\n"
-	"bind = mod_key+Shift+Tab, cycle_focus_reverse\n"
-	"bind = mod_key+1, switch_workspace, 1\n"
-	"bind = mod_key+2, switch_workspace, 2\n"
-	"bind = mod_key+3, switch_workspace, 3\n"
-	"bind = mod_key+4, switch_workspace, 4\n"
-	"bind = mod_key+5, switch_workspace, 5\n"
-	"bind = mod_key+6, switch_workspace, 6\n"
-	"bind = mod_key+7, switch_workspace, 7\n"
-	"bind = mod_key+8, switch_workspace, 8\n"
-	"bind = mod_key+9, switch_workspace, 9\n"
-	"bind = mod_key+Shift+1, move_to_workspace, 1\n"
-	"bind = mod_key+Shift+2, move_to_workspace, 2\n"
-	"bind = mod_key+Shift+3, move_to_workspace, 3\n"
-	"bind = mod_key+Shift+4, move_to_workspace, 4\n"
-	"bind = mod_key+Shift+5, move_to_workspace, 5\n"
-	"bind = mod_key+Shift+6, move_to_workspace, 6\n"
-	"bind = mod_key+Shift+7, move_to_workspace, 7\n"
-	"bind = mod_key+Shift+8, move_to_workspace, 8\n"
-	"bind = mod_key+Shift+9, move_to_workspace, 9\n"
-	"bind = mod_key+Q, close_focused\n"
-	"bind = mod_key+i, maximize\n"
-	"bind = mod_key+h, cycle_tab_prev\n"
-	"bind = mod_key+l, cycle_tab_next\n"
-	"bind = Control+Shift+Tab, cycle_tab_prev\n";
+static const int def_cursor_size = 24;
+static const int def_keyboard_repeat_rate = 25;
+static const int def_keyboard_repeat_delay = 600;
+static const int def_edge_threshold = 10;
+static const int def_min_window_size = 50;
+static const int def_border_width = 2;
+static const int def_title_font_size = 12;
+static const int def_titlebar_radius = 8;
+static const int def_stage_anim_duration = 400;
+static const float def_group_overlap_threshold = 0.5f;
+static const bool def_smart_gaps = true;
+static const bool def_stage_manager_enabled = true;
+static const bool def_stage_3d_enabled = true;
+
+const struct config_field config_fields[] = {
+	{"cursor_size",             FIELD_INT,    offsetof(struct hsdwl_config, cursor_size),             0, &def_cursor_size},
+	{"keyboard_repeat_rate",    FIELD_INT,    offsetof(struct hsdwl_config, keyboard_repeat_rate),    0, &def_keyboard_repeat_rate},
+	{"keyboard_repeat_delay",   FIELD_INT,    offsetof(struct hsdwl_config, keyboard_repeat_delay),   0, &def_keyboard_repeat_delay},
+	{"edge_threshold",          FIELD_INT,    offsetof(struct hsdwl_config, edge_threshold),          0, &def_edge_threshold},
+	{"min_window_size",         FIELD_INT,    offsetof(struct hsdwl_config, min_window_size),         0, &def_min_window_size},
+	{"border_width",            FIELD_INT,    offsetof(struct hsdwl_config, border_width),            0, &def_border_width},
+	{"preview_color",           FIELD_COLOR,  offsetof(struct hsdwl_config, preview_color),           0, "#334466"},
+	{"border_color",            FIELD_COLOR,  offsetof(struct hsdwl_config, border_color),            0, "#444444"},
+	{"border_color_focused",    FIELD_COLOR,  offsetof(struct hsdwl_config, border_color_focused),    0, "#5294e2"},
+	{"titlebar_color",          FIELD_COLOR,  offsetof(struct hsdwl_config, titlebar_color),          0, "#333333"},
+	{"titlebar_color_focused",  FIELD_COLOR,  offsetof(struct hsdwl_config, titlebar_color_focused),  0, "#335577"},
+	{"title_font",              FIELD_STRING, offsetof(struct hsdwl_config, title_font),              128, "sans-serif"},
+	{"title_font_size",         FIELD_INT,    offsetof(struct hsdwl_config, title_font_size),         0, &def_title_font_size},
+	{"title_font_weight",       FIELD_STRING, offsetof(struct hsdwl_config, title_font_weight),       64, ""},
+	{"titlebar_radius",         FIELD_INT,    offsetof(struct hsdwl_config, titlebar_radius),         0, &def_titlebar_radius},
+	{"title_text_color",        FIELD_COLOR,  offsetof(struct hsdwl_config, title_text_color),        0, "#aaaaaa"},
+	{"title_text_color_focused", FIELD_COLOR, offsetof(struct hsdwl_config, title_text_color_focused), 0, "#ffffff"},
+	{"mod_key",                 FIELD_STRING, offsetof(struct hsdwl_config, mod_key),                 32, "Mod1"},
+	{"kb_layout",               FIELD_STRING, offsetof(struct hsdwl_config, kb_layout),               128, "us"},
+	{"smart_gaps",              FIELD_BOOL,   offsetof(struct hsdwl_config, smart_gaps),              0, &def_smart_gaps},
+	{"stage_manager",           FIELD_BOOL,   offsetof(struct hsdwl_config, stage_manager_enabled),   0, &def_stage_manager_enabled},
+	{"stage_anim_duration",     FIELD_INT,    offsetof(struct hsdwl_config, stage_anim_duration),     0, &def_stage_anim_duration},
+	{"stage_3d_enabled",        FIELD_BOOL,   offsetof(struct hsdwl_config, stage_3d_enabled),        0, &def_stage_3d_enabled},
+	{"group_overlap_threshold", FIELD_FLOAT,  offsetof(struct hsdwl_config, group_overlap_threshold), 0, &def_group_overlap_threshold},
+	{"animation_bezier",        FIELD_BEZIER, offsetof(struct hsdwl_config, anim_bezier_x1),          16, "0.25, 0.1, 0.25, 1.0"},
+};
+int config_fields_count = sizeof(config_fields) / sizeof(config_fields[0]);
+
+const struct action_entry action_map[] = {
+	{"quit",                 HSDWL_ACTION_QUIT},
+	{"cycle_focus",          HSDWL_ACTION_CYCLE_FOCUS},
+	{"cycle_focus_reverse",  HSDWL_ACTION_CYCLE_FOCUS_REVERSE},
+	{"switch_workspace",     HSDWL_ACTION_SWITCH_WORKSPACE},
+	{"move_to_workspace",    HSDWL_ACTION_MOVE_TO_WORKSPACE},
+	{"close_focused",        HSDWL_ACTION_CLOSE_FOCUSED},
+	{"maximize",             HSDWL_ACTION_MAXIMIZE},
+	{"cycle_tab_next",       HSDWL_ACTION_CYCLE_TAB_NEXT},
+	{"cycle_tab_prev",       HSDWL_ACTION_CYCLE_TAB_PREV},
+};
+int action_map_count = sizeof(action_map) / sizeof(action_map[0]);
 
 static void write_default_config(const char *path)
 {
 	FILE *f = fopen(path, "we");
 	if (!f) return;
-	fwrite(default_config_text, 1, strlen(default_config_text), f);
+	for (int i = 0; i < config_fields_count; i++) {
+		const struct config_field *field = &config_fields[i];
+		switch (field->type) {
+		case FIELD_INT:
+			fprintf(f, "%s = %d\n", field->key, *(const int*)field->default_ptr);
+			break;
+		case FIELD_BOOL:
+			fprintf(f, "%s = %s\n", field->key, *(const bool*)field->default_ptr ? "true" : "false");
+			break;
+		case FIELD_FLOAT:
+			fprintf(f, "%s = %g\n", field->key, *(const float*)field->default_ptr);
+			break;
+		case FIELD_STRING:
+		case FIELD_COLOR:
+		case FIELD_BEZIER:
+			fprintf(f, "%s = %s\n", field->key, (const char*)field->default_ptr);
+			break;
+		}
+	}
+	fputs("\n", f);
+	fputs("bind = mod_key+Return, foot\n", f);
+	fputs("bind = mod_key+Escape, quit\n", f);
+	fputs("bind = mod_key+Tab, cycle_focus\n", f);
+	fputs("bind = mod_key+Shift+Tab, cycle_focus_reverse\n", f);
+	fputs("bind = mod_key+1, switch_workspace, 1\n", f);
+	fputs("bind = mod_key+2, switch_workspace, 2\n", f);
+	fputs("bind = mod_key+3, switch_workspace, 3\n", f);
+	fputs("bind = mod_key+4, switch_workspace, 4\n", f);
+	fputs("bind = mod_key+5, switch_workspace, 5\n", f);
+	fputs("bind = mod_key+6, switch_workspace, 6\n", f);
+	fputs("bind = mod_key+7, switch_workspace, 7\n", f);
+	fputs("bind = mod_key+8, switch_workspace, 8\n", f);
+	fputs("bind = mod_key+9, switch_workspace, 9\n", f);
+	fputs("bind = mod_key+Shift+1, move_to_workspace, 1\n", f);
+	fputs("bind = mod_key+Shift+2, move_to_workspace, 2\n", f);
+	fputs("bind = mod_key+Shift+3, move_to_workspace, 3\n", f);
+	fputs("bind = mod_key+Shift+4, move_to_workspace, 4\n", f);
+	fputs("bind = mod_key+Shift+5, move_to_workspace, 5\n", f);
+	fputs("bind = mod_key+Shift+6, move_to_workspace, 6\n", f);
+	fputs("bind = mod_key+Shift+7, move_to_workspace, 7\n", f);
+	fputs("bind = mod_key+Shift+8, move_to_workspace, 8\n", f);
+	fputs("bind = mod_key+Shift+9, move_to_workspace, 9\n", f);
+	fputs("bind = mod_key+Q, close_focused\n", f);
+	fputs("bind = mod_key+i, maximize\n", f);
+	fputs("bind = mod_key+h, cycle_tab_prev\n", f);
+	fputs("bind = mod_key+l, cycle_tab_next\n", f);
+	fputs("bind = Control+Shift+Tab, cycle_tab_prev\n", f);
 	fclose(f);
 }
 
@@ -126,15 +176,9 @@ static char *config_path(void)
 
 static int parse_action(const char *s)
 {
-	if (strcmp(s, "quit") == 0) return HSDWL_ACTION_QUIT;
-	if (strcmp(s, "cycle_focus") == 0) return HSDWL_ACTION_CYCLE_FOCUS;
-	if (strcmp(s, "cycle_focus_reverse") == 0) return HSDWL_ACTION_CYCLE_FOCUS_REVERSE;
-	if (strcmp(s, "switch_workspace") == 0) return HSDWL_ACTION_SWITCH_WORKSPACE;
-	if (strcmp(s, "move_to_workspace") == 0) return HSDWL_ACTION_MOVE_TO_WORKSPACE;
-	if (strcmp(s, "close_focused") == 0) return HSDWL_ACTION_CLOSE_FOCUSED;
-	if (strcmp(s, "maximize") == 0) return HSDWL_ACTION_MAXIMIZE;
-	if (strcmp(s, "cycle_tab_next") == 0) return HSDWL_ACTION_CYCLE_TAB_NEXT;
-	if (strcmp(s, "cycle_tab_prev") == 0) return HSDWL_ACTION_CYCLE_TAB_PREV;
+	for (int i = 0; i < action_map_count; i++)
+		if (strcmp(s, action_map[i].name) == 0)
+			return action_map[i].action;
 	return HSDWL_ACTION_NONE;
 }
 
@@ -172,6 +216,36 @@ static char *trim_tail(char *s)
 	return s;
 }
 
+static void parse_field(struct hsdwl_config *cfg, const struct config_field *f, const char *val)
+{
+	switch (f->type) {
+	case FIELD_INT:
+		*(int*)((char*)cfg + f->offset) = atoi(val);
+		break;
+	case FIELD_BOOL:
+		*(bool*)((char*)cfg + f->offset) = (strcmp(val, "true") == 0);
+		break;
+	case FIELD_FLOAT:
+		*(float*)((char*)cfg + f->offset) = atof(val);
+		break;
+	case FIELD_STRING:
+		snprintf((char*)cfg + f->offset, f->data_size, "%.*s", (int)f->data_size - 1, val);
+		break;
+	case FIELD_COLOR:
+		parse_hex_color(val, (float*)((char*)cfg + f->offset));
+		break;
+	case FIELD_BEZIER:
+		{
+			float vals[4];
+			if (sscanf(val, "%f, %f, %f, %f", &vals[0], &vals[1], &vals[2], &vals[3]) == 4) {
+				float *dst = (float*)((char*)cfg + f->offset);
+				for (int j = 0; j < 4; j++) dst[j] = vals[j];
+			}
+		}
+		break;
+	}
+}
+
 bool hsdwl_config_load(struct hsdwl_config *cfg)
 {
 	memset(cfg, 0, sizeof(*cfg));
@@ -180,34 +254,45 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	struct config_var vars[HSDWL_MAX_VARS];
 	int num_vars = 0;
 
-	cfg->cursor_size = 24;
-	cfg->keyboard_repeat_rate = 25;
-	cfg->keyboard_repeat_delay = 600;
-	cfg->edge_threshold = 10;
-	cfg->min_window_size = 50;
-	cfg->border_width = 2;
-	parse_hex_color("#444444", cfg->border_color);
-	parse_hex_color("#5294e2", cfg->border_color_focused);
+	for (int i = 0; i < config_fields_count; i++) {
+		const struct config_field *f = &config_fields[i];
+		if (strcmp(f->key, "mod_key") == 0) continue;
+		if (strcmp(f->key, "kb_layout") == 0) continue;
+		if (strcmp(f->key, "title_font") == 0) continue;
+		if (strcmp(f->key, "title_font_weight") == 0) continue;
+		switch (f->type) {
+		case FIELD_INT:
+			*(int*)((char*)cfg + f->offset) = *(const int*)f->default_ptr;
+			break;
+		case FIELD_BOOL:
+			*(bool*)((char*)cfg + f->offset) = *(const bool*)f->default_ptr;
+			break;
+		case FIELD_FLOAT:
+			*(float*)((char*)cfg + f->offset) = *(const float*)f->default_ptr;
+			break;
+		case FIELD_STRING:
+			snprintf((char*)cfg + f->offset, f->data_size, "%s", (const char*)f->default_ptr);
+			break;
+		case FIELD_COLOR:
+			parse_hex_color((const char*)f->default_ptr, (float*)((char*)cfg + f->offset));
+			break;
+		case FIELD_BEZIER:
+			{
+				float vals[4];
+				const char *s = (const char*)f->default_ptr;
+				if (sscanf(s, "%f, %f, %f, %f", &vals[0], &vals[1], &vals[2], &vals[3]) == 4) {
+					float *dst = (float*)((char*)cfg + f->offset);
+					for (int j = 0; j < 4; j++) dst[j] = vals[j];
+				}
+			}
+			break;
+		}
+	}
+
 	cfg->titlebar_height = 0;
-	cfg->titlebar_radius = 8;
-	parse_hex_color("#333333", cfg->titlebar_color);
-	parse_hex_color("#335577", cfg->titlebar_color_focused);
 	snprintf(cfg->title_font, sizeof(cfg->title_font), "sans-serif");
-	cfg->title_font_size = 12;
 	cfg->title_font_weight[0] = '\0';
-	parse_hex_color("#aaaaaa", cfg->title_text_color);
-	parse_hex_color("#ffffff", cfg->title_text_color_focused);
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
-	cfg->smart_gaps = true;
-	cfg->stage_manager_enabled = true;
-	cfg->stage_anim_duration = 400;
-	cfg->stage_3d_enabled = true;
-	cfg->group_overlap_threshold = 0.5f;
-	cfg->anim_bezier_x1 = 0.25f;
-	cfg->anim_bezier_y1 = 0.1f;
-	cfg->anim_bezier_x2 = 0.25f;
-	cfg->anim_bezier_y2 = 1.0f;
-	parse_hex_color("#334466", cfg->preview_color);
 
 	if (num_vars < HSDWL_MAX_VARS) {
 		snprintf(vars[num_vars].key, sizeof(vars[0].key), "mod_key");
@@ -293,67 +378,14 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 
 		char key[64];
 		char val[256];
-		if (sscanf(s, "%63[^=] = %255s", key, val) < 2) continue;
+		if (sscanf(s, "%63[^=] = %255[^\n]", key, val) < 2) continue;
 
 		trim_tail(key);
 
-		if (strcmp(key, "cursor_size") == 0)
-			cfg->cursor_size = atoi(val);
-		else if (strcmp(key, "keyboard_repeat_rate") == 0)
-			cfg->keyboard_repeat_rate = atoi(val);
-		else if (strcmp(key, "keyboard_repeat_delay") == 0)
-			cfg->keyboard_repeat_delay = atoi(val);
-		else if (strcmp(key, "edge_threshold") == 0)
-			cfg->edge_threshold = atoi(val);
-		else if (strcmp(key, "min_window_size") == 0)
-			cfg->min_window_size = atoi(val);
-		else if (strcmp(key, "mod_key") == 0)
-			snprintf(cfg->mod_key, sizeof(cfg->mod_key), "%.31s", val);
-		else if (strcmp(key, "kb_layout") == 0)
-			snprintf(cfg->kb_layout, sizeof(cfg->kb_layout), "%.127s", val);
-		else if (strcmp(key, "border_width") == 0)
-			cfg->border_width = atoi(val);
-		else if (strcmp(key, "preview_color") == 0)
-			parse_hex_color(val, cfg->preview_color);
-		else if (strcmp(key, "border_color") == 0)
-			parse_hex_color(val, cfg->border_color);
-		else if (strcmp(key, "border_color_focused") == 0)
-			parse_hex_color(val, cfg->border_color_focused);
-		else if (strcmp(key, "titlebar_color") == 0)
-			parse_hex_color(val, cfg->titlebar_color);
-		else if (strcmp(key, "titlebar_color_focused") == 0)
-			parse_hex_color(val, cfg->titlebar_color_focused);
-		else if (strcmp(key, "titlebar_radius") == 0)
-			cfg->titlebar_radius = atoi(val);
-		else if (strcmp(key, "title_font") == 0)
-			snprintf(cfg->title_font, sizeof(cfg->title_font), "%.127s", val);
-		else if (strcmp(key, "title_font_size") == 0)
-			cfg->title_font_size = atoi(val);
-		else if (strcmp(key, "title_font_weight") == 0)
-			snprintf(cfg->title_font_weight,
-				sizeof(cfg->title_font_weight), "%.63s", val);
-		else if (strcmp(key, "title_text_color") == 0)
-			parse_hex_color(val, cfg->title_text_color);
-		else if (strcmp(key, "title_text_color_focused") == 0)
-			parse_hex_color(val, cfg->title_text_color_focused);
-		else if (strcmp(key, "smart_gaps") == 0)
-			cfg->smart_gaps = strcmp(val, "true") == 0;
-		else if (strcmp(key, "stage_manager") == 0)
-			cfg->stage_manager_enabled = strcmp(val, "true") == 0;
-		else if (strcmp(key, "stage_anim_duration") == 0)
-			cfg->stage_anim_duration = atoi(val);
-		else if (strcmp(key, "stage_3d_enabled") == 0)
-			cfg->stage_3d_enabled = strcmp(val, "true") == 0;
-		else if (strcmp(key, "group_overlap_threshold") == 0)
-			cfg->group_overlap_threshold = atof(val);
-		else if (strcmp(key, "animation_bezier") == 0) {
-			float x1, y1, x2, y2;
-			if (sscanf(val, "%f, %f, %f, %f",
-					&x1, &y1, &x2, &y2) == 4) {
-				cfg->anim_bezier_x1 = x1;
-				cfg->anim_bezier_y1 = y1;
-				cfg->anim_bezier_x2 = x2;
-				cfg->anim_bezier_y2 = y2;
+		for (int i = 0; i < config_fields_count; i++) {
+			if (strcmp(key, config_fields[i].key) == 0) {
+				parse_field(cfg, &config_fields[i], val);
+				break;
 			}
 		}
 
