@@ -97,6 +97,8 @@ void titlebar_text_update(struct hsdwl_view *view)
 {
 	if (!view->title_text_buf)
 		return;
+	if (view->tab_group)
+		return;
 
 	struct hsdwl_config *cfg = &view->server->config;
 
@@ -257,6 +259,7 @@ void view_borders_update(struct hsdwl_view *view)
 	int bw = view->server->config.border_width;
 	int tb = view->server->config.titlebar_height;
 	if (tb < 0) tb = 0;
+
 	if (view->shadow_rect)
 	{
 		int shadow_w = cw + 2 * bw;
@@ -283,6 +286,9 @@ void view_borders_update(struct hsdwl_view *view)
 		wlr_scene_node_set_enabled(
 			&view->shadow_rect->node, true);
 	}
+
+	if (view->tab_group)
+		return;
 
 	if (bw < 1)
 	{
