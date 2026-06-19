@@ -11,6 +11,8 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_seat.h>
+#include <wlr/backend/session.h>
+#include <xkbcommon/xkbcommon.h>
 
 static void keyboard_handle_modifiers(struct wl_listener *listener, void *data)
 {
@@ -33,6 +35,20 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
+		/* Handle Ctrl+Alt+Fx VT switching before normal bindings.
+		 * The kernel generates XKB_KEY_XF86Switch_VT_n keysyms
+		 * for these privileged key combinations. */
+		xkb_keysym_t sym = xkb_state_key_get_one_sym(
+			wlr_keyboard->xkb_state, event->keycode + 8);
+		if (sym >= XKB_KEY_XF86Switch_VT_1
+				&& sym <= XKB_KEY_XF86Switch_VT_12
+				&& server->session)
+		{
+			wlr_session_change_vt(server->session,
+				sym - XKB_KEY_XF86Switch_VT_1 + 1);
+			return;
+		}
+
 		if (binding_dispatch(server, wlr_keyboard, event))
 			return;
 	}

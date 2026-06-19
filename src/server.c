@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wlr/backend.h>
+#include <wlr/backend/session.h>
 #include <wlr/render/allocator.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_compositor.h>
@@ -217,7 +218,7 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	}
 
 	server->backend = wlr_backend_autocreate(
-		wl_display_get_event_loop(server->display), NULL);
+		wl_display_get_event_loop(server->display), &server->session);
 	if (!server->backend)
 	{
 		wlr_log(WLR_ERROR, "wlr_backend_autocreate failed");

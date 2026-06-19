@@ -337,19 +337,30 @@ void layer_shell_rearrange(struct hsdwl_server *server)
 		wlr_output_layout_get_box(server->output_layout,
 			output->wlr_output, &area);
 
-		if (server->config.stage_manager_enabled)
-		{
-			size_t ws = server->current_workspace;
-			if (!server->ws_stage_mgrs[ws].sidebar_hidden)
-			{
-				area.x += SIDEBAR_WIDTH;
-				area.width -= SIDEBAR_WIDTH;
-				if (area.width < 0) area.width = 0;
-			}
-		}
-
 		for (uint32_t l = 0; l < 4; l++)
 		{
+			struct wlr_box layer_area = area;
+
+			/*
+			 * Reserve space for the stage manager sidebar on
+			 * the left for non-overlay layers. The overlay
+			 * layer (l=3) is used by transient fullscreen
+			 * surfaces like screenshot selection overlays and
+			 * should always cover the full output.
+			 */
+			if (l < 3 && server->config.stage_manager_enabled)
+			{
+				size_t ws = server->current_workspace;
+				if (!server->ws_stage_mgrs[ws]
+						.sidebar_hidden)
+				{
+					layer_area.x += SIDEBAR_WIDTH;
+					layer_area.width -= SIDEBAR_WIDTH;
+					if (layer_area.width < 0)
+						layer_area.width = 0;
+				}
+			}
+
 			struct hsdwl_layer_surface *layer;
 			wl_list_for_each(layer,
 				&server->layer_surfaces, link)
@@ -361,7 +372,8 @@ void layer_shell_rearrange(struct hsdwl_server *server)
 						!= l)
 					continue;
 
-				configure_and_position(layer, &area);
+				configure_and_position(layer,
+					&layer_area);
 			}
 		}
 

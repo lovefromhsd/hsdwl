@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <wlr/types/wlr_output.h>
+#include <wlr/backend/session.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/util/log.h>
@@ -19,6 +20,8 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_output *output = wl_container_of(listener, output, frame);
+	if (output->server->session && !output->server->session->active)
+		return;
 	struct wlr_scene_output *scene_output = wlr_scene_get_scene_output(
 		output->server->scene, output->wlr_output);
 	if (!scene_output)

@@ -19,6 +19,7 @@
 struct wlr_backend;
 struct wlr_compositor;
 struct wlr_renderer;
+struct wlr_session;
 struct wlr_allocator;
 struct wlr_scene;
 struct wlr_scene_tree;
@@ -49,6 +50,7 @@ struct hsdwl_server
 {
 	struct wl_display *display;
 	struct wlr_backend *backend;
+	struct wlr_session *session;
 	struct wlr_compositor *compositor;
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
