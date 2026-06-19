@@ -268,6 +268,17 @@ static void apply_resize(struct hsdwl_server *server)
 	server->resize_preview_w = new_w;
 	server->resize_preview_h = new_h;
 
+	int preview_x = new_x;
+	int preview_y = new_y;
+	if (view_is_stage_managed(server->grabbed_view))
+		preview_x += SIDEBAR_WIDTH;
+	if (hsdwl_tab_group_is_member(server->grabbed_view))
+	{
+		struct hsdwl_tab_group *g = server->grabbed_view->tab_group;
+		if (g && g->scene_tree)
+			preview_y += 2 * g->tab_bar_thickness;
+	}
+
 	
 	float *col = server->config.border_color_focused;
 	for (int i = 0; i < 4; i++)
@@ -287,7 +298,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_rect_set_size(
 			server->resize_preview[0], pw, bw);
 		wlr_scene_node_set_position(
-			&server->resize_preview[0]->node, new_x, new_y);
+			&server->resize_preview[0]->node, preview_x, preview_y);
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[0]->node, true);
 	}
@@ -297,7 +308,7 @@ static void apply_resize(struct hsdwl_server *server)
 			server->resize_preview[1], pw, bw);
 		wlr_scene_node_set_position(
 			&server->resize_preview[1]->node,
-			new_x, new_y + ph - bw);
+			preview_x, preview_y + ph - bw);
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[1]->node, true);
 	}
@@ -306,7 +317,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_rect_set_size(
 			server->resize_preview[2], bw, ph);
 		wlr_scene_node_set_position(
-			&server->resize_preview[2]->node, new_x, new_y);
+			&server->resize_preview[2]->node, preview_x, preview_y);
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[2]->node, true);
 	}
@@ -316,7 +327,7 @@ static void apply_resize(struct hsdwl_server *server)
 			server->resize_preview[3], bw, ph);
 		wlr_scene_node_set_position(
 			&server->resize_preview[3]->node,
-			new_x + pw - bw, new_y);
+			preview_x + pw - bw, preview_y);
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[3]->node, true);
 	}

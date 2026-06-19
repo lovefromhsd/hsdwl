@@ -87,7 +87,7 @@ void stage_safe_evict(struct custom_stage *stage,
 				server->workspaces[ws]);
 			wlr_scene_node_set_position(
 				&cw->view->scene_tree->node,
-				cw->x, cw->y);
+				cw->x + SIDEBAR_WIDTH, cw->y);
 			wlr_scene_node_set_enabled(
 				&cw->view->scene_tree->node, true);
 		}
@@ -444,9 +444,14 @@ bool stage_manager_remove_view(struct hsdwl_server *server,
 		wl_list_remove(&cw->link);
 		if (view->scene_tree)
 		{
+			double ox = view->scene_tree->node.x;
+			double oy = view->scene_tree->node.y;
 			wlr_scene_node_reparent(
 				&view->scene_tree->node,
 				server->workspaces[ws]);
+			wlr_scene_node_set_position(
+				&view->scene_tree->node,
+				ox + SIDEBAR_WIDTH, oy);
 		}
 		free(cw);
 
@@ -462,9 +467,14 @@ bool stage_manager_remove_view(struct hsdwl_server *server,
 	wl_list_remove(&cw->link);
 	if (view->scene_tree)
 	{
+		double ox = view->scene_tree->node.x;
+		double oy = view->scene_tree->node.y;
 		wlr_scene_node_reparent(
 			&view->scene_tree->node,
 			server->workspaces[ws]);
+		wlr_scene_node_set_position(
+			&view->scene_tree->node,
+			ox + SIDEBAR_WIDTH, oy);
 	}
 	free(cw);
 
