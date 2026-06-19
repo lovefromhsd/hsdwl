@@ -35,7 +35,6 @@ struct custom_stage
 	struct wlr_scene_tree *tree;   
 	struct wlr_scene_tree *thumb_tree;  
 	struct wlr_scene_buffer *thumb_buf;
-	struct wlr_scene_rect *thumb_bg;
 	bool thumb_dirty;
 	int thumb_x, thumb_y;
 	float z_offset;

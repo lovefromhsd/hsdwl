@@ -52,9 +52,6 @@ bool stage_thumb_init(struct custom_stage *stage, struct hsdwl_server *server, s
 	if (!stage->thumb_tree)
 		return false;
 	stage->thumb_tree->node.data = stage;
-	stage->thumb_bg = wlr_scene_rect_create(
-		stage->thumb_tree, 40, 40,
-		(float[]){0.0f, 0.0f, 0.0f, 0.3f});
 	stage->thumb_buf = wlr_scene_buffer_create(stage->thumb_tree, NULL);
 	if (!stage->thumb_buf)
 		wlr_log(WLR_ERROR, "thumb_buf create failed");
