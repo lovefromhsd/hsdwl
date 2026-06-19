@@ -399,3 +399,24 @@ void view_demaximize_to_zoomed(struct hsdwl_view *view,
 	view_borders_update(view);
 	titlebar_text_update(view);
 }
+
+
+void view_unmaximize_instant(struct hsdwl_view *view,
+		struct hsdwl_server *server)
+{
+	if (!view || !(view->maximized || view->zoomed))
+		return;
+
+	destroy_anim_overlay(server, view);
+	view_do_unmaximize(view);
+
+	if (view->saved_parent)
+	{
+		wlr_scene_node_reparent(&view->scene_tree->node,
+			view->saved_parent);
+		view->saved_parent = NULL;
+	}
+
+	view->maximized = false;
+	view->zoomed = false;
+}
