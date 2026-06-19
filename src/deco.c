@@ -280,6 +280,8 @@ void view_borders_update(struct hsdwl_view *view)
 			&view->shadow_rect->node,
 			cfg->shadow_x_offset,
 			cfg->shadow_y_offset);
+		wlr_scene_node_set_enabled(
+			&view->shadow_rect->node, true);
 	}
 
 	if (bw < 1)
@@ -289,6 +291,10 @@ void view_borders_update(struct hsdwl_view *view)
 				&view->border_rects[i]->node, false);
 		return;
 	}
+
+	for (int i = 0; i < 4; i++)
+		wlr_scene_node_set_enabled(
+			&view->border_rects[i]->node, true);
 
 	int total_h = tb + ch;
 	if (tb > 0)
