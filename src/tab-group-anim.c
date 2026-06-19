@@ -20,6 +20,7 @@
 #include <wlr/xwayland.h>
 
 #include "animation.h"
+#include "stage.h"
 
 struct tg_anim_state {
 	struct hsdwl_tab_group *group;
@@ -314,6 +315,26 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 
 	if (group->zoomed)
 	{
+		/*
+		 * If the stage manager is managing windows beyond those
+		 * in this tab group, skip fully maximizing and restore
+		 * to normal size/position instead.
+		 */
+		{
+			int view_count = 0;
+			struct hsdwl_view *vi;
+			wl_list_for_each(vi, &group->views, tab_group_link)
+				view_count++;
+			if (server->config.stage_manager_enabled
+					&& stage_manager_window_count(server,
+						server->current_workspace)
+						> view_count)
+			{
+				hsdwl_tab_group_restore(group);
+				return;
+			}
+		}
+
 		struct wlr_output *wlr_o = wlr_output_layout_output_at(
 			server->output_layout,
 			group->scene_tree->node.x +

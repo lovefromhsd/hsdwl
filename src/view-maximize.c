@@ -5,6 +5,7 @@
 #include "server.h"
 #include "deco.h"
 #include "tab-group-anim.h"
+#include "stage.h"
 
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
@@ -175,6 +176,79 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	
 	if (view->zoomed)
 	{
+		/*
+		 * If the stage manager is managing windows, skip fully
+		 * maximizing (stage 2) and unmaximize back to normal instead.
+		 */
+		if (server->config.stage_manager_enabled
+				&& stage_manager_window_count(server,
+					server->current_workspace) > 1)
+		{
+			struct wlr_output *wlr_o = wlr_output_layout_output_at(
+				server->output_layout,
+				view->saved_geometry.x
+					+ view->saved_geometry.width / 2,
+				view->saved_geometry.y
+					+ view->saved_geometry.height / 2);
+			if (!wlr_o)
+			{
+				view_do_unmaximize(view);
+				view->maximized = false;
+				view->zoomed = false;
+				return;
+			}
+
+			int cur_cw = 1, cur_ch = 1;
+			if (view->xdg_surface && view->xdg_surface->configured)
+			{
+				cur_cw = view->xdg_surface->geometry.width;
+				cur_ch = view->xdg_surface->geometry.height;
+			}
+			else if (view->xwayland_surface)
+			{
+				cur_cw = view->xwayland_surface->width;
+				cur_ch = view->xwayland_surface->height;
+			}
+
+			int tb_cap = tb > 0 ? tb : 0;
+			int src_full_w, src_full_h, tgt_full_w, tgt_full_h;
+			window_full_size(cur_cw, cur_ch, bw, tb,
+				&src_full_w, &src_full_h);
+			window_full_size(view->saved_geometry.width,
+				view->saved_geometry.height, bw, tb,
+				&tgt_full_w, &tgt_full_h);
+
+			int src_abs_x = SIDEBAR_WIDTH
+				+ (int)view->scene_tree->node.x;
+			int src_abs_y = (int)view->scene_tree->node.y;
+
+			int tgt_abs_x = SIDEBAR_WIDTH
+				+ (int)view->saved_geometry.x;
+			int tgt_abs_y = (int)view->saved_geometry.y;
+
+			struct wlr_scene_buffer *ov = create_window_overlay(
+				server, view, cur_cw, cur_ch, bw, tb_cap,
+				src_abs_x, src_abs_y);
+			if (!ov) return;
+
+			view_do_unmaximize(view);
+
+			view->anim_overlay = ov;
+
+			animation_create_with_fade(server, ov, 200,
+				HSDWL_EASE_BEZIER,
+				(double)src_abs_x, (double)src_abs_y,
+				src_full_w, src_full_h,
+				(double)tgt_abs_x, (double)tgt_abs_y,
+				tgt_full_w, tgt_full_h,
+				1.0f, 0.0f,
+				view_anim_unmaximize_finish, view);
+
+			view->maximized = false;
+			view->zoomed = false;
+			return;
+		}
+
 		struct wlr_output *wlr_o = wlr_output_layout_output_at(
 			server->output_layout,
 			view->saved_geometry.x + view->saved_geometry.width / 2,
@@ -193,7 +267,6 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_scene_node_set_position(
 				&view->content_tree->node, 0, 0);
 
-		
 		view->saved_parent = view->scene_tree->node.parent;
 		wlr_scene_node_reparent(&view->scene_tree->node,
 			server->workspaces[server->current_workspace]);

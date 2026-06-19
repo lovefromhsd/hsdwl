@@ -781,3 +781,20 @@ void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
 	mgr->sidebar_hidden = should_hide;
 	layer_shell_rearrange(server);
 }
+
+int stage_manager_window_count(struct hsdwl_server *server, size_t ws)
+{
+	if (ws >= HSDWL_NUM_WORKSPACES)
+		return 0;
+	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
+	int count = 0;
+	struct custom_window *cw;
+	if (mgr->active_stage)
+		wl_list_for_each(cw, &mgr->active_stage->windows, link)
+			count++;
+	struct custom_stage *stage;
+	wl_list_for_each(stage, &mgr->inactive_stages, link)
+		wl_list_for_each(cw, &stage->windows, link)
+			count++;
+	return count;
+}

@@ -92,4 +92,6 @@ void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
 		size_t ws);
 
+int stage_manager_window_count(struct hsdwl_server *server, size_t ws);
+
 #endif
