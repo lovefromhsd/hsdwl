@@ -11,12 +11,16 @@ project(
     ],
 )
 
+cc = meson.get_compiler('c')
+
 wlroots = dependency('wlroots-0.20')
 wayland_server = dependency('wayland-server')
 xkbcommon = dependency('xkbcommon')
+libdrm = dependency('libdrm')
 pango = dependency('pango')
 pangocairo = dependency('pangocairo')
 cairo = dependency('cairo')
+libm = cc.find_library('m', required: false)
 
 subdir('src')
 
@@ -30,9 +34,11 @@ executable(
         wlroots,
         wayland_server,
         xkbcommon,
+        libdrm,
         pango,
         pangocairo,
         cairo,
+        libm,
     ],
     install: true,
 )
