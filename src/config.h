@@ -61,6 +61,7 @@ struct hsdwl_config
 	bool stage_manager_enabled;
 	int stage_anim_duration;
 	bool stage_3d_enabled;
+	int stage_float_max_size;
 
 	struct wl_list bindings;
 };

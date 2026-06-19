@@ -75,10 +75,17 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 	}
 
 	titlebar_text_update(view);
-	if (view->server->config.stage_manager_enabled)
+	if (view->server->config.stage_manager_enabled
+			&& !view_is_floating_toolbar(view))
 		stage_manager_new_window(view->server, view, true);
 	else
+	{
+		if (view->server->config.stage_manager_enabled
+				&& view->scene_tree && !view->xwayland_surface)
+			wlr_scene_node_set_position(
+				&view->scene_tree->node, SIDEBAR_WIDTH, 0);
 		view_focus(view->server, view);
+	}
 }
 
 struct wlr_surface *view_get_surface(struct hsdwl_view *view)
@@ -224,6 +231,65 @@ static bool view_on_workspace(struct hsdwl_view *v,
 bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws)
 {
 	return view_on_workspace(view, ws);
+}
+
+bool view_is_stage_managed(struct hsdwl_view *view)
+{
+	if (!view || !view->server || !view->scene_tree)
+		return false;
+	struct hsdwl_server *server = view->server;
+	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
+	{
+		if (!server->ws_stage_canvases[i])
+			continue;
+		if (scene_tree_is_descendant(view->scene_tree->node.parent,
+				server->ws_stage_canvases[i]))
+			return true;
+	}
+	if (view->tab_group && view->tab_group->scene_tree)
+	{
+		for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
+		{
+			if (!server->ws_stage_canvases[i])
+				continue;
+			if (scene_tree_is_descendant(
+					view->tab_group->scene_tree->node.parent,
+					server->ws_stage_canvases[i]))
+				return true;
+		}
+	}
+	return false;
+}
+
+bool view_is_floating_toolbar(struct hsdwl_view *view)
+{
+	if (!view)
+		return false;
+
+	if (view->xdg_surface && view->xdg_surface->toplevel
+			&& view->xdg_surface->toplevel->parent)
+		return true;
+	if (view->xwayland_surface && view->xwayland_surface->parent)
+		return true;
+
+	int max_size = view->server->config.stage_float_max_size;
+	if (max_size > 0)
+	{
+		int w = 0, h = 0;
+		if (view->xdg_surface && view->xdg_surface->configured)
+		{
+			w = view->xdg_surface->geometry.width;
+			h = view->xdg_surface->geometry.height;
+		}
+		else if (view->xwayland_surface)
+		{
+			w = view->xwayland_surface->width;
+			h = view->xwayland_surface->height;
+		}
+		if (w > 0 && h > 0 && w < max_size && h < max_size)
+			return true;
+	}
+	return false;
 }
 
 

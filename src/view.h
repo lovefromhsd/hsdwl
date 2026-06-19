@@ -59,5 +59,7 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view);
 void decoration_handle_request_mode(struct wl_listener *listener, void *data);
 void view_close(struct hsdwl_view *view);
 bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws);
+bool view_is_floating_toolbar(struct hsdwl_view *view);
+bool view_is_stage_managed(struct hsdwl_view *view);
 
 #endif

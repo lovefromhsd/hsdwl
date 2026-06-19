@@ -102,6 +102,7 @@ void hsdwl_server_switch_workspace(struct hsdwl_server *server, size_t ws)
 	server->current_workspace = ws;
 
 	stage_manager_check_sidebar_overlap(server, ws);
+	layer_shell_rearrange(server);
 
 	struct hsdwl_view *next = server->focused_views[ws];
 	if (next)
@@ -163,8 +164,11 @@ void hsdwl_server_move_to_workspace(struct hsdwl_server *server,
 		server->workspaces[ws]);
 	hsdwl_server_switch_workspace(server, ws);
 
-	if (server->config.stage_manager_enabled)
+	if (server->config.stage_manager_enabled
+			&& !view_is_floating_toolbar(view))
 		stage_manager_new_window(server, view, false);
+	else
+		view_focus(server, view);
 }
 
 static int sig[2];

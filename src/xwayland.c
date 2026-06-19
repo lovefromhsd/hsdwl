@@ -100,7 +100,8 @@ static void xwayland_view_handle_surface_map(
 	wlr_scene_node_set_enabled(
 		&view->scene_tree->node, true);
 	if (view->server->config.stage_manager_enabled
-			&& !xsurface->override_redirect)
+			&& !xsurface->override_redirect
+			&& !view_is_floating_toolbar(view))
 	{
 		stage_manager_new_window(view->server, view, true);
 	}
@@ -147,10 +148,12 @@ static void xwayland_view_handle_set_geometry(
 		listener, view, set_geometry);
 	if (view->scene_tree && view->xwayland_surface)
 	{
+		int nx = view->xwayland_surface->x;
+		int ny = view->xwayland_surface->y;
+		if (view_is_stage_managed(view))
+			nx -= SIDEBAR_WIDTH;
 		wlr_scene_node_set_position(
-			&view->scene_tree->node,
-			view->xwayland_surface->x,
-			view->xwayland_surface->y);
+			&view->scene_tree->node, nx, ny);
 		view_borders_update(view);
 		titlebar_text_update(view);
 	}
@@ -215,8 +218,14 @@ static void xwayland_view_handle_request_configure(
 		ev->width, ev->height);
 
 	if (view->scene_tree)
+	{
+		int nx = ev->x;
+		int ny = ev->y;
+		if (view_is_stage_managed(view))
+			nx -= SIDEBAR_WIDTH;
 		wlr_scene_node_set_position(
-			&view->scene_tree->node, ev->x, ev->y);
+			&view->scene_tree->node, nx, ny);
+	}
 }
 
 static void xwayland_view_handle_destroy(

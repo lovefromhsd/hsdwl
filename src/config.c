@@ -56,6 +56,7 @@ static const float def_group_overlap_threshold = 0.5f;
 static const bool def_smart_gaps = true;
 static const bool def_stage_manager_enabled = true;
 static const bool def_stage_3d_enabled = true;
+static const int def_stage_float_max_size = 360;
 
 const struct config_field config_fields[] = {
 	{"cursor_size",             FIELD_INT,    offsetof(struct hsdwl_config, cursor_size),             0, &def_cursor_size},
@@ -81,6 +82,7 @@ const struct config_field config_fields[] = {
 	{"stage_manager",           FIELD_BOOL,   offsetof(struct hsdwl_config, stage_manager_enabled),   0, &def_stage_manager_enabled},
 	{"stage_anim_duration",     FIELD_INT,    offsetof(struct hsdwl_config, stage_anim_duration),     0, &def_stage_anim_duration},
 	{"stage_3d_enabled",        FIELD_BOOL,   offsetof(struct hsdwl_config, stage_3d_enabled),        0, &def_stage_3d_enabled},
+	{"stage_float_max_size",    FIELD_INT,    offsetof(struct hsdwl_config, stage_float_max_size),    0, &def_stage_float_max_size},
 	{"group_overlap_threshold", FIELD_FLOAT,  offsetof(struct hsdwl_config, group_overlap_threshold), 0, &def_group_overlap_threshold},
 	{"animation_bezier",        FIELD_BEZIER, offsetof(struct hsdwl_config, anim_bezier_x1),          16, "0.25, 0.1, 0.25, 1.0"},
 };

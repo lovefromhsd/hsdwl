@@ -4,6 +4,7 @@
 #include "stage.h"
 #include "stage-sidebar.h"
 #include "animation.h"
+#include "layer-shell.h"
 #include "output.h"
 #include "server.h"
 #include "view.h"
@@ -290,6 +291,18 @@ void stage_manager_new_window(struct hsdwl_server *server,
 			stage->tree);
 		wlr_scene_node_set_position(&view->scene_tree->node,
 			cw->x, cw->y);
+	}
+
+	if (view->xwayland_surface)
+	{
+		int abs_x = SIDEBAR_WIDTH + (int)cw->x;
+		int abs_y = (int)cw->y;
+		int cfg_w = (int)cw->w;
+		int cfg_h = (int)cw->h;
+		if (cfg_w < 1) cfg_w = view->xwayland_surface->width;
+		if (cfg_h < 1) cfg_h = view->xwayland_surface->height;
+		wlr_xwayland_surface_configure(
+			view->xwayland_surface, abs_x, abs_y, cfg_w, cfg_h);
 	}
 
 	mgr->active_stage = stage;
@@ -592,6 +605,16 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 					&first_view->scene_tree->node,
 					acw->x, acw->y);
 			}
+			if (first_view->xwayland_surface)
+			{
+				wlr_xwayland_surface_configure(
+					first_view->xwayland_surface,
+					SIDEBAR_WIDTH + (int)acw->x, (int)acw->y,
+					(int)acw->w > 0 ? (int)acw->w
+						: first_view->xwayland_surface->width,
+					(int)acw->h > 0 ? (int)acw->h
+						: first_view->xwayland_surface->height);
+			}
 			wl_list_insert(&active->windows, &acw->link);
 		}
 
@@ -635,6 +658,16 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 				wlr_scene_node_set_position(
 					&view->scene_tree->node,
 					ocw->x, ocw->y);
+			}
+			if (view->xwayland_surface)
+			{
+				wlr_xwayland_surface_configure(
+					view->xwayland_surface,
+					SIDEBAR_WIDTH + (int)ocw->x, (int)ocw->y,
+					(int)ocw->w > 0 ? (int)ocw->w
+						: view->xwayland_surface->width,
+					(int)ocw->h > 0 ? (int)ocw->h
+						: view->xwayland_surface->height);
 			}
 			wl_list_insert(&st->windows, &ocw->link);
 
@@ -746,4 +779,5 @@ void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
 		NULL, NULL);
 
 	mgr->sidebar_hidden = should_hide;
+	layer_shell_rearrange(server);
 }

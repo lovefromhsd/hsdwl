@@ -337,6 +337,17 @@ void layer_shell_rearrange(struct hsdwl_server *server)
 		wlr_output_layout_get_box(server->output_layout,
 			output->wlr_output, &area);
 
+		if (server->config.stage_manager_enabled)
+		{
+			size_t ws = server->current_workspace;
+			if (!server->ws_stage_mgrs[ws].sidebar_hidden)
+			{
+				area.x += SIDEBAR_WIDTH;
+				area.width -= SIDEBAR_WIDTH;
+				if (area.width < 0) area.width = 0;
+			}
+		}
+
 		for (uint32_t l = 0; l < 4; l++)
 		{
 			struct hsdwl_layer_surface *layer;
