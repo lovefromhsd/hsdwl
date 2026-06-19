@@ -79,13 +79,7 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 			&& !view_is_floating_toolbar(view))
 		stage_manager_new_window(view->server, view, true);
 	else
-	{
-		if (view->server->config.stage_manager_enabled
-				&& view->scene_tree && !view->xwayland_surface)
-			wlr_scene_node_set_position(
-				&view->scene_tree->node, SIDEBAR_WIDTH, 0);
 		view_focus(view->server, view);
-	}
 }
 
 struct wlr_surface *view_get_surface(struct hsdwl_view *view)

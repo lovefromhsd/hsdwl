@@ -425,6 +425,13 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 		{
 			tx = target->scene_tree->node.x;
 			ty = target->scene_tree->node.y;
+			struct wlr_scene_tree *pn = target->scene_tree->node.parent;
+			while (pn)
+			{
+				tx += pn->node.x;
+				ty += pn->node.y;
+				pn = pn->node.parent;
+			}
 		}
 		tw = 800; th = 600;
 		if (target->xdg_surface && target->xdg_surface->configured)

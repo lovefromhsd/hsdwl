@@ -344,8 +344,33 @@ void stage_manager_new_window(struct hsdwl_server *server,
 					sx, sy, 10, 10,
 					abs_x, abs_y, anim_w, anim_h,
 					stage_new_window_anim_done, view);
+				if (!wl_list_empty(&server->outputs)) {
+					struct hsdwl_output *o = wl_container_of(
+						server->outputs.next, o, link);
+					if (o->wlr_output)
+						wlr_output_schedule_frame(o->wlr_output);
+				}
 				wlr_scene_node_set_enabled(
 					&view->scene_tree->node, false);
+			}
+		}
+		else
+		{
+			wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+			int start_x = (scene_w - anim_w) / 2;
+			int start_y = (scene_h - anim_h) / 2;
+			wlr_scene_node_set_position(&view->scene_tree->node, start_x, start_y);
+			int end_x = cw->x;
+			int end_y = cw->y;
+			animation_create_node_pos(server, &view->scene_tree->node,
+				200, HSDWL_EASE_BEZIER,
+				start_x, start_y, end_x, end_y,
+				NULL, NULL);
+			if (!wl_list_empty(&server->outputs)) {
+				struct hsdwl_output *o = wl_container_of(
+					server->outputs.next, o, link);
+				if (o->wlr_output)
+					wlr_output_schedule_frame(o->wlr_output);
 			}
 		}
 	}
@@ -549,20 +574,30 @@ struct custom_stage *stage_at(struct hsdwl_server *server,
 static void cw_update_geometry(struct custom_window *cw,
 		struct hsdwl_view *view)
 {
-	if (view->xdg_surface && view->xdg_surface->configured)
+	if (view->tab_group && view->tab_group->scene_tree)
 	{
-		cw->w = view->xdg_surface->geometry.width;
-		cw->h = view->xdg_surface->geometry.height;
+		cw->x = view->tab_group->scene_tree->node.x;
+		cw->y = view->tab_group->scene_tree->node.y;
+		cw->w = view->tab_group->content_area_box.width;
+		cw->h = view->tab_group->content_area_box.height;
 	}
-	else if (view->xwayland_surface)
+	else
 	{
-		cw->w = view->xwayland_surface->width;
-		cw->h = view->xwayland_surface->height;
-	}
-	if (view->scene_tree)
-	{
-		cw->x = view->scene_tree->node.x;
-		cw->y = view->scene_tree->node.y;
+		if (view->xdg_surface && view->xdg_surface->configured)
+		{
+			cw->w = view->xdg_surface->geometry.width;
+			cw->h = view->xdg_surface->geometry.height;
+		}
+		else if (view->xwayland_surface)
+		{
+			cw->w = view->xwayland_surface->width;
+			cw->h = view->xwayland_surface->height;
+		}
+		if (view->scene_tree)
+		{
+			cw->x = view->scene_tree->node.x;
+			cw->y = view->scene_tree->node.y;
+		}
 	}
 }
 
@@ -824,6 +859,13 @@ void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
 		200, HSDWL_EASE_BEZIER,
 		cur, 0, to, 0,
 		NULL, NULL);
+
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			wlr_output_schedule_frame(o->wlr_output);
+	}
 
 	mgr->sidebar_hidden = should_hide;
 	layer_shell_rearrange(server);

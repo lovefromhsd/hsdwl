@@ -264,16 +264,6 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wl_list_init(&server->tilt_animations);
 	hsdwl_tab_group_init(server);
 
-	server->animation_tree = wlr_scene_tree_create(
-		&server->scene->tree);
-	if (!server->animation_tree)
-	{
-		wlr_log(WLR_ERROR, "animation_tree create failed");
-		return false;
-	}
-	wlr_scene_node_raise_to_top(
-		&server->animation_tree->node);
-
 	if (!output_manager_init(server))
 	{
 		wlr_log(WLR_ERROR, "output_manager_init failed");
@@ -445,6 +435,16 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	}
 
 	stage_manager_init(server);
+
+	server->animation_tree = wlr_scene_tree_create(
+		&server->scene->tree);
+	if (!server->animation_tree)
+	{
+		wlr_log(WLR_ERROR, "animation_tree create failed");
+		return false;
+	}
+	wlr_scene_node_raise_to_top(
+		&server->animation_tree->node);
 
 	return true;
 }

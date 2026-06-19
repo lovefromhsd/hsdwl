@@ -386,6 +386,13 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	if (old) stage_set_views_enabled(old, false);
 	stage_set_views_enabled(target, false);
 
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			wlr_output_schedule_frame(o->wlr_output);
+	}
+
 	if (ssa->remaining > 0) return;
 
 	free(ssa);
@@ -559,6 +566,13 @@ void stage_manager_merge(struct hsdwl_server *server,
 	}
 
 	stage_set_views_enabled(source, false);
+
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		if (o->wlr_output)
+			wlr_output_schedule_frame(o->wlr_output);
+	}
 
 	if (sma->remaining > 0) return;
 
