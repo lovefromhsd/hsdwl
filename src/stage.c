@@ -194,14 +194,16 @@ static void stage_new_window_anim_done(struct hsdwl_server *server,
 		void *user_data)
 {
 	struct hsdwl_view *view = user_data;
-	(void)server;
 	if (view && view->anim_overlay)
 	{
 		wlr_scene_node_destroy(&view->anim_overlay->node);
 		view->anim_overlay = NULL;
 	}
 	if (view && view->scene_tree)
+	{
 		wlr_scene_node_set_enabled(&view->scene_tree->node, true);
+		view_focus(server, view);
+	}
 }
 
 void stage_manager_new_window(struct hsdwl_server *server,
