@@ -343,12 +343,15 @@ void layer_shell_rearrange(struct hsdwl_server *server)
 
 			/*
 			 * Reserve space for the stage manager sidebar on
-			 * the left for non-overlay layers. The overlay
+			 * the left for layers 1-2 (bottom, top). Layer 0
+			 * (background) is NOT shifted so that the wallpaper
+			 * covers the full screen, showing through the
+			 * transparent stage manager areas. The overlay
 			 * layer (l=3) is used by transient fullscreen
 			 * surfaces like screenshot selection overlays and
 			 * should always cover the full output.
 			 */
-			if (l < 3 && server->config.stage_manager_enabled)
+			if (l > 0 && l < 3 && server->config.stage_manager_enabled)
 			{
 				size_t ws = server->current_workspace;
 				if (!server->ws_stage_mgrs[ws]
