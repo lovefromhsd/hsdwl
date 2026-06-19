@@ -246,7 +246,6 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wl_list_init(&server->views);
 	wl_list_init(&server->outputs);
 	wl_list_init(&server->animations);
-	wl_list_init(&server->flip_animations);
 	wl_list_init(&server->tilt_animations);
 	hsdwl_tab_group_init(server);
 

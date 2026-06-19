@@ -34,7 +34,6 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 		output->server->current_workspace);
 
 	if (!wl_list_empty(&output->server->animations)
-		|| !wl_list_empty(&output->server->flip_animations)
 		|| !wl_list_empty(&output->server->tilt_animations))
 		wlr_output_schedule_frame(output->wlr_output);
 

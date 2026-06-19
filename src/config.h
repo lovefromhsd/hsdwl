@@ -59,6 +59,8 @@ struct hsdwl_config
 	float anim_bezier_y2;
 	bool smart_gaps;
 	bool stage_manager_enabled;
+	int stage_anim_duration;
+	bool stage_3d_enabled;
 
 	struct wl_list bindings;
 };

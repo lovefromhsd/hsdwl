@@ -122,7 +122,6 @@ struct hsdwl_server
 
 	
 	struct wl_list animations;
-	struct wl_list flip_animations;
 	struct wl_list tilt_animations;
 	struct wlr_scene_tree *animation_tree;
 };

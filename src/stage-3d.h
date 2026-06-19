@@ -69,37 +69,6 @@ struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
 
 	void *user_data);
 
-
-	struct hsdwl_flip_state {
-	struct wl_list link;
-	struct timespec start;
-	int duration_ms;
-	struct wlr_texture *out_tex;
-	struct wlr_texture *in_tex;
-	int out_w, out_h;
-	int in_w, in_h;
-	int out_x, out_y;
-	int in_x, in_y;
-	struct wlr_scene_buffer *out_overlay;
-	struct wlr_scene_buffer *in_overlay;
-	float tilt_angle;
-	float z_offset;
-	float focal_length;
-	void (*on_finish)(struct hsdwl_server *server, void *user_data);
-	void *user_data;
-};
-
-struct hsdwl_flip_state *stage_3d_start_flip(
-	struct hsdwl_server *server,
-	struct wlr_texture *out_tex, int out_w, int out_h,
-	int out_x, int out_y,
-	struct wlr_texture *in_tex, int in_w, int in_h,
-	int in_x, int in_y,
-	int duration_ms, float tilt_angle,
-	float z_offset, float focal_length,
-	void (*on_finish)(struct hsdwl_server *, void *),
-	void *user_data);
-
 void stage_3d_tick(struct hsdwl_server *server, struct timespec *now);
 void stage_3d_cancel(struct hsdwl_server *server);
 
