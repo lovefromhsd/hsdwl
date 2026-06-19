@@ -470,3 +470,43 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 	group->maximized = false;
 	group->zoomed = false;
 }
+
+
+void tab_group_demaximize_to_zoomed(struct hsdwl_tab_group *group,
+		struct hsdwl_server *server)
+{
+	if (!group || !group->maximized)
+		return;
+
+	struct wlr_output *wlr_o = wlr_output_layout_output_at(
+		server->output_layout,
+		group->scene_tree->node.x
+			+ group->content_area_box.width / 2,
+		group->scene_tree->node.y
+			+ group->content_area_box.height / 2);
+	if (!wlr_o) return;
+
+	struct wlr_box obox;
+	wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
+
+	int pad = 16;
+	int zw = obox.width - SIDEBAR_WIDTH - pad;
+	if (zw < 1) zw = 1;
+	int zh = obox.height - group->tab_bar_thickness;
+	if (zh < 1) zh = 1;
+
+	group->content_area_box.width = zw;
+	group->content_area_box.height = zh;
+
+	struct hsdwl_view *vi;
+	wl_list_for_each(vi, &group->views, tab_group_link)
+		view_configure_size(vi, zw, zh);
+
+	hsdwl_tab_group_update_layout(group);
+
+	wlr_scene_node_set_position(&group->scene_tree->node, pad, 0);
+
+	wlr_output_schedule_frame(wlr_o);
+	group->maximized = false;
+	group->zoomed = true;
+}

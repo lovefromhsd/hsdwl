@@ -10,5 +10,7 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		struct hsdwl_server *server);
 void hsdwl_tab_group_restore(struct hsdwl_tab_group *group);
+void tab_group_demaximize_to_zoomed(struct hsdwl_tab_group *group,
+		struct hsdwl_server *server);
 
 #endif

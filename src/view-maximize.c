@@ -348,3 +348,54 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	view->zoomed = true;
 	view->maximized = false;
 }
+
+
+void view_demaximize_to_zoomed(struct hsdwl_view *view,
+		struct hsdwl_server *server)
+{
+	if (!view || !view->maximized)
+		return;
+
+	struct hsdwl_config *cfg = &server->config;
+	int bw = cfg->border_width;
+	int tb = cfg->titlebar_height;
+
+	struct wlr_output *wlr_o = wlr_output_layout_output_at(
+		server->output_layout,
+		view->saved_geometry.x + view->saved_geometry.width / 2,
+		view->saved_geometry.y + view->saved_geometry.height / 2);
+	if (!wlr_o) return;
+
+	struct wlr_box obox;
+	wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
+
+	int pad = 16;
+	int zw = obox.width - SIDEBAR_WIDTH - pad;
+	if (zw < 1) zw = 1;
+	int cw = zw - 2 * bw;
+	int ch = obox.height - (tb > 0 ? tb : 0) - bw;
+	if (cw < 1) cw = 1;
+	if (ch < 1) ch = 1;
+
+	view_set_deco_visible(view, true);
+
+	if (view->content_tree)
+		wlr_scene_node_set_position(&view->content_tree->node, bw, tb);
+
+	if (view->saved_parent)
+	{
+		wlr_scene_node_reparent(&view->scene_tree->node,
+			view->saved_parent);
+		view->saved_parent = NULL;
+	}
+
+	wlr_scene_node_set_position(&view->scene_tree->node, pad, 0);
+
+	view_set_surface_size(view, pad, 0, cw, ch);
+
+	view->maximized = false;
+	view->zoomed = true;
+
+	view_borders_update(view);
+	titlebar_text_update(view);
+}

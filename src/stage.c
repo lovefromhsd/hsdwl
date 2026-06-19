@@ -10,6 +10,7 @@
 #include "view.h"
 #include "view-maximize.h"
 #include "stage-util.h"
+#include "tab-group-anim.h"
 
 #include <drm_fourcc.h>
 #include <math.h>
@@ -349,6 +350,50 @@ void stage_manager_new_window(struct hsdwl_server *server,
 
 	view_focus(server, view);
 	stage_manager_render_sidebar(server, ws);
+
+	/*
+	 * If any existing windows are fully maximized (stage 2), demote
+	 * them to the zoomed state now that another window has been added
+	 * to the stage manager.
+	 */
+	{
+		struct custom_stage *s;
+
+		if (mgr->active_stage)
+		{
+			struct custom_window *cw;
+			wl_list_for_each(cw, &mgr->active_stage->windows,
+					link)
+			{
+				if (!cw->view) continue;
+				if (cw->view->tab_group
+						&& cw->view->tab_group
+							->maximized)
+					tab_group_demaximize_to_zoomed(
+						cw->view->tab_group, server);
+				else if (cw->view->maximized)
+					view_demaximize_to_zoomed(
+						cw->view, server);
+			}
+		}
+
+		wl_list_for_each(s, &mgr->inactive_stages, link)
+		{
+			struct custom_window *cw;
+			wl_list_for_each(cw, &s->windows, link)
+			{
+				if (!cw->view) continue;
+				if (cw->view->tab_group
+						&& cw->view->tab_group
+							->maximized)
+					tab_group_demaximize_to_zoomed(
+						cw->view->tab_group, server);
+				else if (cw->view->maximized)
+					view_demaximize_to_zoomed(
+						cw->view, server);
+			}
+		}
+	}
 }
 
 bool stage_manager_remove_view(struct hsdwl_server *server,

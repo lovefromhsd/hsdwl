@@ -7,6 +7,7 @@ struct hsdwl_server;
 struct wlr_buffer;
 
 void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view);
+void view_demaximize_to_zoomed(struct hsdwl_view *view, struct hsdwl_server *server);
 struct wlr_buffer *view_capture_full_window(struct hsdwl_server *server,
 	struct hsdwl_view *view, int content_w, int content_h,
 	int bw, int tb);
