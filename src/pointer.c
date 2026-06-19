@@ -203,6 +203,17 @@ static void apply_resize(struct hsdwl_server *server)
 			&& !server->grabbed_view->xwayland_surface)
 		return;
 
+	// Hide view borders during resize; preview rects replace them visually.
+	// view_borders_update() will re-enable them on the next client commit.
+	struct hsdwl_view *v = server->grabbed_view;
+	for (int i = 0; i < 4; i++)
+		if (v->border_rects[i])
+			wlr_scene_node_set_enabled(
+				&v->border_rects[i]->node, false);
+	if (v->title_text_buf)
+		wlr_scene_node_set_enabled(
+			&v->title_text_buf->node, false);
+
 	double dx = server->cursor->x - server->grab_x;
 	double dy = server->cursor->y - server->grab_y;
 
