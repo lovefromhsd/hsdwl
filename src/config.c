@@ -57,6 +57,7 @@ static const bool def_smart_gaps = true;
 static const bool def_stage_manager_enabled = true;
 static const bool def_stage_3d_enabled = true;
 static const int def_stage_float_max_size = 360;
+static const int def_titlebar_height = -1;
 
 const struct config_field config_fields[] = {
 	{"cursor_size",             FIELD_INT,    offsetof(struct hsdwl_config, cursor_size),             0, &def_cursor_size},
@@ -74,6 +75,7 @@ const struct config_field config_fields[] = {
 	{"title_font_size",         FIELD_INT,    offsetof(struct hsdwl_config, title_font_size),         0, &def_title_font_size},
 	{"title_font_weight",       FIELD_STRING, offsetof(struct hsdwl_config, title_font_weight),       64, ""},
 	{"titlebar_radius",         FIELD_INT,    offsetof(struct hsdwl_config, titlebar_radius),         0, &def_titlebar_radius},
+	{"titlebar_height",         FIELD_INT,    offsetof(struct hsdwl_config, titlebar_height),         0, &def_titlebar_height},
 	{"title_text_color",        FIELD_COLOR,  offsetof(struct hsdwl_config, title_text_color),        0, "#aaaaaa"},
 	{"title_text_color_focused", FIELD_COLOR, offsetof(struct hsdwl_config, title_text_color_focused), 0, "#ffffff"},
 	{"mod_key",                 FIELD_STRING, offsetof(struct hsdwl_config, mod_key),                 32, "Mod1"},
@@ -291,7 +293,6 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 		}
 	}
 
-	cfg->titlebar_height = 0;
 	snprintf(cfg->title_font, sizeof(cfg->title_font), "sans-serif");
 	cfg->title_font_weight[0] = '\0';
 	snprintf(cfg->mod_key, sizeof(cfg->mod_key), "Mod1");
@@ -431,7 +432,8 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	int asc = pango_font_metrics_get_ascent(pm) / PANGO_SCALE;
 	int dsc = pango_font_metrics_get_descent(pm) / PANGO_SCALE;
 	pango_font_metrics_unref(pm);
-	cfg->titlebar_height = asc + dsc + 10;
+	if (cfg->titlebar_height < 0)
+		cfg->titlebar_height = asc + dsc + 10;
 	pango_font_description_free(pf);
 	g_object_unref(pl);
 	cairo_destroy(ct);
