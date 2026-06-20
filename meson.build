@@ -20,6 +20,7 @@ libdrm = dependency('libdrm')
 pango = dependency('pango')
 pangocairo = dependency('pangocairo')
 cairo = dependency('cairo')
+pixman = dependency('pixman-1')
 libm = cc.find_library('m', required: false)
 
 subdir('src')
@@ -38,6 +39,7 @@ executable(
         pango,
         pangocairo,
         cairo,
+        pixman,
         libm,
     ],
     install: true,
