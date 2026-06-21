@@ -42,16 +42,7 @@ static void seat_request_start_drag(struct wl_listener *listener, void *data)
 	wlr_seat_start_pointer_drag(server->seat, event->drag, event->serial);
 }
 
-/*
- * Recursively clear input regions for the drag icon surface and all its
- * subsurfaces. This prevents wlr_scene_node_at from hitting the drag icon's
- * scene nodes instead of the actual window behind the cursor, which would
- * cause DnD coordinates to target the wrong surface.
- *
- * The drag icon role handler only clears the main surface's input region;
- * subsurface surfaces retain their normal input regions and would intercept
- * pointer events meant for the window beneath.
- */
+
 static void drag_icon_clear_subsurface_input(struct wlr_surface *surface)
 {
 	pixman_region32_clear(&surface->input_region);
@@ -91,14 +82,7 @@ static void seat_start_drag(struct wl_listener *listener, void *data)
 	if (!server->drag_icon_tree)
 		return;
 
-	/*
-	 * Clear input regions for all subsurface surfaces in the drag icon's
-	 * surface tree. wlr_scene_drag_icon_create creates scene nodes for
-	 * all subsurfaces via wlr_scene_subsurface_tree_create, but the drag
-	 * icon role only clears the main surface's input region. Without this,
-	 * wlr_scene_node_at finds subsurface buffer nodes instead of the
-	 * window behind, sending DnD coordinates to the wrong surface.
-	 */
+
 	drag_icon_clear_subsurface_input(drag->icon->surface);
 
 	wlr_scene_node_set_position(

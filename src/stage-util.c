@@ -23,6 +23,49 @@ void stage_focus_first(struct custom_stage *stage, struct hsdwl_server *server) 
 	}
 }
 
+bool stage_focus_next(struct custom_stage *stage,
+		struct hsdwl_server *server, bool reverse)
+{
+	if (!stage || wl_list_length(&stage->windows) < 2)
+		return false;
+
+	struct hsdwl_view *cur =
+		server->focused_views[server->current_workspace];
+
+	struct custom_window *cur_cw = NULL;
+	struct custom_window *cw;
+	wl_list_for_each(cw, &stage->windows, link)
+	{
+		if (cw->view == cur)
+		{
+			cur_cw = cw;
+			break;
+		}
+	}
+
+	struct custom_window *target;
+	if (cur_cw)
+	{
+		struct wl_list *p = reverse
+			? cur_cw->link.prev
+			: cur_cw->link.next;
+
+		if (p == &stage->windows)
+			p = reverse ? stage->windows.prev : stage->windows.next;
+		target = wl_container_of(p, target, link);
+	}
+	else
+	{
+
+		target = wl_container_of(
+			reverse ? stage->windows.prev : stage->windows.next,
+			target, link);
+	}
+
+	view_focus(server, target->view);
+	return true;
+}
+
 
 bool stage_compute_bbox(struct custom_stage *stage, struct wlr_box *out_bbox) {
 	struct wlr_box bbox = {0};

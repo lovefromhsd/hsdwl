@@ -154,7 +154,7 @@ struct wlr_buffer *view_capture_full_window(
 		? server->config.titlebar_color_focused
 		: server->config.titlebar_color;
 
-	
+
 	if (tb > 0)
 	{
 		wlr_render_pass_add_rect(pass,
@@ -163,7 +163,7 @@ struct wlr_buffer *view_capture_full_window(
 				.color = { tcol[0], tcol[1], tcol[2], tcol[3] },
 			});
 
-		
+
 		if (view->title_text_buf)
 		{
 			titlebar_text_update(view);
@@ -194,7 +194,7 @@ struct wlr_buffer *view_capture_full_window(
 		}
 	}
 
-	
+
 	if (bw > 0)
 	{
 		int side_y = tb > 0 ? tb : bw;
@@ -228,7 +228,7 @@ struct wlr_buffer *view_capture_full_window(
 			});
 	}
 
-	
+
 	if (texture)
 	{
 		float tex_w = surface->current.width;

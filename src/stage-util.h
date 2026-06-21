@@ -12,6 +12,10 @@ struct wlr_scene_node;
 
 void stage_focus_first(struct custom_stage *stage, struct hsdwl_server *server);
 
+
+bool stage_focus_next(struct custom_stage *stage,
+		struct hsdwl_server *server, bool reverse);
+
 bool stage_compute_bbox(struct custom_stage *stage, struct wlr_box *out_bbox);
 
 bool stage_thumb_init(struct custom_stage *stage, struct hsdwl_server *server, size_t ws);

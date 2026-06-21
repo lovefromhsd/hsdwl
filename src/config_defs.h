@@ -16,9 +16,9 @@ enum field_type {
 struct config_field {
     const char *key;
     enum field_type type;
-    size_t offset;       // offsetof(struct hsdwl_config, field)
-    size_t data_size;    // for FIELD_STRING: sizeof(cfg->field)
-    const void *default_ptr;  // pointer to default value
+    size_t offset;       
+    size_t data_size;    
+    const void *default_ptr;  
 };
 
 struct action_entry {

@@ -35,9 +35,7 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 	{
-		/* Handle Ctrl+Alt+Fx VT switching before normal bindings.
-		 * The kernel generates XKB_KEY_XF86Switch_VT_n keysyms
-		 * for these privileged key combinations. */
+
 		xkb_keysym_t sym = xkb_state_key_get_one_sym(
 			wlr_keyboard->xkb_state, event->keycode + 8);
 		if (sym >= XKB_KEY_XF86Switch_VT_1

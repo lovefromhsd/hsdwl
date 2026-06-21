@@ -75,7 +75,6 @@ static inline void tilt_or_destroy(
 }
 
 
-
 struct stage_switch_anim {
 	struct hsdwl_server *server;
 	struct custom_stage *old_stage;
@@ -95,7 +94,6 @@ struct stage_merge_anim {
 	int n_overlays;
 	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
 };
-
 
 
 static void stage_switch_on_anim_done(struct hsdwl_server *server,
@@ -167,7 +165,6 @@ static void stage_merge_on_anim_done(struct hsdwl_server *server,
 }
 
 
-
 static void stage_switch_internal(struct hsdwl_server *server,
 		struct custom_stage *old, struct custom_stage *target,
 		size_t ws, bool insert_tail)
@@ -191,7 +188,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	ssa->insert_tail = insert_tail;
 	ssa->n_overlays = 0;
 
-	
+
 	if (old) {
 		struct custom_window *cw;
 		struct hsdwl_tab_group *seen_tg[64];
@@ -228,7 +225,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				
+
 					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
 					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,fx,fy);
@@ -263,7 +260,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			
+
 				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
 				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node, fx, fy);
@@ -286,7 +283,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 		}
 	}
 
-	
+
 	{
 		struct custom_window *cw;
 		struct hsdwl_tab_group *seen_tg[64];
@@ -322,7 +319,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				
+
 					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
 					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,
@@ -358,7 +355,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			
+
 				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
 				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node,
@@ -382,7 +379,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 		}
 	}
 
-	
+
 	if (old) stage_set_views_enabled(old, false);
 	stage_set_views_enabled(target, false);
 
@@ -445,7 +442,6 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 }
 
 
-
 void stage_manager_merge(struct hsdwl_server *server,
 		struct custom_stage *source, size_t ws)
 {
@@ -469,7 +465,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 	sma->remaining = 0;
 	sma->n_overlays = 0;
 
-	
+
 	{
 		struct custom_window *cw;
 		struct hsdwl_tab_group *seen_tg[64];
@@ -505,7 +501,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
 						server->animation_tree, buf);
-				
+
 					struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
 					wlr_buffer_drop(buf);
 				wlr_scene_node_set_position(&ov->node,
@@ -541,7 +537,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
-			
+
 				struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
 				wlr_buffer_drop(buf);
 			wlr_scene_node_set_position(&ov->node,

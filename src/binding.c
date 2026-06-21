@@ -14,6 +14,7 @@
 #include "server.h"
 #include "view-maximize.h"
 #include "stage.h"
+#include "stage-util.h"
 #include "tab-group.h"
 #include "view.h"
 
@@ -78,7 +79,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_MAXIMIZE:
 			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym))
 			{
-				
+
 				if (!((b->keysym == XKB_KEY_Tab
 						|| b->keysym == XKB_KEY_ISO_Left_Tab)
 					&& (sym == XKB_KEY_Tab
@@ -116,8 +117,11 @@ bool binding_dispatch(struct hsdwl_server *server,
 		{
 			if (server->config.stage_manager_enabled)
 			{
-				stage_manager_cycle(server,
-					server->current_workspace, false);
+				struct workspace_stage_mgr *mgr =
+					&server->ws_stage_mgrs[server->current_workspace];
+				if (!stage_focus_next(mgr->active_stage, server, false))
+					stage_manager_cycle(server,
+						server->current_workspace, false);
 				return true;
 			}
 			struct hsdwl_view *cur = focused_view(server);
@@ -129,8 +133,11 @@ bool binding_dispatch(struct hsdwl_server *server,
 		{
 			if (server->config.stage_manager_enabled)
 			{
-				stage_manager_cycle(server,
-					server->current_workspace, true);
+				struct workspace_stage_mgr *mgr =
+					&server->ws_stage_mgrs[server->current_workspace];
+				if (!stage_focus_next(mgr->active_stage, server, true))
+					stage_manager_cycle(server,
+						server->current_workspace, true);
 				return true;
 			}
 			struct hsdwl_view *cur = focused_view(server);
@@ -167,18 +174,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 				}
 				return true;
 			}
-			if (server->config.stage_manager_enabled)
-			{
-				bool rev = b->action == HSDWL_ACTION_CYCLE_TAB_PREV;
-				stage_manager_cycle(server,
-					server->current_workspace, rev);
-				return true;
-			}
-			bool rev = b->action == HSDWL_ACTION_CYCLE_TAB_PREV;
-			struct hsdwl_view *next = rev
-				? view_prev(server, cur)
-				: view_next(server, cur);
-			if (next) view_focus(server, next);
+
 			return true;
 		}
 		case HSDWL_ACTION_MAXIMIZE:

@@ -19,7 +19,6 @@
 #include "animation.h"
 
 
-
 static void view_handle_set_title(struct wl_listener *listener, void *data)
 {
 	(void)data;
@@ -90,7 +89,6 @@ struct wlr_surface *view_get_surface(struct hsdwl_view *view)
 			? view->xwayland_surface->surface
 			: NULL;
 }
-
 
 
 void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
@@ -182,10 +180,15 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 }
 
 
-
 static bool view_is_usable(struct hsdwl_view *v)
 {
 	if (!v->scene_tree || !v->scene_tree->node.enabled)
+		return false;
+
+	if (v->xdg_surface && v->xdg_surface->toplevel
+			&& v->xdg_surface->toplevel->parent)
+		return false;
+	if (v->xwayland_surface && v->xwayland_surface->parent)
 		return false;
 	if (v->xdg_surface && v->xdg_surface->configured)
 		return true;
@@ -287,7 +290,6 @@ bool view_is_floating_toolbar(struct hsdwl_view *view)
 }
 
 
-
 struct hsdwl_view *view_next(struct hsdwl_server *server,
 		struct hsdwl_view *current)
 {
@@ -335,7 +337,6 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 	}
 	return last;
 }
-
 
 
 static void view_handle_unmap(struct wl_listener *listener, void *data)
@@ -441,7 +442,7 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	if (view->server->config.stage_manager_enabled)
 		stage_manager_notify_view_removed(view->server, view);
 
-	
+
 	{
 		struct hsdwl_animation *anim, *tmp;
 		wl_list_for_each_safe(anim, tmp,

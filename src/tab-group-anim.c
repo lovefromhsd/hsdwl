@@ -29,7 +29,6 @@ struct tg_anim_state {
 };
 
 
-
 static struct wlr_buffer *tab_group_capture_full(
 	struct hsdwl_server *server,
 	struct hsdwl_tab_group *group,
@@ -69,7 +68,7 @@ static struct wlr_buffer *tab_group_capture_full(
 		.color = { 0.0f, 0.0f, 0.0f, 0.0f },
 	});
 
-	
+
 	bool focused = (group->active == server->focused_views[
 		server->current_workspace]);
 	float *bg = focused
@@ -80,7 +79,7 @@ static struct wlr_buffer *tab_group_capture_full(
 		.color = { bg[0], bg[1], bg[2], bg[3] },
 	});
 
-	
+
 	if (texture)
 	{
 		float tex_w = surface->current.width;
@@ -141,7 +140,6 @@ static struct wlr_scene_buffer *tab_group_create_overlay(
 	wlr_scene_node_raise_to_top(&ov->node);
 	return ov;
 }
-
 
 
 static void destroy_tg_overlay(struct hsdwl_server *server,
@@ -208,7 +206,6 @@ static void tg_anim_restore_finish(struct hsdwl_server *server, void *user_data)
 }
 
 
-
 void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 		struct hsdwl_server *server)
 {
@@ -235,7 +232,7 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 	int zh = obox.height - group->tab_bar_thickness;
 	if (zh < 1) zh = 1;
 
-	
+
 	int src_cw = group->content_area_box.width;
 	int src_ch = group->content_area_box.height;
 	int src_abs_x = SIDEBAR_WIDTH
@@ -246,7 +243,7 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 		server, group, src_cw, src_ch, src_abs_x, src_abs_y);
 	if (!ov) ov = NULL; 
 
-	
+
 	group->content_area_box.width = zw;
 	group->content_area_box.height = zh;
 
@@ -300,7 +297,6 @@ void hsdwl_tab_group_zoom(struct hsdwl_tab_group *group,
 }
 
 
-
 void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 		struct hsdwl_server *server)
 {
@@ -315,11 +311,7 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 
 	if (group->zoomed)
 	{
-		/*
-		 * If the stage manager is managing windows beyond those
-		 * in this tab group, skip fully maximizing and restore
-		 * to normal size/position instead.
-		 */
+
 		{
 			int view_count = 0;
 			struct hsdwl_view *vi;
@@ -385,7 +377,6 @@ void hsdwl_tab_group_maximize(struct hsdwl_tab_group *group,
 }
 
 
-
 void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 {
 	if (!group || (!group->maximized && !group->zoomed))
@@ -395,7 +386,7 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 	int tgt_h = group->saved_geometry.height
 		- group->tab_bar_thickness;
 
-	
+
 	int src_cw = group->content_area_box.width;
 	int src_ch = group->content_area_box.height;
 	int src_abs_x = SIDEBAR_WIDTH
@@ -407,7 +398,7 @@ void hsdwl_tab_group_restore(struct hsdwl_tab_group *group)
 		src_abs_x, src_abs_y);
 	if (!ov) ov = NULL;
 
-	
+
 	group->content_area_box.width = tgt_w;
 	group->content_area_box.height = tgt_h;
 

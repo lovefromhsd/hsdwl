@@ -20,7 +20,6 @@
 #define TAB_BAR_THICKNESS 28
 
 
-
 struct tab_text_buffer
 {
 	struct wlr_buffer base;
@@ -95,7 +94,6 @@ static struct tab_text_buffer *tab_text_buffer_create(int width, int height)
 }
 
 
-
 static void tab_button_update_text(struct hsdwl_tab_button *btn,
 		bool active, int width, int height)
 {
@@ -161,7 +159,6 @@ static void tab_button_update_text(struct hsdwl_tab_button *btn,
 }
 
 
-
 struct hsdwl_tab_button *tab_button_create(
 		struct hsdwl_tab_group *group, struct hsdwl_view *view)
 {
@@ -191,7 +188,6 @@ void tab_button_destroy(struct hsdwl_tab_button *btn)
 	wl_list_remove(&btn->link);
 	free(btn);
 }
-
 
 
 static void render_tab_bar_background(struct hsdwl_tab_group *group)
@@ -283,7 +279,6 @@ static void render_tab_bar_background(struct hsdwl_tab_group *group)
 }
 
 
-
 void hsdwl_tab_group_update_layout(struct hsdwl_tab_group *group)
 {
 	if (!group || !group->scene_tree)
@@ -373,7 +368,6 @@ void view_configure_size(struct hsdwl_view *view, int w, int h)
 			view->xwayland_surface->y, w, h);
 	}
 }
-
 
 
 #define PREVIEW_ALPHA 0.25f

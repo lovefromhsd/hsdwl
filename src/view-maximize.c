@@ -105,7 +105,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	int bw = cfg->border_width;
 	int tb = cfg->titlebar_height;
 
-	
+
 	if (view->maximized)
 	{
 		struct wlr_output *wlr_o = wlr_output_layout_output_at(
@@ -140,7 +140,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			view->saved_geometry.height, bw, tb,
 			&tgt_full_w, &tgt_full_h);
 
-		
+
 		int src_abs_x = (int)view->scene_tree->node.x;
 		int src_abs_y = (int)view->scene_tree->node.y;
 
@@ -176,13 +176,10 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		return;
 	}
 
-	
+
 	if (view->zoomed)
 	{
-		/*
-		 * If the stage manager is managing windows, skip fully
-		 * maximizing (stage 2) and unmaximize back to normal instead.
-		 */
+
 		if (server->config.stage_manager_enabled
 				&& stage_manager_window_count(server,
 					server->current_workspace) > 1)
@@ -282,7 +279,7 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 		return;
 	}
 
-	
+
 	view->saved_geometry.x = view->scene_tree->node.x;
 	view->saved_geometry.y = view->scene_tree->node.y;
 	if (view->xdg_surface && view->xdg_surface->configured)

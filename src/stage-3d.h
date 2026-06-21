@@ -48,7 +48,6 @@ struct hsdwl_tilt_state {
 };
 
 
-
 struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
 
 	struct hsdwl_server *server,

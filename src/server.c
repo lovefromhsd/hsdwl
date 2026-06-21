@@ -156,12 +156,7 @@ void hsdwl_server_move_to_workspace(struct hsdwl_server *server,
 
 	size_t src_ws = server->current_workspace;
 
-	/*
-	 * Unmaximize before removing from the source stage so that
-	 * saved_parent is still valid when we reparent back. Otherwise
-	 * stage_manager_remove_view may free the stage tree that
-	 * saved_parent points to, leaving a dangling pointer.
-	 */
+
 	if (view->maximized || view->zoomed)
 		view_unmaximize_instant(view, server);
 

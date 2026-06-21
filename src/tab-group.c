@@ -13,7 +13,6 @@
 #include <wlr/xwayland.h>
 
 
-
 static void view_enter_tab_group(struct hsdwl_view *view,
 		struct hsdwl_tab_group *group)
 {
@@ -55,12 +54,12 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 	if (!view->scene_tree)
 		return;
 
-	
+
 	struct wlr_scene_tree *target = g->scene_tree && g->scene_tree->node.parent
 		? g->scene_tree->node.parent
 		: server->workspaces[server->current_workspace];
 
-	
+
 	int off_x = 0, off_y = 0;
 	struct wlr_scene_tree *pn = target;
 	while (pn)
@@ -96,7 +95,6 @@ static void view_leave_tab_group(struct hsdwl_view *view)
 }
 
 
-
 void hsdwl_tab_group_init(struct hsdwl_server *server)
 {
 	wl_list_init(&server->tab_groups);
@@ -123,7 +121,7 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 	wl_list_init(&group->views);
 	wl_list_init(&group->tab_buttons);
 
-	
+
 	struct wlr_scene_tree *parent = b->scene_tree
 		? b->scene_tree->node.parent
 		: server->workspaces[server->current_workspace];
@@ -197,7 +195,7 @@ struct hsdwl_tab_group *hsdwl_tab_group_create(struct hsdwl_server *server,
 
 	wl_list_insert(&server->tab_groups, &group->link);
 
-	
+
 	struct hsdwl_view *vi;
 	wl_list_for_each(vi, &group->views, tab_group_link)
 	{
@@ -326,7 +324,7 @@ void hsdwl_tab_group_destroy(struct hsdwl_tab_group *group)
 	if (!group)
 		return;
 
-	
+
 	struct hsdwl_animation *anim, *tmp;
 	wl_list_for_each_safe(anim, tmp, &group->server->animations, link)
 	{

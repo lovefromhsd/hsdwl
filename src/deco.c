@@ -17,7 +17,6 @@
 #include <wlr/xwayland.h>
 
 
-
 struct title_buffer
 {
 	struct wlr_buffer base;
@@ -90,7 +89,6 @@ static struct title_buffer *title_buffer_create(
 	wlr_buffer_init(&buf->base, &title_buffer_impl, width, height);
 	return buf;
 }
-
 
 
 void titlebar_text_update(struct hsdwl_view *view)
@@ -200,7 +198,6 @@ void titlebar_text_update(struct hsdwl_view *view)
 	wlr_scene_buffer_set_buffer(view->title_text_buf, &tbuf->base);
 	wlr_buffer_drop(&tbuf->base);
 }
-
 
 
 void view_borders_create(struct hsdwl_view *view)

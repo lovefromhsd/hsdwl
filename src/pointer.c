@@ -203,8 +203,7 @@ static void apply_resize(struct hsdwl_server *server)
 			&& !server->grabbed_view->xwayland_surface)
 		return;
 
-	// Hide view decorations during resize; preview rects replace them visually.
-	// view_borders_update() will re-enable them on the next client commit.
+
 	struct hsdwl_view *v = server->grabbed_view;
 	for (int i = 0; i < 4; i++)
 		if (v->border_rects[i])
@@ -252,7 +251,7 @@ static void apply_resize(struct hsdwl_server *server)
 	int tb = server->config.titlebar_height;
 	if (tb < 0) tb = 0;
 
-	
+
 	int pw, ph;
 	if (tb > 0)
 	{
@@ -290,7 +289,7 @@ static void apply_resize(struct hsdwl_server *server)
 			preview_y += 2 * g->tab_bar_thickness;
 	}
 
-	
+
 	float *col = server->config.border_color_focused;
 	for (int i = 0; i < 4; i++)
 	{
@@ -304,7 +303,7 @@ static void apply_resize(struct hsdwl_server *server)
 		}
 	}
 
-	
+
 	if (server->resize_preview[0]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[0], pw, bw);
@@ -313,7 +312,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[0]->node, true);
 	}
-	
+
 	if (server->resize_preview[1]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[1], pw, bw);
@@ -323,7 +322,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[1]->node, true);
 	}
-	
+
 	if (server->resize_preview[2]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[2], bw, ph);
@@ -332,7 +331,7 @@ static void apply_resize(struct hsdwl_server *server)
 		wlr_scene_node_set_enabled(
 			&server->resize_preview[2]->node, true);
 	}
-	
+
 	if (server->resize_preview[3]) {
 		wlr_scene_rect_set_size(
 			server->resize_preview[3], bw, ph);
@@ -482,7 +481,7 @@ static bool handle_grab_motion(struct hsdwl_server *server)
 			server->grabbed_view = NULL;
 			return true;
 		}
-		
+
 		double local_y = server->cursor->y
 			- g->scene_tree->node.y;
 		if (local_y < 0 || local_y >= g->tab_bar_thickness)
@@ -551,7 +550,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 
 	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED)
 	{
-		
+
 		if (server->config.stage_manager_enabled
 				&& server->cursor->x < SIDEBAR_WIDTH
 				&& event->button == BTN_LEFT)
@@ -614,7 +613,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			else
 			{
 				hsdwl_tab_group_set_active(g, tv);
-				
+
 			}
 		}
 

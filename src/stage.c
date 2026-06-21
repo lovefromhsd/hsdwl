@@ -29,7 +29,6 @@
 #include <wlr/xwayland.h>
 
 
-
 void stage_set_views_enabled(struct custom_stage *stage, bool enabled)
 {
 	struct custom_window *cw;
@@ -135,7 +134,6 @@ void stage_free(struct custom_stage *stage)
 }
 
 
-
 void stage_manager_init(struct hsdwl_server *server)
 {
 	for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
@@ -213,10 +211,10 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	size_t ws = server->current_workspace;
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
 
-	
+
 	if (mgr->active_stage)
 	{
-		
+
 		if (wl_list_length(&mgr->inactive_stages) >= MAX_INACTIVE_STAGES)
 		{
 			struct custom_stage *oldest = wl_container_of(
@@ -230,7 +228,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 		mgr->active_stage = NULL;
 	}
 
-	
+
 	struct custom_stage *stage = calloc(1, sizeof(*stage));
 	if (!stage) return;
 
@@ -264,7 +262,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	}
 	stage->tree->node.data = stage;
 
-	
+
 	int bw = server->config.border_width;
 	int tb = server->config.titlebar_height;
 	int scene_w = 1920, scene_h = 1080;
@@ -284,11 +282,11 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	cw->x = canvas_x;
 	cw->y = canvas_y;
 
-	
+
 	if (!stage_thumb_init(stage, server, ws))
 		wlr_log(WLR_ERROR, "thumb_tree create failed");
 
-	
+
 	if (view->scene_tree)
 	{
 		wlr_scene_node_reparent(&view->scene_tree->node,
@@ -312,7 +310,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 
 	mgr->active_stage = stage;
 
-	
+
 	if (animate)
 	{
 		int cap_h = cw->h;
@@ -380,11 +378,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	view_focus(server, view);
 	stage_manager_render_sidebar(server, ws);
 
-	/*
-	 * If any existing windows are fully maximized (stage 2), demote
-	 * them to the zoomed state now that another window has been added
-	 * to the stage manager.
-	 */
+
 	{
 		struct custom_stage *s;
 
@@ -526,7 +520,7 @@ void stage_manager_notify_view_removed(struct hsdwl_server *server,
 				if (find_custom_window(st, NULL) == NULL
 						&& wl_list_empty(&st->windows))
 				{
-					
+
 					wl_list_remove(&st->link);
 					stage_reparent_to_canvas(st, server);
 					stage_free(st);
@@ -540,7 +534,7 @@ void stage_manager_notify_view_removed(struct hsdwl_server *server,
 
 		if (wl_list_empty(&mgr->active_stage->windows))
 		{
-			
+
 			if (!wl_list_empty(&mgr->inactive_stages))
 			{
 				struct custom_stage *promote = wl_container_of(
@@ -662,7 +656,7 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 		mgr->active_stage = NULL;
 		wl_list_init(&mgr->inactive_stages);
 
-		
+
 		struct hsdwl_view *view;
 		struct hsdwl_view *first_view = NULL;
 		int nviews = 0;
@@ -679,10 +673,15 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 		}
 		if (nviews == 0) continue;
 
-		
+
 		struct custom_stage *active = calloc(1, sizeof(*active));
 		if (!active) continue;
 		wl_list_init(&active->windows);
+
+		active->tree = wlr_scene_tree_create(
+			server->ws_stage_canvases[ws]);
+		if (!active->tree) { stage_free(active); continue; }
+		active->tree->node.data = active;
 
 		if (first_view)
 		{
@@ -712,16 +711,11 @@ void stage_manager_migrate_existing(struct hsdwl_server *server)
 			wl_list_insert(&active->windows, &acw->link);
 		}
 
-		active->tree = wlr_scene_tree_create(
-			server->ws_stage_canvases[ws]);
-		if (!active->tree) { stage_free(active); continue; }
-		active->tree->node.data = active;
-
 		stage_thumb_init(active, server, ws);
 
 		mgr->active_stage = active;
 
-		
+
 		wl_list_for_each(view, &server->views, link)
 		{
 			if (view == first_view) continue;
@@ -852,7 +846,7 @@ void stage_manager_check_sidebar_overlap(struct hsdwl_server *server,
 	if (should_hide == mgr->sidebar_hidden)
 		return;
 
-	
+
 	struct hsdwl_animation *anim, *tmp;
 	wl_list_for_each_safe(anim, tmp, &server->animations, link) {
 		if (anim->pos_node

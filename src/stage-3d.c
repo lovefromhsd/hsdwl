@@ -153,13 +153,11 @@ static struct wlr_buffer *render_tilt_frame(
 	};
 
 
-
 	struct wlr_buffer *buf = wlr_allocator_create_buffer(
 
 		server->allocator, dst_w, dst_h, &fmt);
 
 	if (!buf) return NULL;
-
 
 
 	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
@@ -175,7 +173,6 @@ static struct wlr_buffer *render_tilt_frame(
 	}
 
 
-
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 
 		.box = { .width = dst_w, .height = dst_h },
@@ -185,13 +182,11 @@ static struct wlr_buffer *render_tilt_frame(
 	});
 
 
-
 	stage_3d_render_tilted(pass, tex, tex_w, tex_h,
 
 		0, 0, dst_w, dst_h,
 
 		z_offset, angle_deg, 1.0f, focal_length);
-
 
 
 	if (!wlr_render_pass_submit(pass)) {

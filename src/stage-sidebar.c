@@ -23,7 +23,6 @@
 #include <wlr/types/wlr_scene.h>
 
 
-
 const char *view_get_app_name(struct hsdwl_view *view)
 {
 	if (!view) return "Unknown";
@@ -47,7 +46,6 @@ const char *stage_get_app_name(struct custom_stage *stage)
 }
 
 
-
 void stage_render_thumbnail(struct hsdwl_server *server,
 		struct custom_stage *stage, int thumb_w, int thumb_h,
 		float tilt_dir)
@@ -55,7 +53,7 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 	if (!stage->thumb_buf || wl_list_empty(&stage->windows))
 		return;
 
-	
+
 	struct wlr_box bbox;
 	if (!stage_compute_bbox(stage, &bbox))
 		return;
@@ -182,7 +180,6 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 }
 
 
-
 void stage_hide_thumb(struct custom_stage *st, bool hide)
 {
 	if (st && st->thumb_tree)
@@ -190,21 +187,20 @@ void stage_hide_thumb(struct custom_stage *st, bool hide)
 }
 
 
-
 void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
 	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
 
-	
+
 	stage_hide_thumb(mgr->active_stage, true);
 
-	
+
 	struct custom_stage *st;
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 		stage_hide_thumb(st, true);
 
-	
+
 	struct entry {
 		struct custom_stage *st;
 		int tw, th;
@@ -229,7 +225,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	}
 	if (nentries == 0) return;
 
-	
+
 	int sidebar_h = output_get_height(server);
 
 	int slot_h = sidebar_h / nentries;
@@ -238,7 +234,7 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	{
 		int x = STAGE_THUMB_PAD;
 
-		
+
 		int max_sz = slot_h - STAGE_THUMB_PAD * 2;
 		if (max_sz < 20) max_sz = 20;
 		if (entries[i].tw > max_sz)
