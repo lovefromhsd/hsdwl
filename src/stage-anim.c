@@ -81,9 +81,9 @@ struct stage_switch_anim {
 	struct custom_stage *new_stage;
 	size_t ws;
 	int remaining;
-	bool insert_tail;
 	int n_overlays;
 	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
+	struct wl_list *insert_after;
 };
 
 struct stage_merge_anim {
@@ -110,12 +110,8 @@ static void stage_switch_on_anim_done(struct hsdwl_server *server,
 
 	if (ssa->old_stage) {
 		stage_set_views_enabled(ssa->old_stage, false);
-		if (ssa->insert_tail)
-			wl_list_insert(mgr->inactive_stages.prev,
-				&ssa->old_stage->link);
-		else
-			wl_list_insert(&mgr->inactive_stages,
-				&ssa->old_stage->link);
+		wl_list_insert(ssa->insert_after,
+			&ssa->old_stage->link);
 	}
 	wl_list_remove(&ssa->new_stage->link);
 	mgr->active_stage = ssa->new_stage;
@@ -167,7 +163,7 @@ static void stage_merge_on_anim_done(struct hsdwl_server *server,
 
 static void stage_switch_internal(struct hsdwl_server *server,
 		struct custom_stage *old, struct custom_stage *target,
-		size_t ws, bool insert_tail)
+		size_t ws, struct wl_list *insert_after)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
 	int bw = server->config.border_width;
@@ -185,7 +181,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	ssa->new_stage = target;
 	ssa->ws = ws;
 	ssa->remaining = 0;
-	ssa->insert_tail = insert_tail;
+	ssa->insert_after = insert_after;
 	ssa->n_overlays = 0;
 
 
@@ -397,11 +393,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 instant_switch:
 	if (old) {
 		stage_set_views_enabled(old, false);
-		if (insert_tail)
-			wl_list_insert(mgr->inactive_stages.prev,
-				&old->link);
-		else
-			wl_list_insert(&mgr->inactive_stages, &old->link);
+		wl_list_insert(insert_after, &old->link);
 	}
 	wl_list_remove(&target->link);
 	mgr->active_stage = target;
@@ -418,7 +410,11 @@ void stage_manager_switch(struct hsdwl_server *server,
 	if (!target || target == mgr->active_stage)
 		return;
 
-	stage_switch_internal(server, mgr->active_stage, target, ws, false);
+	/* Save the target's position in the inactive list so the old
+	 * active stage takes its place (swap behavior) instead of
+	 * always jumping to the head/tail. */
+	struct wl_list *target_pos = target->link.prev;
+	stage_switch_internal(server, mgr->active_stage, target, ws, target_pos);
 }
 
 
@@ -438,7 +434,12 @@ void stage_manager_cycle(struct hsdwl_server *server, size_t ws, bool reverse)
 	if (!target)
 		return;
 
-	stage_switch_internal(server, mgr->active_stage, target, ws, !reverse);
+	/* For cycling, the old active stage goes to the tail (forward)
+	 * or head (reverse) to maintain natural cyclic rotation. */
+	struct wl_list *insert_after = reverse
+		? &mgr->inactive_stages  /* head */
+		: mgr->inactive_stages.prev;  /* tail */
+	stage_switch_internal(server, mgr->active_stage, target, ws, insert_after);
 }
 
 
