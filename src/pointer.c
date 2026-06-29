@@ -735,17 +735,21 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 		wlr_seat_pointer_notify_button(server->seat,
 			event->time_msec, event->button, event->state);
 
-		double sx, sy;
-		struct hsdwl_view *view = view_at(server,
-			server->cursor->x, server->cursor->y, &sx, &sy);
-		if (view)
+		/* Don't steal focus when a popup grab is active */
+		if (!wlr_seat_keyboard_has_grab(server->seat))
 		{
-			bool is_or = view->xwayland_surface
-				&& view->xwayland_surface->override_redirect
-				&& !wlr_xwayland_surface_override_redirect_wants_focus(
-					view->xwayland_surface);
-			if (!is_or)
-				view_focus(server, view);
+			double sx, sy;
+			struct hsdwl_view *view = view_at(server,
+				server->cursor->x, server->cursor->y, &sx, &sy);
+			if (view)
+			{
+				bool is_or = view->xwayland_surface
+					&& view->xwayland_surface->override_redirect
+					&& !wlr_xwayland_surface_override_redirect_wants_focus(
+						view->xwayland_surface);
+				if (!is_or)
+					view_focus(server, view);
+			}
 		}
 		else
 		{

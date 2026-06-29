@@ -38,6 +38,7 @@
 #include <wlr/types/wlr_ext_image_capture_source_v1.h>
 #include <wlr/types/wlr_ext_image_copy_capture_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
+#include <wlr/types/wlr_viewporter.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
@@ -401,6 +402,13 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	{
 		wlr_log(WLR_ERROR,
 			"wlr_ext_image_copy_capture_manager_v1_create failed");
+		return false;
+	}
+
+	if (!wlr_viewporter_create(server->display))
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_viewporter_create failed");
 		return false;
 	}
 
