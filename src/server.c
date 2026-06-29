@@ -343,6 +343,10 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wl_signal_add(&xdg_shell->events.new_toplevel,
 		&server->new_xdg_toplevel);
 
+	server->new_xdg_shell_popup.notify = handle_xdg_shell_popup;
+	wl_signal_add(&xdg_shell->events.new_popup,
+		&server->new_xdg_shell_popup);
+
 	server->new_input.notify = input_handle_new;
 	wl_signal_add(&server->backend->events.new_input, &server->new_input);
 

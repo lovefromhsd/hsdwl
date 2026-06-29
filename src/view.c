@@ -469,7 +469,6 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
 	wl_list_remove(&view->set_title.link);
-	wl_list_remove(&view->new_popup.link);
 	wl_list_remove(&view->destroy.link);
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
@@ -520,10 +519,22 @@ void view_close(struct hsdwl_view *view)
 		wlr_xwayland_surface_close(view->xwayland_surface);
 }
 
-void view_handle_new_popup(struct wl_listener *listener, void *data)
+void handle_xdg_shell_popup(struct wl_listener *listener, void *data)
 {
-	struct hsdwl_view *view = wl_container_of(listener, view, new_popup);
+	struct hsdwl_server *server = wl_container_of(listener, server, new_xdg_shell_popup);
 	struct wlr_xdg_popup *wlr_popup = data;
+
+	/* Find the parent view from the popup's parent surface */
+	struct wlr_surface *parent_surface = wlr_popup->parent;
+	if (!parent_surface)
+		return;
+	struct wlr_xdg_surface *parent_xdg =
+		wlr_xdg_surface_try_from_wlr_surface(parent_surface);
+	if (!parent_xdg)
+		return;
+	struct hsdwl_view *view = parent_xdg->data;
+	if (!view)
+		return;
 
 	struct hsdwl_popup *popup = calloc(1, sizeof(*popup));
 	if (!popup)
@@ -546,7 +557,7 @@ void view_handle_new_popup(struct wl_listener *listener, void *data)
 	}
 
 	popup->destroy.notify = view_popup_handle_destroy;
-	wl_signal_add(&wlr_popup->base->events.destroy, &popup->destroy);
+	wl_signal_add(&wlr_popup->events.destroy, &popup->destroy);
 
 	wl_list_insert(&view->popups, &popup->link);
 
@@ -601,9 +612,6 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	view->toplevel_destroy.notify = view_handle_toplevel_destroy;
 	wl_signal_add(&xdg_surface->toplevel->events.destroy,
 		&view->toplevel_destroy);
-
-	view->new_popup.notify = view_handle_new_popup;
-	wl_signal_add(&xdg_surface->events.new_popup, &view->new_popup);
 
 	if (xdg_surface->toplevel->title)
 	{

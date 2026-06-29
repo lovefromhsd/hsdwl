@@ -61,6 +61,7 @@ struct hsdwl_server
 	struct wlr_seat *seat;
 	struct wl_listener new_output;
 	struct wl_listener new_xdg_toplevel;
+	struct wl_listener new_xdg_shell_popup;
 	struct wl_listener new_xwayland_surface;
 	struct wl_listener new_input;
 	struct wl_list keyboards;
