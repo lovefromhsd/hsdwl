@@ -16,6 +16,10 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/xwayland.h>
 
+#include <wlr/types/wlr_layer_shell_v1.h>
+#include <wlr/types/wlr_output_layout.h>
+#include "output.h"
+
 #include "animation.h"
 
 
@@ -339,10 +343,39 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 }
 
 
+static void view_popup_handle_destroy(
+	struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_popup *popup = wl_container_of(listener, popup, destroy);
+	wl_list_remove(&popup->link);
+	wl_list_remove(&popup->destroy.link);
+	wlr_scene_node_destroy(&popup->scene_tree->node);
+	free(popup);
+}
+
+struct wlr_scene_tree *view_popup_parent_tree(struct hsdwl_view *view)
+{
+	/* Popup geometry is relative to the parent xdg_surface's coordinate
+	 * system. view->content_tree IS the xdg_surface scene tree (returned
+	 * by wlr_scene_xdg_surface_create), so popups go there. */
+	return view->content_tree;
+}
+
 static void view_handle_unmap(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
+
+	struct hsdwl_popup *popup, *tmp;
+	wl_list_for_each_safe(popup, tmp, &view->popups, link)
+	{
+		wl_list_remove(&popup->link);
+		wl_list_remove(&popup->destroy.link);
+		wlr_scene_node_destroy(&popup->scene_tree->node);
+		free(popup);
+	}
+
 	if (view->scene_tree)
 		wlr_scene_node_set_enabled(&view->scene_tree->node, false);
 	if (view->xdg_surface && view->xdg_surface->toplevel)
@@ -436,6 +469,7 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&view->map.link);
 	wl_list_remove(&view->unmap.link);
 	wl_list_remove(&view->set_title.link);
+	wl_list_remove(&view->new_popup.link);
 	wl_list_remove(&view->destroy.link);
 	view->content_tree = NULL;
 	view->scene_tree = NULL;
@@ -461,6 +495,15 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 		view->anim_overlay = NULL;
 	}
 
+	struct hsdwl_popup *popup, *tmp_popup;
+	wl_list_for_each_safe(popup, tmp_popup, &view->popups, link)
+	{
+		wl_list_remove(&popup->link);
+		wl_list_remove(&popup->destroy.link);
+		wlr_scene_node_destroy(&popup->scene_tree->node);
+		free(popup);
+	}
+
 	free(view);
 }
 
@@ -475,6 +518,51 @@ void view_close(struct hsdwl_view *view)
 		wlr_xdg_toplevel_send_close(view->xdg_surface->toplevel);
 	else if (view->xwayland_surface)
 		wlr_xwayland_surface_close(view->xwayland_surface);
+}
+
+void view_handle_new_popup(struct wl_listener *listener, void *data)
+{
+	struct hsdwl_view *view = wl_container_of(listener, view, new_popup);
+	struct wlr_xdg_popup *wlr_popup = data;
+
+	struct hsdwl_popup *popup = calloc(1, sizeof(*popup));
+	if (!popup)
+		return;
+
+	struct wlr_scene_tree *parent_tree = view_popup_parent_tree(view);
+	if (!parent_tree)
+	{
+		free(popup);
+		return;
+	}
+
+	popup->wlr_popup = wlr_popup;
+	popup->scene_tree = wlr_scene_xdg_surface_create(
+		parent_tree, wlr_popup->base);
+	if (!popup->scene_tree)
+	{
+		free(popup);
+		return;
+	}
+
+	popup->destroy.notify = view_popup_handle_destroy;
+	wl_signal_add(&wlr_popup->base->events.destroy, &popup->destroy);
+
+	wl_list_insert(&view->popups, &popup->link);
+
+	struct wlr_box output_box;
+	if (!wl_list_empty(&view->server->outputs))
+	{
+		struct hsdwl_output *o = wl_container_of(
+			view->server->outputs.next, o, link);
+		wlr_output_layout_get_box(view->server->output_layout,
+			o->wlr_output, &output_box);
+	}
+	else
+	{
+		output_box = (struct wlr_box){0, 0, 1920, 1080};
+	}
+	wlr_xdg_popup_unconstrain_from_box(wlr_popup, &output_box);
 }
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
@@ -492,6 +580,7 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	view->xdg_surface = xdg_surface;
 	view->tab_group = NULL;
 	wl_list_init(&view->tab_group_link);
+	wl_list_init(&view->popups);
 	view->maximized = false;
 	view->zoomed = false;
 	memset(&view->saved_geometry, 0, sizeof(view->saved_geometry));
@@ -512,6 +601,10 @@ void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
 	view->toplevel_destroy.notify = view_handle_toplevel_destroy;
 	wl_signal_add(&xdg_surface->toplevel->events.destroy,
 		&view->toplevel_destroy);
+
+	view->new_popup.notify = view_handle_new_popup;
+	wl_signal_add(&xdg_surface->events.new_popup, &view->new_popup);
+
 	if (xdg_surface->toplevel->title)
 	{
 		strncpy(view->cached_title, xdg_surface->toplevel->title,
