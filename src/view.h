@@ -18,9 +18,12 @@ struct wlr_xdg_toplevel_decoration_v1;
 struct hsdwl_popup
 {
 	struct wl_list link;
+	struct hsdwl_server *server;
 	struct wlr_xdg_popup *wlr_popup;
 	struct wlr_scene_tree *scene_tree;
 	struct wl_listener destroy;
+	struct wl_listener commit;
+	struct wlr_box output_box;
 };
 
 struct hsdwl_view

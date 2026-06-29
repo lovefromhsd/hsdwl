@@ -343,12 +343,29 @@ struct hsdwl_view *view_prev(struct hsdwl_server *server,
 }
 
 
+static void view_popup_handle_commit(
+	struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_popup *popup = wl_container_of(listener, popup, commit);
+	struct wlr_xdg_popup *wlr_popup = popup->wlr_popup;
+
+	/* On the xdg_surface's first commit, the surface is now
+	 * initialized. Send the initial configure with unconstrained
+	 * position so the popup maps with correct geometry. */
+	if (wlr_popup->base->initial_commit) {
+		wlr_xdg_popup_unconstrain_from_box(wlr_popup,
+			&popup->output_box);
+	}
+}
+
 static void view_popup_handle_destroy(
 	struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_popup *popup = wl_container_of(listener, popup, destroy);
 	wl_list_remove(&popup->link);
+	wl_list_remove(&popup->commit.link);
 	wl_list_remove(&popup->destroy.link);
 	wlr_scene_node_destroy(&popup->scene_tree->node);
 	free(popup);
@@ -371,6 +388,7 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 	wl_list_for_each_safe(popup, tmp, &view->popups, link)
 	{
 		wl_list_remove(&popup->link);
+		wl_list_remove(&popup->commit.link);
 		wl_list_remove(&popup->destroy.link);
 		wlr_scene_node_destroy(&popup->scene_tree->node);
 		free(popup);
@@ -498,6 +516,7 @@ static void view_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_for_each_safe(popup, tmp_popup, &view->popups, link)
 	{
 		wl_list_remove(&popup->link);
+		wl_list_remove(&popup->commit.link);
 		wl_list_remove(&popup->destroy.link);
 		wlr_scene_node_destroy(&popup->scene_tree->node);
 		free(popup);
@@ -540,18 +559,36 @@ void handle_xdg_shell_popup(struct wl_listener *listener, void *data)
 	if (!popup)
 		return;
 
+	popup->wlr_popup = wlr_popup;
+	popup->server = server;
+
+	/* Compute output box once at creation — used on initial commit */
+	if (!wl_list_empty(&server->outputs)) {
+		struct hsdwl_output *o = wl_container_of(
+			server->outputs.next, o, link);
+		wlr_output_layout_get_box(server->output_layout,
+			o->wlr_output, &popup->output_box);
+	} else {
+		popup->output_box = (struct wlr_box){0, 0, 1920, 1080};
+	}
+
+	/* Connect commit BEFORE scene create so our handler fires */
+	popup->commit.notify = view_popup_handle_commit;
+	wl_signal_add(&wlr_popup->base->surface->events.commit, &popup->commit);
+
 	struct wlr_scene_tree *parent_tree = view_popup_parent_tree(view);
 	if (!parent_tree)
 	{
+		wl_list_remove(&popup->commit.link);
 		free(popup);
 		return;
 	}
 
-	popup->wlr_popup = wlr_popup;
 	popup->scene_tree = wlr_scene_xdg_surface_create(
 		parent_tree, wlr_popup->base);
 	if (!popup->scene_tree)
 	{
+		wl_list_remove(&popup->commit.link);
 		free(popup);
 		return;
 	}
@@ -560,20 +597,6 @@ void handle_xdg_shell_popup(struct wl_listener *listener, void *data)
 	wl_signal_add(&wlr_popup->events.destroy, &popup->destroy);
 
 	wl_list_insert(&view->popups, &popup->link);
-
-	struct wlr_box output_box;
-	if (!wl_list_empty(&view->server->outputs))
-	{
-		struct hsdwl_output *o = wl_container_of(
-			view->server->outputs.next, o, link);
-		wlr_output_layout_get_box(view->server->output_layout,
-			o->wlr_output, &output_box);
-	}
-	else
-	{
-		output_box = (struct wlr_box){0, 0, 1920, 1080};
-	}
-	wlr_xdg_popup_unconstrain_from_box(wlr_popup, &output_box);
 }
 
 void view_handle_new_xdg_toplevel(struct wl_listener *listener, void *data)
