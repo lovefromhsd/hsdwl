@@ -55,6 +55,25 @@ static void xwayland_view_handle_surface_map(
 	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
 	bool is_popup = xwayland_view_is_popup(view);
 
+	wlr_log(WLR_DEBUG,
+		"[XWAYLAND MAP] title=%s class=%s override_redirect=%d parent=%p "
+		"is_popup=%d will_focus=%d geom=(%d,%d %dx%d)",
+		xsurface->title ? xsurface->title : "(null)",
+		xsurface->class ? xsurface->class : "(null)",
+		(int)xsurface->override_redirect, (void*)xsurface->parent,
+		(int)is_popup,
+		(int)(!is_popup
+			|| (xsurface->override_redirect
+				&& !xsurface->parent
+				&& wlr_xwayland_surface_override_redirect_wants_focus(
+					xsurface))),
+		xsurface->x, xsurface->y, xsurface->width, xsurface->height);
+	if (xsurface->parent)
+		wlr_log(WLR_DEBUG,
+			"[XWAYLAND MAP] parent title=%s override_redirect=%d",
+			xsurface->parent->title ? xsurface->parent->title : "(null)",
+			(int)xsurface->parent->override_redirect);
+
 	if (!view->scene_tree)
 	{
 		int bw = view->server->config.border_width;
@@ -138,9 +157,16 @@ static void xwayland_view_handle_surface_map(
 		stage_manager_new_window(view->server, view, true);
 	}
 	else if (!is_popup
-			|| wlr_xwayland_surface_override_redirect_wants_focus(
-				xsurface))
+			|| (xsurface->override_redirect
+				&& !xsurface->parent
+				&& wlr_xwayland_surface_override_redirect_wants_focus(
+					xsurface)))
 	{
+		/* Only focus OR popups that are launchers (no parent)
+		 * like dmenu. OR popup menus with a parent (Ghidra
+		 * dropdowns, Swing menus) must not steal focus — doing
+		 * so sends FocusOut to the parent and the toolkit
+		 * dismisses the menu instantly. */
 		view_focus(view->server, view);
 	}
 }
@@ -150,15 +176,37 @@ static void xwayland_view_handle_surface_unmap(
 {
 	struct hsdwl_view *view = wl_container_of(listener, view, unmap);
 	(void)data;
+	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
+	if (xsurface)
+		wlr_log(WLR_DEBUG,
+			"[XWAYLAND UNMAP] title=%s class=%s override_redirect=%d "
+			"is_popup=%d will_refocus=%d",
+			xsurface->title ? xsurface->title : "(null)",
+			xsurface->class ? xsurface->class : "(null)",
+			(int)xsurface->override_redirect,
+			(int)xwayland_view_is_popup(view),
+			(int)(!xwayland_view_is_popup(view)
+				|| (xsurface->override_redirect
+					&& !xsurface->parent
+					&& wlr_xwayland_surface_override_redirect_wants_focus(
+						xsurface))));
 	if (view->scene_tree)
 		wlr_scene_node_set_enabled(
 			&view->scene_tree->node, false);
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
-	if (!view->xwayland_surface
-			|| !xwayland_view_is_popup(view)
-			|| wlr_xwayland_surface_override_redirect_wants_focus(
+	/* Refocus after unmap only for regular windows or for
+	 * launcher-type OR popups (no parent, like dmenu). OR
+	 * dropdown menus with a parent don't steal focus on map,
+	 * so don't reshuffle focus on unmap either. */
+	bool refocus = !xwayland_view_is_popup(view);
+	if (!refocus && view->xwayland_surface
+			&& view->xwayland_surface->override_redirect
+			&& !view->xwayland_surface->parent
+			&& wlr_xwayland_surface_override_redirect_wants_focus(
 				view->xwayland_surface))
+		refocus = true;
+	if (refocus)
 		view_focus(view->server,
 			view_next(view->server, view));
 }
