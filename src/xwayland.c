@@ -17,12 +17,43 @@
 #include <wlr/util/log.h>
 #include <wlr/xwayland.h>
 
+bool xwayland_view_is_popup(struct hsdwl_view *view)
+{
+	struct wlr_xwayland_surface *xs = view->xwayland_surface;
+	if (!xs)
+		return false;
+	if (xs->override_redirect)
+		return true;
+	if (!xs->parent)
+		return false;
+	/* Non-OR window with a transient parent and popup-like
+	 * _NET_WM_WINDOW_TYPE (e.g. Ghidra/Java Swing menus).
+	 * Treating these as OR for scene tree + focus avoids
+	 * the focus-steal that triggers FocusOut on the parent
+	 * and makes Swing dismiss the menu. */
+	return wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_MENU)
+		|| wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_POPUP_MENU)
+		|| wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_DROPDOWN_MENU)
+		|| wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_TOOLTIP)
+		|| wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_COMBO)
+		|| wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_DND)
+		|| wlr_xwayland_surface_has_window_type(xs,
+			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_NOTIFICATION);
+}
+
 static void xwayland_view_handle_surface_map(
 		struct wl_listener *listener, void *data)
 {
 	struct hsdwl_view *view = wl_container_of(listener, view, map);
 	(void)data;
 	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
+	bool is_popup = xwayland_view_is_popup(view);
 
 	if (!view->scene_tree)
 	{
@@ -30,7 +61,7 @@ static void xwayland_view_handle_surface_map(
 		int tb = view->server->config.titlebar_height;
 		if (tb < 0) tb = 0;
 		struct wlr_scene_tree *parent =
-			xsurface->override_redirect
+			is_popup
 			? view->server->override_tree
 			: view->server->workspaces[
 				view->server->current_workspace];
@@ -42,7 +73,7 @@ static void xwayland_view_handle_surface_map(
 			return;
 		}
 		view->scene_tree->node.data = view;
-		if (xsurface->override_redirect)
+		if (is_popup)
 			wlr_scene_node_raise_to_top(
 				&view->scene_tree->node);
 
@@ -63,9 +94,10 @@ static void xwayland_view_handle_surface_map(
 		}
 		wlr_scene_node_set_position(
 			&view->content_tree->node,
-			xsurface->override_redirect ? 0 : bw,
-			xsurface->override_redirect ? 0 : (tb > 0 ? tb : bw));
-		view_borders_create(view);
+			is_popup ? 0 : bw,
+			is_popup ? 0 : (tb > 0 ? tb : bw));
+		if (!is_popup)
+			view_borders_create(view);
 	}
 	else
 	{
@@ -90,8 +122,8 @@ static void xwayland_view_handle_surface_map(
 		}
 		wlr_scene_node_set_position(
 			&view->content_tree->node,
-			xsurface->override_redirect ? 0 : bw,
-			xsurface->override_redirect ? 0 : (tb > 0 ? tb : bw));
+			is_popup ? 0 : bw,
+			is_popup ? 0 : (tb > 0 ? tb : bw));
 	}
 
 	titlebar_text_update(view);
@@ -100,12 +132,12 @@ static void xwayland_view_handle_surface_map(
 	wlr_scene_node_set_enabled(
 		&view->scene_tree->node, true);
 	if (view->server->config.stage_manager_enabled
-			&& !xsurface->override_redirect
+			&& !is_popup
 			&& !view_is_floating_toolbar(view))
 	{
 		stage_manager_new_window(view->server, view, true);
 	}
-	else if (!xsurface->override_redirect
+	else if (!is_popup
 			|| wlr_xwayland_surface_override_redirect_wants_focus(
 				xsurface))
 	{
@@ -124,7 +156,7 @@ static void xwayland_view_handle_surface_unmap(
 	if (view->server->grabbed_view == view)
 		view->server->grabbed_view = NULL;
 	if (!view->xwayland_surface
-			|| !view->xwayland_surface->override_redirect
+			|| !xwayland_view_is_popup(view)
 			|| wlr_xwayland_surface_override_redirect_wants_focus(
 				view->xwayland_surface))
 		view_focus(view->server,

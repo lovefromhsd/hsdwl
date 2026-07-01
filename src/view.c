@@ -7,6 +7,7 @@
 #include "view.h"
 #include "server.h"
 #include "deco.h"
+#include "xwayland.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -108,7 +109,7 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			if (!v->scene_tree || !v->scene_tree->node.enabled)
 				continue;
 			if (v->xwayland_surface
-					&& v->xwayland_surface->override_redirect)
+					&& xwayland_view_is_popup(v))
 				continue;
 			for (int i = 0; i < 4; i++)
 			{
@@ -142,7 +143,7 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 			wlr_xdg_surface_schedule_configure(v->xdg_surface);
 		}
 		if (v->xwayland_surface
-				&& (!v->xwayland_surface->override_redirect
+				&& (!xwayland_view_is_popup(v)
 					|| wlr_xwayland_surface_override_redirect_wants_focus(
 						v->xwayland_surface)))
 		{
@@ -150,7 +151,7 @@ void view_focus(struct hsdwl_server *server, struct hsdwl_view *view)
 				v->xwayland_surface, active);
 		}
 		if (v->xwayland_surface
-				&& v->xwayland_surface->override_redirect)
+				&& xwayland_view_is_popup(v))
 			continue;
 		float *color = active
 			? server->config.border_color_focused

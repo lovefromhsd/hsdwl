@@ -9,6 +9,7 @@
 #include "tab-group-layout.h"
 #include "view.h"
 #include "view-maximize.h"
+#include "xwayland.h"
 
 #include <linux/input-event-codes.h>
 #include <wlr/types/wlr_cursor.h>
@@ -744,7 +745,7 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 			if (view)
 			{
 				bool is_or = view->xwayland_surface
-					&& view->xwayland_surface->override_redirect
+					&& xwayland_view_is_popup(view)
 					&& !wlr_xwayland_surface_override_redirect_wants_focus(
 						view->xwayland_surface);
 				if (!is_or)
