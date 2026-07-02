@@ -104,12 +104,14 @@ static void tab_button_update_text(struct hsdwl_tab_button *btn,
 	if (width < 4 || height < 4)
 		return;
 
+	struct hsdwl_config *cfg = &group->server->config;
+
 	const char *title = btn->view->cached_title[0]
 		? btn->view->cached_title : "Untitled";
 
 	float *tc = active
-		? group->server->config.title_text_color_focused
-		: group->server->config.title_text_color;
+		? cfg->title_text_color_focused
+		: cfg->title_text_color;
 
 	cairo_surface_t *surf = cairo_image_surface_create(
 		CAIRO_FORMAT_ARGB32, width, height);
@@ -124,8 +126,9 @@ static void tab_button_update_text(struct hsdwl_tab_button *btn,
 	pango_layout_set_text(layout, title, -1);
 	pango_layout_set_width(layout, (width - 12) * PANGO_SCALE);
 	pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
-	PangoFontDescription *font = pango_font_description_from_string(
-		"Sans 10");
+	char font_desc[256];
+	hsdwl_config_font_description(cfg, font_desc, sizeof(font_desc));
+	PangoFontDescription *font = pango_font_description_from_string(font_desc);
 	pango_layout_set_font_description(layout, font);
 
 	cairo_set_source_rgba(cr, tc[0], tc[1], tc[2], tc[3]);

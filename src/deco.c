@@ -151,16 +151,8 @@ void titlebar_text_update(struct hsdwl_view *view)
 	pango_layout_set_text(layout, title, -1);
 	pango_layout_set_width(layout, (tw - 24) * PANGO_SCALE);
 	pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
-	const char *weight = cfg->title_font_weight;
 	char font_desc[256];
-	if (weight && weight[0])
-		snprintf(font_desc, sizeof(font_desc), "%s %s %d",
-			cfg->title_font, weight,
-			cfg->title_font_size);
-	else
-		snprintf(font_desc, sizeof(font_desc), "%s %d",
-			cfg->title_font,
-			cfg->title_font_size);
+	hsdwl_config_font_description(cfg, font_desc, sizeof(font_desc));
 	PangoFontDescription *font = pango_font_description_from_string(font_desc);
 	pango_layout_set_font_description(layout, font);
 

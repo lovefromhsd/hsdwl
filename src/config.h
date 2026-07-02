@@ -73,5 +73,7 @@ struct hsdwl_config
 
 bool hsdwl_config_load(struct hsdwl_config *cfg);
 void hsdwl_config_finish(struct hsdwl_config *cfg);
+void hsdwl_config_font_description(const struct hsdwl_config *cfg,
+		char *buf, size_t size);
 
 #endif

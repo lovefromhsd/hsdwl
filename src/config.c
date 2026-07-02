@@ -259,6 +259,18 @@ static void parse_field(struct hsdwl_config *cfg, const struct config_field *f, 
 	}
 }
 
+void hsdwl_config_font_description(const struct hsdwl_config *cfg,
+		char *buf, size_t size)
+{
+	if (cfg->title_font_weight[0])
+		snprintf(buf, size, "%s %s %d",
+			cfg->title_font, cfg->title_font_weight,
+			cfg->title_font_size);
+	else
+		snprintf(buf, size, "%s %d",
+			cfg->title_font, cfg->title_font_size);
+}
+
 bool hsdwl_config_load(struct hsdwl_config *cfg)
 {
 	memset(cfg, 0, sizeof(*cfg));
@@ -427,13 +439,7 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 	cairo_t *ct = cairo_create(cs);
 	PangoLayout *pl = pango_cairo_create_layout(ct);
 	char fd[256];
-	if (cfg->title_font_weight[0])
-		snprintf(fd, sizeof(fd), "%s %s %d",
-			cfg->title_font, cfg->title_font_weight,
-			cfg->title_font_size);
-	else
-		snprintf(fd, sizeof(fd), "%s %d",
-			cfg->title_font, cfg->title_font_size);
+	hsdwl_config_font_description(cfg, fd, sizeof(fd));
 	PangoFontDescription *pf = pango_font_description_from_string(fd);
 	pango_layout_set_font_description(pl, pf);
 	PangoContext *pc = pango_layout_get_context(pl);
