@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "server.h"
+#include "constraint.h"
 #include "input.h"
 #include "layer-shell.h"
 #include "output.h"
@@ -361,6 +362,7 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	server->cursor_mode = HSDWL_CURSOR_PASSTHROUGH;
 	server->grabbed_view = NULL;
 	server->grab_target = NULL;
+	server->last_abs_valid = false;
 
 	if (!pointer_init(server))
 	{
@@ -411,6 +413,8 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 			"wlr_viewporter_create failed");
 		return false;
 	}
+
+	constraint_init(server);
 
 	struct wlr_xdg_decoration_manager_v1 *deco_mgr =
 		wlr_xdg_decoration_manager_v1_create(server->display);

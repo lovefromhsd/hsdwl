@@ -33,6 +33,9 @@ struct wlr_output_manager_v1;
 struct wlr_xdg_output_manager_v1;
 struct wlr_xwayland;
 struct wlr_layer_shell_v1;
+struct wlr_pointer_constraints_v1;
+struct wlr_relative_pointer_manager_v1;
+struct wlr_pointer_constraint_v1;
 
 struct hsdwl_view;
 struct hsdwl_layer_surface;
@@ -122,6 +125,19 @@ struct hsdwl_server
 	struct wlr_scene_rect *ws_sidebar_bgs[HSDWL_NUM_WORKSPACES];
 	struct wlr_scene_tree *ws_stage_canvases[HSDWL_NUM_WORKSPACES];
 	struct custom_stage *drag_source_stage;
+
+
+	struct wlr_pointer_constraints_v1 *pointer_constraints;
+	struct wlr_relative_pointer_manager_v1 *relative_pointer_manager;
+	struct wlr_pointer_constraint_v1 *active_constraint;
+	struct wl_listener new_constraint;
+	struct wl_listener constraint_destroy;
+	struct wl_listener constraint_set_region;
+	/* Last absolute pointer position, for computing relative
+	 * deltas when pointer is locked with absolute input devices */
+	double last_abs_x;
+	double last_abs_y;
+	bool last_abs_valid;
 
 
 	struct wl_list animations;

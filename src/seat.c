@@ -2,6 +2,7 @@
 #define WLR_USE_UNSTABLE
 
 #include "seat.h"
+#include "constraint.h"
 #include "server.h"
 
 #include <wlr/types/wlr_compositor.h>
@@ -96,7 +97,6 @@ static void seat_start_drag(struct wl_listener *listener, void *data)
 
 static void seat_pointer_focus_change(struct wl_listener *listener, void *data)
 {
-	(void)data;
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, pointer_focus_change);
 	struct wlr_seat_pointer_focus_change_event *event = data;
@@ -105,6 +105,8 @@ static void seat_pointer_focus_change(struct wl_listener *listener, void *data)
 		wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
 			"default");
 	}
+
+	constraint_notify_pointer_focus_change(server, event->new_surface);
 }
 
 static void seat_request_set_selection(struct wl_listener *listener, void *data)

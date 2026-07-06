@@ -3,6 +3,7 @@
 
 #include "layer-shell.h"
 #include "pointer.h"
+#include "constraint.h"
 #include "server.h"
 #include "stage.h"
 #include "tab-group.h"
@@ -16,7 +17,10 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
+#include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_pointer.h>
+#include <wlr/types/wlr_pointer_constraints_v1.h>
+#include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xcursor_manager.h>
@@ -163,6 +167,28 @@ static uint32_t determine_resize_edges(struct hsdwl_server *server,
 
 static void process_cursor_motion(struct hsdwl_server *server, uint32_t time)
 {
+	/* When a locked pointer constraint is active: hide the cursor
+	 * and only send enter events (no absolute motion). The client
+	 * receives relative motion via the relative pointer manager. */
+	if (server->active_constraint
+			&& server->active_constraint->type
+				== WLR_POINTER_CONSTRAINT_V1_LOCKED)
+	{
+		struct wlr_surface *locked_surface =
+			server->active_constraint->surface;
+		if (locked_surface)
+		{
+			/* Just send enter to maintain focus,
+			 * don't send absolute motion */
+			wlr_seat_pointer_notify_enter(server->seat,
+				locked_surface, 0, 0);
+			wlr_seat_pointer_notify_frame(server->seat);
+		}
+		/* Hide hardware cursor */
+		wlr_cursor_set_surface(server->cursor, NULL, 0, 0);
+		return;
+	}
+
 	double sx, sy;
 	struct wlr_scene_node *node = wlr_scene_node_at(
 		&server->scene->tree.node, server->cursor->x, server->cursor->y,
@@ -515,6 +541,28 @@ static void server_cursor_motion(struct wl_listener *listener, void *data)
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, cursor_motion);
 	struct wlr_pointer_motion_event *event = data;
+
+	/* If a locked pointer constraint is active, send relative
+	 * motion to the client instead of moving the hardware cursor.
+	 * The cursor position stays at the lock point. */
+	if (server->active_constraint
+			&& server->active_constraint->type
+				== WLR_POINTER_CONSTRAINT_V1_LOCKED
+			&& server->cursor_mode == HSDWL_CURSOR_PASSTHROUGH)
+	{
+		wlr_relative_pointer_manager_v1_send_relative_motion(
+			server->relative_pointer_manager, server->seat,
+			(uint64_t)event->time_msec * 1000,
+			event->delta_x, event->delta_y,
+			event->unaccel_dx, event->unaccel_dy);
+
+		if (handle_grab_motion(server))
+			return;
+
+		process_cursor_motion(server, event->time_msec);
+		return;
+	}
+
 	wlr_cursor_move(server->cursor, &event->pointer->base,
 		event->delta_x, event->delta_y);
 
@@ -530,6 +578,51 @@ static void server_cursor_motion_absolute(
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, cursor_motion_absolute);
 	struct wlr_pointer_motion_absolute_event *event = data;
+
+	/* For absolute motion with locked constraint, send the
+	 * delta relative to the last absolute position */
+	if (server->active_constraint
+			&& server->active_constraint->type
+				== WLR_POINTER_CONSTRAINT_V1_LOCKED
+			&& server->cursor_mode == HSDWL_CURSOR_PASSTHROUGH)
+	{
+		double new_abs_x = event->x;
+		double new_abs_y = event->y;
+
+		if (server->last_abs_valid)
+		{
+			double dx = new_abs_x - server->last_abs_x;
+			double dy = new_abs_y - server->last_abs_y;
+			/* Convert from normalized to pixel coords using
+			 * the output under the cursor */
+			struct wlr_output *output =
+				wlr_output_layout_output_at(
+					server->output_layout,
+					server->cursor->x,
+					server->cursor->y);
+			if (output) {
+				dx *= output->width;
+				dy *= output->height;
+			}
+			wlr_relative_pointer_manager_v1_send_relative_motion(
+				server->relative_pointer_manager, server->seat,
+				(uint64_t)event->time_msec * 1000,
+				dx, dy, dx, dy);
+		}
+		server->last_abs_x = new_abs_x;
+		server->last_abs_y = new_abs_y;
+		server->last_abs_valid = true;
+
+		if (handle_grab_motion(server))
+			return;
+
+		process_cursor_motion(server, event->time_msec);
+		return;
+	}
+
+	/* Reset absolute tracking when not locked */
+	server->last_abs_valid = false;
+
 	wlr_cursor_warp_absolute(server->cursor, &event->pointer->base,
 		event->x, event->y);
 

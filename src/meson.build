@@ -2,6 +2,7 @@ hsdwl_src = files(
   'animation.c',
   'binding.c',
   'config.c',
+  'constraint.c',
   'deco.c',
   'layer-shell.c',
   'main.c',
