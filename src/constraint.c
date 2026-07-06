@@ -4,6 +4,7 @@
 #include "constraint.h"
 #include "server.h"
 
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_pointer_constraints_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_seat.h>
@@ -90,6 +91,10 @@ static void activate_constraint(struct hsdwl_server *server,
 
 	wlr_log(WLR_DEBUG, "pointer constraint activated: type=%d",
 		constraint->type);
+
+	/* Hide hardware cursor immediately for locked pointers */
+	if (constraint->type == WLR_POINTER_CONSTRAINT_V1_LOCKED)
+		wlr_cursor_unset_image(server->cursor);
 
 	server->constraint_destroy.notify = handle_constraint_destroy;
 	wl_signal_add(&constraint->events.destroy,
