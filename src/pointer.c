@@ -184,8 +184,8 @@ static void process_cursor_motion(struct hsdwl_server *server, uint32_t time)
 				locked_surface, 0, 0);
 			wlr_seat_pointer_notify_frame(server->seat);
 		}
-		/* Hide hardware cursor */
-		wlr_cursor_set_surface(server->cursor, NULL, 0, 0);
+		/* Hide hardware cursor while pointer is locked */
+		wlr_cursor_unset_image(server->cursor);
 		return;
 	}
 
