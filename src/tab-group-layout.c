@@ -486,15 +486,18 @@ void hsdwl_tab_group_show_preview(struct hsdwl_server *server,
 	cairo_set_source_rgba(cr2, pc[0], pc[1], pc[2], pc[3] * PREVIEW_ALPHA);
 	cairo_fill(cr2);
 
-	cairo_move_to(cr2, 0, r);
-	cairo_arc(cr2, r, r, r, M_PI, 3 * M_PI_2);
-	cairo_arc(cr2, total_w - r, r, r, 3 * M_PI_2, 0);
-	cairo_line_to(cr2, total_w, TAB_BAR_THICKNESS);
-	cairo_line_to(cr2, 0, TAB_BAR_THICKNESS);
-	cairo_close_path(cr2);
+	if (tb > 0)
+	{
+		cairo_move_to(cr2, 0, r);
+		cairo_arc(cr2, r, r, r, M_PI, 3 * M_PI_2);
+		cairo_arc(cr2, total_w - r, r, r, 3 * M_PI_2, 0);
+		cairo_line_to(cr2, total_w, TAB_BAR_THICKNESS);
+		cairo_line_to(cr2, 0, TAB_BAR_THICKNESS);
+		cairo_close_path(cr2);
 
-	cairo_set_source_rgba(cr2, pc[0], pc[1], pc[2], pc[3] * 0.5f);
-	cairo_fill(cr2);
+		cairo_set_source_rgba(cr2, pc[0], pc[1], pc[2], pc[3] * 0.5f);
+		cairo_fill(cr2);
+	}
 
 	cairo_destroy(cr2);
 
