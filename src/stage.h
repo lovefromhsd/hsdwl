@@ -14,7 +14,6 @@ struct wlr_scene_rect;
 struct wlr_scene_buffer;
 
 #define SIDEBAR_WIDTH 200
-#define MAX_INACTIVE_STAGES 5
 #define STAGE_THUMB_PAD 10
 #define STAGE_THUMB_GAP 6
 
@@ -37,6 +36,7 @@ struct custom_stage
 	struct wlr_scene_buffer *thumb_buf;
 	bool thumb_dirty;
 	int thumb_x, thumb_y;
+	int thumb_w, thumb_h;
 	float z_offset;
 };
 
@@ -51,8 +51,6 @@ struct workspace_stage_mgr
 void stage_set_views_enabled(struct custom_stage *stage, bool enabled);
 void stage_reparent_to_canvas(struct custom_stage *stage,
 		struct hsdwl_server *server);
-void stage_safe_evict(struct custom_stage *stage,
-		struct hsdwl_server *server, size_t ws);
 struct custom_window *find_custom_window(struct custom_stage *stage,
 		struct hsdwl_view *view);
 void stage_free(struct custom_stage *stage);

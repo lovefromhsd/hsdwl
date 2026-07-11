@@ -69,39 +69,6 @@ void stage_reparent_to_canvas(struct custom_stage *stage,
 	}
 }
 
-void stage_safe_evict(struct custom_stage *stage,
-		struct hsdwl_server *server, size_t ws)
-{
-	if (!stage) return;
-
-	wl_list_remove(&stage->link);
-
-	struct custom_window *cw, *tmp;
-	wl_list_for_each_safe(cw, tmp, &stage->windows, link)
-	{
-		wl_list_remove(&cw->link);
-		if (cw->view && cw->view->scene_tree)
-		{
-			wlr_scene_node_reparent(
-				&cw->view->scene_tree->node,
-				server->workspaces[ws]);
-			wlr_scene_node_set_position(
-				&cw->view->scene_tree->node,
-				cw->x + SIDEBAR_WIDTH, cw->y);
-			wlr_scene_node_set_enabled(
-				&cw->view->scene_tree->node, true);
-		}
-		free(cw);
-	}
-
-	if (stage->thumb_tree)
-		wlr_scene_node_destroy(&stage->thumb_tree->node);
-	else if (stage->tree)
-		wlr_scene_node_destroy(&stage->tree->node);
-
-	free(stage);
-}
-
 struct custom_window *find_custom_window(struct custom_stage *stage,
 		struct hsdwl_view *view)
 {
@@ -214,14 +181,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 
 	if (mgr->active_stage)
 	{
-
-		if (wl_list_length(&mgr->inactive_stages) >= MAX_INACTIVE_STAGES)
-		{
-			struct custom_stage *oldest = wl_container_of(
-				mgr->inactive_stages.next, oldest, link);
-			stage_safe_evict(oldest, server, ws);
-		}
-
+		/* Keep every stage managed; the sidebar scales its thumbnails. */
 		wl_list_insert(&mgr->inactive_stages,
 			&mgr->active_stage->link);
 		stage_set_views_enabled(mgr->active_stage, false);
@@ -630,18 +590,22 @@ void stage_manager_notify_surface_commit(struct hsdwl_server *server,
 			if (cw2)
 			{
 				cw_update_geometry(cw2, view);
-				int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
-				int thumb_h = (int)(cw2->h * (float)thumb_w / cw2->w);
-				if (thumb_h > 300) {
-					float ar = (float)cw2->w / cw2->h;
-					thumb_h = 300;
-					thumb_w = (int)(300 * ar);
+				if (st->thumb_w < 1 || st->thumb_h < 1)
+				{
+					stage_manager_render_sidebar(server, ws);
+					return;
 				}
-				float td = (st->thumb_y - 540.0f) / 540.0f;
-			if (td < -1.0f) td = -1.0f;
-			if (td > 1.0f) td = 1.0f;
-			stage_render_thumbnail(server, st,
-				thumb_w, thumb_h, td);
+
+				int sidebar_h = output_get_height(server);
+				if (sidebar_h < 1)
+					sidebar_h = 1;
+				float sidebar_half = (float)sidebar_h / 2.0f;
+				float td = ((float)st->thumb_y - sidebar_half)
+					/ sidebar_half;
+				if (td < -1.0f) td = -1.0f;
+				if (td > 1.0f) td = 1.0f;
+				stage_render_thumbnail(server, st,
+					st->thumb_w, st->thumb_h, td);
 				return;
 			}
 		}

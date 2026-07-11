@@ -186,11 +186,22 @@ void stage_hide_thumb(struct custom_stage *st, bool hide)
 		wlr_scene_node_set_enabled(&st->thumb_tree->node, !hide);
 }
 
+static bool stage_has_renderable_thumbnail(struct custom_stage *stage)
+{
+	struct wlr_box bbox;
+
+	return stage && stage->thumb_tree && stage->thumb_buf
+		&& !wl_list_empty(&stage->windows)
+		&& stage_compute_bbox(stage, &bbox);
+}
+
 
 void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 {
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ws];
-	int thumb_w = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+	int max_thumb_size = SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD;
+	if (max_thumb_size < 1)
+		max_thumb_size = 1;
 
 
 	stage_hide_thumb(mgr->active_stage, true);
@@ -200,63 +211,58 @@ void stage_manager_render_sidebar(struct hsdwl_server *server, size_t ws)
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 		stage_hide_thumb(st, true);
 
-
-	struct entry {
-		struct custom_stage *st;
-		int tw, th;
-	} entries[64];
-	int nentries = 0;
-
+	size_t nentries = 0;
 	wl_list_for_each(st, &mgr->inactive_stages, link)
 	{
-		if (wl_list_empty(&st->windows) || nentries >= 64)
-			continue;
-
-		struct wlr_box bbox;
-		if (!stage_compute_bbox(st, &bbox)) continue;
-
-		int tw = thumb_w;
-		int th = thumb_w;
-
-		entries[nentries].st = st;
-		entries[nentries].tw = tw;
-		entries[nentries].th = th;
-		nentries++;
+		if (stage_has_renderable_thumbnail(st))
+			nentries++;
 	}
 	if (nentries == 0) return;
 
-
 	int sidebar_h = output_get_height(server);
+	if (sidebar_h < 1)
+		sidebar_h = 1;
 
-	int slot_h = sidebar_h / nentries;
-
-	for (int i = 0; i < nentries; i++)
+	size_t index = 0;
+	wl_list_for_each(st, &mgr->inactive_stages, link)
 	{
+		if (!stage_has_renderable_thumbnail(st))
+			continue;
+
+		int slot_top = (int)((double)index * sidebar_h / nentries);
+		int slot_bottom = (int)((double)(index + 1) * sidebar_h
+			/ nentries);
+		int slot_h = slot_bottom - slot_top;
+		if (slot_h < 1)
+			slot_h = 1;
+
+		int padding = slot_h > STAGE_THUMB_PAD * 2
+			? STAGE_THUMB_PAD : 0;
+		int thumb_size = slot_h - padding * 2;
+		if (thumb_size < 1)
+			thumb_size = 1;
+		if (thumb_size > max_thumb_size)
+			thumb_size = max_thumb_size;
+
 		int x = STAGE_THUMB_PAD;
+		int y = slot_top + (slot_h - thumb_size) / 2;
 
+		st->z_offset = (float)index * 30.0f;
+		st->thumb_x = x;
+		st->thumb_y = y;
+		st->thumb_w = thumb_size;
+		st->thumb_h = thumb_size;
 
-		int max_sz = slot_h - STAGE_THUMB_PAD * 2;
-		if (max_sz < 20) max_sz = 20;
-		if (entries[i].tw > max_sz)
-			entries[i].tw = max_sz;
-		entries[i].th = entries[i].tw;
-
-		int y = i * slot_h + (slot_h - entries[i].th) / 2;
-		if (y < STAGE_THUMB_PAD) y = STAGE_THUMB_PAD;
-
-		entries[i].st->z_offset = (float)i * 30.0f;
-		entries[i].st->thumb_x = x;
-		entries[i].st->thumb_y = y;
-
-		float td = (float)(y - sidebar_h / 2) / (float)(sidebar_h / 2);
+		float sidebar_half = (float)sidebar_h / 2.0f;
+		float td = ((float)y - sidebar_half) / sidebar_half;
 		if (td < -1.0f) td = -1.0f;
 		if (td > 1.0f) td = 1.0f;
 
-		stage_hide_thumb(entries[i].st, false);
-		stage_render_thumbnail(server, entries[i].st,
-			entries[i].tw, entries[i].th, td);
+		stage_hide_thumb(st, false);
+		stage_render_thumbnail(server, st, thumb_size, thumb_size, td);
 		wlr_scene_node_set_position(
-			&entries[i].st->thumb_tree->node, x, y);
-		entries[i].st->thumb_dirty = false;
+			&st->thumb_tree->node, x, y);
+		st->thumb_dirty = false;
+		index++;
 	}
 }
