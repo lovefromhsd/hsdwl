@@ -249,34 +249,43 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			return;
 		}
 
-		struct wlr_output *wlr_o = wlr_output_layout_output_at(
-			server->output_layout,
-			view->saved_geometry.x + view->saved_geometry.width / 2,
-			view->saved_geometry.y + view->saved_geometry.height / 2);
-		if (!wlr_o) return;
+	struct wlr_output *wlr_o = wlr_output_layout_output_at(
+		server->output_layout,
+		view->saved_geometry.x + view->saved_geometry.width / 2,
+		view->saved_geometry.y + view->saved_geometry.height / 2);
+	if (!wlr_o) return;
 
-		struct wlr_box obox;
-		wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
+	struct wlr_box obox;
+	wlr_output_layout_get_box(server->output_layout, wlr_o, &obox);
 
-		int fw = obox.width;
-		if (fw < 1) fw = 1;
+	// Content fills output minus borders/titlebar
+	int fw = obox.width;
+	if (fw < 1) fw = 1;
+	int tb_cap = tb > 0 ? tb : 0;
+	int cw = fw - 2 * bw;
+	int ch = obox.height - tb_cap - bw;
+	if (cw < 1) cw = 1;
+	if (ch < 1) ch = 1;
 
-		view_set_deco_visible(view, false);
+	view_set_deco_visible(view, true);
 
-		if (view->content_tree)
-			wlr_scene_node_set_position(
-				&view->content_tree->node, 0, 0);
+	if (view->content_tree)
+		wlr_scene_node_set_position(
+			&view->content_tree->node, bw, tb > 0 ? tb : bw);
 
-		view->saved_parent = view->scene_tree->node.parent;
-		wlr_scene_node_reparent(&view->scene_tree->node,
-			server->workspaces[server->current_workspace]);
-		wlr_scene_node_set_position(&view->scene_tree->node, 0, 0);
+	view->saved_parent = view->scene_tree->node.parent;
+	wlr_scene_node_reparent(&view->scene_tree->node,
+		server->workspaces[server->current_workspace]);
+	wlr_scene_node_set_position(&view->scene_tree->node, 0, 0);
 
-		view_set_surface_size(view, 0, 0, fw, obox.height);
+	view_set_surface_size(view, 0, 0, cw, ch);
 
-		view->zoomed = false;
-		view->maximized = true;
-		return;
+	view_borders_update(view);
+	titlebar_text_update(view);
+
+	view->zoomed = false;
+	view->maximized = true;
+	return;
 	}
 
 
