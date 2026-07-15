@@ -2,8 +2,9 @@
 #define HSDWL_STAGE_3D_H
 
 #include <stdbool.h>
-#include <time.h>
 #include <wayland-server-core.h>
+#include "animation.h"
+
 
 struct hsdwl_server;
 struct wlr_render_pass;
@@ -39,6 +40,8 @@ struct hsdwl_tilt_state {
 
 	float start_z, end_z;
 
+	enum hsdwl_easing easing;
+
 	float focal_length;
 
 	void (*on_finish)(struct hsdwl_server *, void *);
@@ -49,23 +52,15 @@ struct hsdwl_tilt_state {
 
 
 struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
-
 	struct hsdwl_server *server,
-
 	struct wlr_texture *tex, int tex_w, int tex_h,
-
 	struct wlr_scene_buffer *overlay,
-
 	int duration_ms,
-
+	enum hsdwl_easing easing,
 	float start_angle, float end_angle,
-
 	float start_z, float end_z,
-
 	float focal_length,
-
 	void (*on_finish)(struct hsdwl_server *, void *),
-
 	void *user_data);
 
 void stage_3d_tick(struct hsdwl_server *server, struct timespec *now);

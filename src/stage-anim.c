@@ -22,6 +22,8 @@
 
 #include "animation.h"
 #include "stage-util.h"
+#include "tab-group-anim.h"
+
 
 #define MAX_STAGE_WINDOWS 64
 
@@ -48,12 +50,12 @@ static inline void get_thumb_size(int src_w, int src_h, int max_sz,
 	if (*out_h < 1) *out_h = 1;
 }
 
-
 static inline void tilt_or_destroy(
 	struct hsdwl_server *server,
 	struct wlr_texture *tex, int tex_w, int tex_h,
 	struct wlr_scene_buffer *overlay,
 	int duration_ms,
+	enum hsdwl_easing easing,
 	float start_angle, float end_angle,
 	float start_z, float end_z,
 	float focal_length,
@@ -65,7 +67,7 @@ static inline void tilt_or_destroy(
 		return;
 	if (server->config.stage_3d_enabled) {
 		if (stage_3d_start_tilt_anim(server, tex, tex_w, tex_h,
-				overlay, duration_ms,
+				overlay, duration_ms, easing,
 				start_angle, end_angle,
 				start_z, end_z, focal_length,
 				on_finish, user_data))
@@ -141,16 +143,27 @@ static void stage_merge_on_anim_done(struct hsdwl_server *server,
 	wl_list_for_each_safe(cw, tmp, &source->windows, link)
 	{
 		wl_list_remove(&cw->link);
-		if (cw->view && cw->view->scene_tree)
-		{
-			wlr_scene_node_reparent(
-				&cw->view->scene_tree->node,
-				mgr->active_stage->tree);
-			wlr_scene_node_set_position(
-				&cw->view->scene_tree->node,
-				cw->x, cw->y);
-			wlr_scene_node_set_enabled(
-				&cw->view->scene_tree->node, true);
+		if (cw->view && cw->view->scene_tree) {
+			struct hsdwl_tab_group *tg = cw->view->tab_group;
+			if (tg && tg->scene_tree
+					&& tg->scene_tree->node.parent == source->tree) {
+				wlr_scene_node_reparent(
+					&tg->scene_tree->node,
+					mgr->active_stage->tree);
+				wlr_scene_node_set_position(
+					&tg->scene_tree->node, 0, 0);
+				wlr_scene_node_set_enabled(
+					&tg->scene_tree->node, true);
+			} else {
+				wlr_scene_node_reparent(
+					&cw->view->scene_tree->node,
+					mgr->active_stage->tree);
+				wlr_scene_node_set_position(
+					&cw->view->scene_tree->node,
+					cw->x, cw->y);
+				wlr_scene_node_set_enabled(
+					&cw->view->scene_tree->node, true);
+			}
 		}
 		wl_list_insert(&mgr->active_stage->windows, &cw->link);
 	}
@@ -208,14 +221,13 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				if (!av) continue;
 				int cw_ = g->content_area_box.width;
 				int ch_ = g->content_area_box.height;
-				struct wlr_buffer *buf = view_capture_full_window(
-					server, av, cw_, ch_, 0, 0);
+				struct wlr_buffer *buf = tab_group_capture_full(
+					server, g, cw_, ch_);
 				if (!buf) continue;
 
-				fw = cw_;  fh = ch_;
+				fw = cw_;  fh = ch_ + g->tab_bar_thickness;
 				fx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
-				fy = (int)g->scene_tree->node.y
-					+ g->tab_bar_thickness;
+				fy = (int)g->scene_tree->node.y;
 
 				get_thumb_size(fw, fh, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 
@@ -237,6 +249,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
     float out_angle = pos_tilt_angle(fx + fw / 2.0f, scene_cx);
     tilt_or_destroy(server, tex, fw, fh, ov,
         server->config.stage_anim_duration,
+        HSDWL_EASE_BEZIER,
         0.0f, out_angle, 0.0f, old->z_offset, 800.0f,
         stage_switch_on_anim_done, ssa, &ssa->remaining);
 
@@ -274,6 +287,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				float out_angle = pos_tilt_angle(fx + fw / 2.0f, scene_cx);
 				tilt_or_destroy(server, tex, fw, fh, ov,
 					server->config.stage_anim_duration,
+					HSDWL_EASE_BEZIER,
 					0.0f, out_angle, 0.0f, old->z_offset, 800.0f,
 					stage_switch_on_anim_done, ssa, &ssa->remaining);
 
@@ -303,15 +317,14 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				if (!av) continue;
 				int cw_ = g->content_area_box.width;
 				int ch_ = g->content_area_box.height;
-				struct wlr_buffer *buf = view_capture_full_window(
-					server, av, cw_, ch_, 0, 0);
+				struct wlr_buffer *buf = tab_group_capture_full(
+					server, g, cw_, ch_);
 				if (!buf) continue;
 
-				get_thumb_size((int)cw_, (int)ch_, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
+				get_thumb_size((int)cw_, (int)ch_ + g->tab_bar_thickness, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
-				tty = (int)g->scene_tree->node.y
-					+ g->tab_bar_thickness;
-				tx = cw_;  ty = ch_;
+				tty = (int)g->scene_tree->node.y;
+				tx = cw_;  ty = ch_ + g->tab_bar_thickness;
 
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
@@ -332,6 +345,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
     float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
     tilt_or_destroy(server, tex, tx, ty, ov,
         server->config.stage_anim_duration,
+        HSDWL_EASE_BEZIER,
         in_angle, 0.0f, target->z_offset, 0.0f, 800.0f,
         stage_switch_on_anim_done, ssa, &ssa->remaining);
 
@@ -369,6 +383,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
 				tilt_or_destroy(server, tex, tx, ty, ov,
 					server->config.stage_anim_duration,
+					HSDWL_EASE_BEZIER,
 					in_angle, 0.0f, target->z_offset, 0.0f, 800.0f,
 					stage_switch_on_anim_done, ssa, &ssa->remaining);
 
@@ -489,15 +504,14 @@ void stage_manager_merge(struct hsdwl_server *server,
 				if (!av) continue;
 				int cw_ = g->content_area_box.width;
 				int ch_ = g->content_area_box.height;
-				struct wlr_buffer *buf = view_capture_full_window(
-					server, av, cw_, ch_, 0, 0);
+				struct wlr_buffer *buf = tab_group_capture_full(
+					server, g, cw_, ch_);
 				if (!buf) continue;
 
-				get_thumb_size((int)cw_, (int)ch_, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
+				get_thumb_size((int)cw_, (int)ch_ + g->tab_bar_thickness, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
-				tty = (int)g->scene_tree->node.y
-					+ g->tab_bar_thickness;
-				tx = cw_;  ty = ch_;
+				tty = (int)g->scene_tree->node.y;
+				tx = cw_;  ty = ch_ + g->tab_bar_thickness;
 
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
@@ -518,6 +532,7 @@ void stage_manager_merge(struct hsdwl_server *server,
     float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
     tilt_or_destroy(server, tex, tx, ty, ov,
         server->config.stage_anim_duration,
+        HSDWL_EASE_BEZIER,
         in_angle, 0.0f, source->z_offset, 0.0f, 800.0f,
         stage_merge_on_anim_done, sma, &sma->remaining);
 
@@ -556,6 +571,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 				float in_angle = pos_tilt_angle(ttx + tx / 2.0f, scene_cx);
 				tilt_or_destroy(server, tex, tx, ty, ov,
 					server->config.stage_anim_duration,
+					HSDWL_EASE_BEZIER,
 					in_angle, 0.0f, source->z_offset, 0.0f, 800.0f,
 					stage_merge_on_anim_done, sma, &sma->remaining);
 
@@ -581,16 +597,27 @@ instant_merge:
 		wl_list_for_each_safe(cw, tmp, &source->windows, link)
 		{
 			wl_list_remove(&cw->link);
-			if (cw->view && cw->view->scene_tree)
-			{
-				wlr_scene_node_reparent(
-					&cw->view->scene_tree->node,
-					mgr->active_stage->tree);
-				wlr_scene_node_set_position(
-					&cw->view->scene_tree->node,
-					cw->x, cw->y);
-				wlr_scene_node_set_enabled(
-					&cw->view->scene_tree->node, true);
+			if (cw->view && cw->view->scene_tree) {
+				struct hsdwl_tab_group *tg = cw->view->tab_group;
+				if (tg && tg->scene_tree
+						&& tg->scene_tree->node.parent == source->tree) {
+					wlr_scene_node_reparent(
+						&tg->scene_tree->node,
+						mgr->active_stage->tree);
+					wlr_scene_node_set_position(
+						&tg->scene_tree->node, 0, 0);
+					wlr_scene_node_set_enabled(
+						&tg->scene_tree->node, true);
+				} else {
+					wlr_scene_node_reparent(
+						&cw->view->scene_tree->node,
+						mgr->active_stage->tree);
+					wlr_scene_node_set_position(
+						&cw->view->scene_tree->node,
+						cw->x, cw->y);
+					wlr_scene_node_set_enabled(
+						&cw->view->scene_tree->node, true);
+				}
 			}
 			wl_list_insert(&mgr->active_stage->windows, &cw->link);
 		}

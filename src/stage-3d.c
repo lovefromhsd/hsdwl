@@ -217,6 +217,7 @@ struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
 	struct wlr_texture *tex, int tex_w, int tex_h,
 	struct wlr_scene_buffer *overlay,
 	int duration_ms,
+	enum hsdwl_easing easing,
 	float start_angle, float end_angle,
 	float start_z, float end_z,
 	float focal_length,
@@ -231,6 +232,7 @@ struct hsdwl_tilt_state *stage_3d_start_tilt_anim(
 	ts->tex_w = tex_w;
 	ts->tex_h = tex_h;
 	ts->overlay = overlay;
+	ts->easing = easing;
 	ts->start_angle = start_angle;
 	ts->end_angle = end_angle;
 	ts->start_z = start_z;
@@ -257,8 +259,27 @@ void stage_3d_tick(struct hsdwl_server *server, struct timespec *now)
 		if (t < 0.0) t = 0.0;
 		if (t > 1.0) t = 1.0;
 
-		double t1 = t - 1.0;
-		double eased_t = t1 * t1 * t1 + 1.0;
+		double eased_t;
+		switch (ts->easing) {
+		case HSDWL_EASE_LINEAR:
+			eased_t = t;
+			break;
+		case HSDWL_EASE_OUT_QUAD:
+			eased_t = t * (2.0 - t);
+			break;
+		case HSDWL_EASE_OUT_CUBIC: {
+			double t1 = t - 1.0;
+			eased_t = t1 * t1 * t1 + 1.0;
+			break;
+		}
+		case HSDWL_EASE_BEZIER:
+			eased_t = ease_bezier(t,
+				server->config.anim_bezier_x1,
+				server->config.anim_bezier_y1,
+				server->config.anim_bezier_x2,
+				server->config.anim_bezier_y2);
+			break;
+		}
 
 		float angle = ts->start_angle + (ts->end_angle - ts->start_angle) * (float)eased_t;
 		float z = ts->start_z + (ts->end_z - ts->start_z) * (float)eased_t;
