@@ -213,9 +213,12 @@ static void handle_new_constraint(struct wl_listener *listener, void *data)
 		(void *)constraint->surface,
 		surface_has_pointer_focus(server, constraint->surface));
 
-	/* If the constrained surface already has pointer focus,
-	 * activate the constraint immediately. */
-	if (surface_has_pointer_focus(server, constraint->surface))
+	/* Activate immediately if surface has pointer focus.
+	 * For locked constraints also activate without focus —
+	 * the game expects to take over the cursor right when
+	 * (re)creating a lock (e.g. closing an inventory). */
+	if (surface_has_pointer_focus(server, constraint->surface)
+			|| constraint->type == WLR_POINTER_CONSTRAINT_V1_LOCKED)
 		activate_constraint(server, constraint);
 }
 

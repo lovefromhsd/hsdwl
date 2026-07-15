@@ -100,7 +100,8 @@ static void seat_pointer_focus_change(struct wl_listener *listener, void *data)
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, pointer_focus_change);
 	struct wlr_seat_pointer_focus_change_event *event = data;
-	if (event->new_surface == NULL)
+	if (event->new_surface == NULL
+			&& !server->active_constraint)
 	{
 		wlr_cursor_set_xcursor(server->cursor, server->cursor_mgr,
 			"default");
