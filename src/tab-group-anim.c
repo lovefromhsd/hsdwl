@@ -29,7 +29,7 @@ struct tg_anim_state {
 };
 
 
-static struct wlr_buffer *tab_group_capture_full(
+struct wlr_buffer *tab_group_capture_full(
 	struct hsdwl_server *server,
 	struct hsdwl_tab_group *group,
 	int content_w, int content_h)

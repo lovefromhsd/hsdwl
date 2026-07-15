@@ -39,7 +39,7 @@ static inline double bezier_deriv(
 		+ 3.0 * t * t * (p3 - p2);
 }
 
-static double ease_bezier(double t,
+double ease_bezier(double t,
 	double x1, double y1, double x2, double y2)
 {
 	if (t <= 0.0) return 0.0;

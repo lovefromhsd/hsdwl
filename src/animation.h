@@ -16,6 +16,9 @@ enum hsdwl_easing
 	HSDWL_EASE_BEZIER,
 };
 
+double ease_bezier(double t, double x1, double y1, double x2, double y2);
+
+
 struct hsdwl_animation
 {
 	struct wl_list link;
