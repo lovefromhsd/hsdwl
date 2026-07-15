@@ -48,18 +48,6 @@ static inline void get_thumb_size(int src_w, int src_h, int max_sz,
 	if (*out_h < 1) *out_h = 1;
 }
 
-static inline void get_stage_thumb_size(struct custom_stage *stage,
-		int src_w, int src_h, int *out_w, int *out_h)
-{
-	if (stage && stage->thumb_w > 0 && stage->thumb_h > 0) {
-		*out_w = stage->thumb_w;
-		*out_h = stage->thumb_h;
-		return;
-	}
-
-	get_thumb_size(src_w, src_h,
-		SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, out_w, out_h);
-}
 
 static inline void tilt_or_destroy(
 	struct hsdwl_server *server,
@@ -229,7 +217,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 				fy = (int)g->scene_tree->node.y
 					+ g->tab_bar_thickness;
 
-				get_stage_thumb_size(target, fw, fh, &tw, &th);
+				get_thumb_size(fw, fh, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 
 				struct wlr_scene_buffer *ov =
 					wlr_scene_buffer_create(
@@ -265,7 +253,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 			fx = SIDEBAR_WIDTH + (int)cw->x;
 			fy = (int)cw->y;
 
-			get_stage_thumb_size(target, fw, fh, &tw, &th);
+			get_thumb_size(fw, fh, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
@@ -319,8 +307,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 					server, av, cw_, ch_, 0, 0);
 				if (!buf) continue;
 
-				get_stage_thumb_size(target, (int)cw_, (int)ch_,
-					&tw, &th);
+				get_thumb_size((int)cw_, (int)ch_, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
 				tty = (int)g->scene_tree->node.y
 					+ g->tab_bar_thickness;
@@ -361,8 +348,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 			ttx = SIDEBAR_WIDTH + (int)cw->x;
 			tty = (int)cw->y;
 
-			get_stage_thumb_size(target, tx, ty, &tw, &th);
-
+			get_thumb_size(tx, ty, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
 
@@ -507,8 +493,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 					server, av, cw_, ch_, 0, 0);
 				if (!buf) continue;
 
-				get_stage_thumb_size(source, (int)cw_, (int)ch_,
-					&tw, &th);
+				get_thumb_size((int)cw_, (int)ch_, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 				ttx = SIDEBAR_WIDTH + (int)g->scene_tree->node.x;
 				tty = (int)g->scene_tree->node.y
 					+ g->tab_bar_thickness;
@@ -549,7 +534,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 			ttx = SIDEBAR_WIDTH + (int)cw->x;
 			tty = (int)cw->y;
 
-			get_stage_thumb_size(source, tx, ty, &tw, &th);
+			get_thumb_size(tx, ty, SIDEBAR_WIDTH - 2 * STAGE_THUMB_PAD, &tw, &th);
 
 			struct wlr_scene_buffer *ov = wlr_scene_buffer_create(
 				server->animation_tree, buf);
