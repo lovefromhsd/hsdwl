@@ -391,6 +391,8 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	}
 
 
+	if (old) stage_hide_thumb(old, true);
+	stage_hide_thumb(target, true);
 	if (old) stage_set_views_enabled(old, false);
 	stage_set_views_enabled(target, false);
 
@@ -406,6 +408,8 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	free(ssa);
 
 instant_switch:
+	if (old) stage_hide_thumb(old, true);
+	stage_hide_thumb(target, true);
 	if (old) {
 		stage_set_views_enabled(old, false);
 		wl_list_insert(insert_after, &old->link);
@@ -578,6 +582,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 		}
 	}
 
+	stage_hide_thumb(source, true);
 	stage_set_views_enabled(source, false);
 
 	if (!wl_list_empty(&server->outputs)) {
@@ -593,6 +598,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 
 instant_merge:
 	{
+		stage_hide_thumb(source, true);
 		struct custom_window *cw, *tmp;
 		wl_list_for_each_safe(cw, tmp, &source->windows, link)
 		{
