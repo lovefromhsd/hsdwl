@@ -83,6 +83,7 @@ struct stage_switch_anim {
 	struct custom_stage *old_stage;
 	struct custom_stage *new_stage;
 	size_t ws;
+	uint32_t generation;
 	int remaining;
 	int n_overlays;
 	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
@@ -93,6 +94,7 @@ struct stage_merge_anim {
 	struct hsdwl_server *server;
 	struct custom_stage *source;
 	size_t ws;
+	uint32_t generation;
 	int remaining;
 	int n_overlays;
 	struct wlr_scene_buffer *overlays[MAX_STAGE_WINDOWS];
@@ -108,20 +110,24 @@ static void stage_switch_on_anim_done(struct hsdwl_server *server,
 
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[ssa->ws];
 
-	for (int i = 0; i < ssa->n_overlays; i++)
+	for (int i = 0; i < ssa->n_overlays; i++) {
+		animation_cancel_buffer(server, ssa->overlays[i]);
 		wlr_scene_node_destroy(&ssa->overlays[i]->node);
-
-	if (ssa->old_stage) {
-		stage_set_views_enabled(ssa->old_stage, false);
-		wl_list_insert(ssa->insert_after,
-			&ssa->old_stage->link);
 	}
-	wl_list_remove(&ssa->new_stage->link);
-	mgr->active_stage = ssa->new_stage;
-	stage_reparent_to_canvas(ssa->new_stage, server);
 
-	stage_focus_first(ssa->new_stage, server);
-	stage_manager_render_sidebar(server, ssa->ws);
+	if (ssa->generation == mgr->switch_generation) {
+		if (ssa->old_stage) {
+			stage_set_views_enabled(ssa->old_stage, false);
+			wl_list_insert(ssa->insert_after,
+				&ssa->old_stage->link);
+		}
+		wl_list_remove(&ssa->new_stage->link);
+		mgr->active_stage = ssa->new_stage;
+		stage_reparent_to_canvas(ssa->new_stage, server);
+
+		stage_focus_first(ssa->new_stage, server);
+		stage_manager_render_sidebar(server, ssa->ws);
+	}
 
 	free(ssa);
 }
@@ -136,41 +142,50 @@ static void stage_merge_on_anim_done(struct hsdwl_server *server,
 	struct workspace_stage_mgr *mgr = &server->ws_stage_mgrs[sma->ws];
 	struct custom_stage *source = sma->source;
 
-	for (int i = 0; i < sma->n_overlays; i++)
+	for (int i = 0; i < sma->n_overlays; i++) {
+		animation_cancel_buffer(server, sma->overlays[i]);
 		wlr_scene_node_destroy(&sma->overlays[i]->node);
-
-	struct custom_window *cw, *tmp;
-	wl_list_for_each_safe(cw, tmp, &source->windows, link)
-	{
-		wl_list_remove(&cw->link);
-		if (cw->view && cw->view->scene_tree) {
-			struct hsdwl_tab_group *tg = cw->view->tab_group;
-			if (tg && tg->scene_tree
-					&& tg->scene_tree->node.parent == source->tree) {
-				wlr_scene_node_reparent(
-					&tg->scene_tree->node,
-					mgr->active_stage->tree);
-				wlr_scene_node_set_position(
-					&tg->scene_tree->node, 0, 0);
-				wlr_scene_node_set_enabled(
-					&tg->scene_tree->node, true);
-			} else {
-				wlr_scene_node_reparent(
-					&cw->view->scene_tree->node,
-					mgr->active_stage->tree);
-				wlr_scene_node_set_position(
-					&cw->view->scene_tree->node,
-					cw->x, cw->y);
-				wlr_scene_node_set_enabled(
-					&cw->view->scene_tree->node, true);
-			}
-		}
-		wl_list_insert(&mgr->active_stage->windows, &cw->link);
 	}
 
-	wl_list_remove(&source->link);
-	stage_free(source);
-	stage_manager_render_sidebar(server, sma->ws);
+	if (sma->generation == mgr->switch_generation) {
+		struct custom_window *cw, *tmp;
+		wl_list_for_each_safe(cw, tmp, &source->windows, link)
+		{
+			wl_list_remove(&cw->link);
+			if (cw->view && cw->view->scene_tree) {
+				struct hsdwl_tab_group *tg = cw->view->tab_group;
+				if (tg && tg->scene_tree
+						&& tg->scene_tree->node.parent == source->tree) {
+					wlr_scene_node_reparent(
+						&tg->scene_tree->node,
+						mgr->active_stage->tree);
+					wlr_scene_node_set_position(
+						&tg->scene_tree->node, 0, 0);
+					wlr_scene_node_set_enabled(
+						&tg->scene_tree->node, true);
+				} else {
+					wlr_scene_node_reparent(
+						&cw->view->scene_tree->node,
+						mgr->active_stage->tree);
+					wlr_scene_node_set_position(
+						&cw->view->scene_tree->node,
+						cw->x, cw->y);
+					wlr_scene_node_set_enabled(
+						&cw->view->scene_tree->node, true);
+				}
+			}
+			wl_list_insert(&mgr->active_stage->windows, &cw->link);
+		}
+
+		wl_list_remove(&source->link);
+		stage_free(source);
+		stage_manager_render_sidebar(server, sma->ws);
+	} else {
+		/* Stale callback: just free the source stage. */
+		wl_list_remove(&source->link);
+		stage_free(source);
+	}
+
 	free(sma);
 }
 
@@ -186,6 +201,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	int scene_w = output_get_width(server);
 	float scene_cx = (float)scene_w / 2.0f;
 
+	mgr->switch_generation++;
 	stage_3d_cancel(server);
 	struct stage_switch_anim *ssa = calloc(1, sizeof(*ssa));
 	if (!ssa)
@@ -194,6 +210,7 @@ static void stage_switch_internal(struct hsdwl_server *server,
 	ssa->old_stage = old;
 	ssa->new_stage = target;
 	ssa->ws = ws;
+	ssa->generation = mgr->switch_generation;
 	ssa->remaining = 0;
 	ssa->insert_after = insert_after;
 	ssa->n_overlays = 0;
@@ -475,6 +492,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 	int scene_w = output_get_width(server);
 	float scene_cx = (float)scene_w / 2.0f;
 
+	mgr->switch_generation++;
 	stage_3d_cancel(server);
 	struct stage_merge_anim *sma = calloc(1, sizeof(*sma));
 	if (!sma)
@@ -482,6 +500,7 @@ void stage_manager_merge(struct hsdwl_server *server,
 	sma->server = server;
 	sma->source = source;
 	sma->ws = ws;
+	sma->generation = mgr->switch_generation;
 	sma->remaining = 0;
 	sma->n_overlays = 0;
 

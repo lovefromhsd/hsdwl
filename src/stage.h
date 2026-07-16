@@ -45,6 +45,7 @@ struct workspace_stage_mgr
 	struct custom_stage *active_stage;
 	struct wl_list inactive_stages;  
 	bool sidebar_hidden;
+	uint32_t switch_generation;
 };
 
 
