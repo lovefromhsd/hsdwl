@@ -7,6 +7,7 @@
 #include "server.h"
 #include "view.h"
 #include "stage-util.h"
+#include "tab-group.h"
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/xwayland.h>
@@ -90,37 +91,109 @@ void stage_render_thumbnail(struct hsdwl_server *server,
 		if (sw < 2 || sh < 2)
 			continue;
 
-		struct wlr_surface *surface = view_get_surface(cw->view);
-		if (!surface) continue;
-		struct wlr_texture *texture = wlr_surface_get_texture(surface);
-		if (!texture) continue;
-
-		float tex_w = surface->current.width;
-		float tex_h = surface->current.height;
-		if (tex_w < 1 || tex_h < 1)
+		if (cw->view && cw->view->tab_group)
 		{
-			tex_w = cw->w;
-			tex_h = cw->h;
-		}
-		float fit_scale = fmin(sw / tex_w, sh / tex_h);
-		float fit_w = tex_w * fit_scale;
-		float fit_h = tex_h * fit_scale;
-		float fit_x = sx + (sw - fit_w) / 2;
-		float fit_y = sy + (sh - fit_h) / 2;
-		const float alpha = 1.0f;
+			struct hsdwl_tab_group *g = cw->view->tab_group;
+			int n_tabs = wl_list_length(&g->views);
 
-		wlr_render_pass_add_texture(pass,
-			&(struct wlr_render_texture_options){
-			.texture = texture,
-			.dst_box = {
-				.x = (int)(fit_x + 0.5f),
-				.y = (int)(fit_y + 0.5f),
-				.width = (int)(fit_w + 0.5f),
-				.height = (int)(fit_h + 0.5f),
-			},
-			.alpha = &alpha,
-			.transform = WL_OUTPUT_TRANSFORM_NORMAL,
-		});
+			/* Count actual renderable views */
+			int n_renderable = 0;
+			struct hsdwl_view *vtmp;
+			wl_list_for_each(vtmp, &g->views, tab_group_link)
+			{
+				if (view_get_surface(vtmp))
+					n_renderable++;
+			}
+			if (n_renderable == 0) continue;
+
+			/* Layout gap between side-by-side windows */
+			float gap = sw * 0.06f;
+			float avail_w = sw + gap;
+			float cell_w = avail_w / (float)n_renderable;
+			float cell_h = sh;
+
+			int idx = 0;
+			struct hsdwl_view *vi;
+			wl_list_for_each(vi, &g->views, tab_group_link)
+			{
+				struct wlr_surface *surface =
+					view_get_surface(vi);
+				if (!surface) continue;
+				struct wlr_texture *texture =
+					wlr_surface_get_texture(surface);
+				if (!texture) continue;
+
+				float tx = sx + (float)idx * cell_w;
+				float ty = sy ;
+
+				float tex_w = surface->current.width;
+				float tex_h = surface->current.height;
+				if (tex_w < 1 || tex_h < 1)
+				{
+					tex_w = cw->w;
+					tex_h = cw->h;
+				}
+				float fs = fmin(cell_w / tex_w,
+					cell_h / tex_h);
+				float fw = tex_w * fs;
+				float fh = tex_h * fs;
+				float fx = tx + (cell_w - fw) / 2;
+				float fy = ty + (cell_h - fh) / 2;
+				const float a = 1.0f;
+
+				wlr_render_pass_add_texture(pass,
+					&(struct wlr_render_texture_options){
+					.texture = texture,
+					.dst_box = {
+						.x = (int)(fx + 0.5f),
+						.y = (int)(fy + 0.5f),
+						.width = (int)(fw + 0.5f),
+						.height = (int)(fh + 0.5f),
+					},
+					.alpha = &a,
+					.transform =
+						WL_OUTPUT_TRANSFORM_NORMAL,
+				});
+				idx++;
+			}
+		}
+		else
+		{
+			struct wlr_surface *surface =
+				view_get_surface(cw->view);
+			if (!surface) continue;
+			struct wlr_texture *texture =
+				wlr_surface_get_texture(surface);
+			if (!texture) continue;
+
+			float tex_w = surface->current.width;
+			float tex_h = surface->current.height;
+			if (tex_w < 1 || tex_h < 1)
+			{
+				tex_w = cw->w;
+				tex_h = cw->h;
+			}
+			float fit_scale = fmin(sw / tex_w,
+				sh / tex_h);
+			float fit_w = tex_w * fit_scale;
+			float fit_h = tex_h * fit_scale;
+			float fit_x = sx + (sw - fit_w) / 2;
+			float fit_y = sy + (sh - fit_h) / 2;
+			const float alpha = 1.0f;
+
+			wlr_render_pass_add_texture(pass,
+				&(struct wlr_render_texture_options){
+				.texture = texture,
+				.dst_box = {
+					.x = (int)(fit_x + 0.5f),
+					.y = (int)(fit_y + 0.5f),
+					.width = (int)(fit_w + 0.5f),
+					.height = (int)(fit_h + 0.5f),
+				},
+				.alpha = &alpha,
+				.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+			});
+		}
 	}
 
 	if (!wlr_render_pass_submit(pass))
