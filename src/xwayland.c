@@ -228,12 +228,13 @@ static void xwayland_view_handle_set_geometry(
 		listener, view, set_geometry);
 	if (view->scene_tree && view->xwayland_surface)
 	{
-		int nx = view->xwayland_surface->x;
-		int ny = view->xwayland_surface->y;
-		if (view_is_stage_managed(view))
-			nx -= SIDEBAR_WIDTH;
-		wlr_scene_node_set_position(
-			&view->scene_tree->node, nx, ny);
+		if (!view_is_stage_managed(view))
+		{
+			int nx = view->xwayland_surface->x;
+			int ny = view->xwayland_surface->y;
+			wlr_scene_node_set_position(
+				&view->scene_tree->node, nx, ny);
+		}
 		view_borders_update(view);
 		titlebar_text_update(view);
 	}
@@ -297,12 +298,10 @@ static void xwayland_view_handle_request_configure(
 		view->xwayland_surface, ev->x, ev->y,
 		ev->width, ev->height);
 
-	if (view->scene_tree)
+	if (view->scene_tree && !view_is_stage_managed(view))
 	{
 		int nx = ev->x;
 		int ny = ev->y;
-		if (view_is_stage_managed(view))
-			nx -= SIDEBAR_WIDTH;
 		wlr_scene_node_set_position(
 			&view->scene_tree->node, nx, ny);
 	}

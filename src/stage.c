@@ -270,6 +270,7 @@ void stage_manager_new_window(struct hsdwl_server *server,
 
 	mgr->active_stage = stage;
 
+	view_focus(server, view);
 
 	if (animate)
 	{
@@ -334,8 +335,6 @@ void stage_manager_new_window(struct hsdwl_server *server,
 			}
 		}
 	}
-
-	view_focus(server, view);
 	stage_manager_render_sidebar(server, ws);
 
 

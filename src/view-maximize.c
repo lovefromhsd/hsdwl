@@ -74,6 +74,7 @@ static void view_anim_zoom_finish(struct hsdwl_server *server, void *user_data)
 {
 	struct hsdwl_view *view = user_data;
 	destroy_anim_overlay(server, view);
+	view_set_deco_visible(view, true);
 	view_borders_update(view);
 	titlebar_text_update(view);
 }
@@ -151,6 +152,8 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 			server, view, cur_cw, cur_ch, bw, tb_cap,
 			src_abs_x, src_abs_y);
 		if (!ov) return;
+
+		view_set_deco_visible(view, false);
 
 		view_do_unmaximize(view);
 
@@ -230,6 +233,8 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 				server, view, cur_cw, cur_ch, bw, tb_cap,
 				src_abs_x, src_abs_y);
 			if (!ov) return;
+
+			view_set_deco_visible(view, false);
 
 			view_do_unmaximize(view);
 
@@ -343,6 +348,8 @@ void view_maximize(struct hsdwl_server *server, struct hsdwl_view *view)
 	wlr_scene_node_set_position(&view->scene_tree->node, pad, 0);
 
 	view_set_surface_size(view, pad, 0, cw, ch);
+
+	view_set_deco_visible(view, false);
 
 	view->anim_overlay = ov;
 
