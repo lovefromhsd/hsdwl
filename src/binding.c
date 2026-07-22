@@ -90,7 +90,13 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_SWITCH_WORKSPACE:
 		case HSDWL_ACTION_MOVE_TO_WORKSPACE:
 			if (b->arg < 1 || b->arg > 9) continue;
-			if (event->keycode != (uint32_t)(KEY_1 + (b->arg - 1))) continue;
+			/* Match by keysym first (supports non-number keys like Insert),
+			 * then fall back to keycode for layout-independent number key matching */
+			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym))
+			{
+				if (event->keycode != (uint32_t)(KEY_1 + (b->arg - 1)))
+					continue;
+			}
 			break;
 		default:
 			continue;
