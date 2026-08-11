@@ -124,6 +124,8 @@ void hsdwl_wallpaper_update(struct hsdwl_server *server,
 	double scale_factor = output->scale > 0 ? output->scale : 1.0;
 	int ow = (int)(output->width / scale_factor);
 	int oh = (int)(output->height / scale_factor);
+	if (ow < 1 || oh < 1)
+		return;
 	if (ow == server->wallpaper_w && oh == server->wallpaper_h)
 		return;
 	server->wallpaper_w = ow;

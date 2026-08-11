@@ -1251,6 +1251,9 @@ bool expo_open(struct hsdwl_server *server)
 		return false;
 	}
 	wlr_scene_buffer_set_dest_size(e->backdrop, e->sw, e->sh);
+	/* the backdrop must sit under the canvas; it was created after
+	 * it (the wallpaper had to be captured first) */
+	wlr_scene_node_lower_to_bottom(&e->backdrop->node);
 
 	/* card buffers, one full-resolution snapshot per desktop */
 	for (int d = 0; d < HSDWL_NUM_WORKSPACES; d++)
