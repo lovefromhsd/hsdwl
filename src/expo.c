@@ -929,6 +929,22 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 /* Refresh cadence while open: the front card at ~10Hz, all cards
  * every second.  Every capture bumps the generation so the canvas
  * cache redraws with the fresh texture. */
+
+struct expo_frame_done_data
+{
+	struct timespec when;
+};
+
+static void expo_send_frame_done(struct wlr_scene_buffer *sb,
+		int sx, int sy, void *data)
+{
+	(void)sx;
+	(void)sy;
+	struct wlr_scene_surface *ss = wlr_scene_surface_try_from_buffer(sb);
+	if (ss)
+		wlr_surface_send_frame_done(ss->surface, data);
+}
+
 static void expo_refresh_cards(struct hsdwl_expo *e,
 		const struct timespec *now)
 {
@@ -948,6 +964,12 @@ static void expo_refresh_cards(struct hsdwl_expo *e,
 	}
 	if (front_dt >= HSDWL_EXPO_FRONT_REFRESH_S)
 	{
+		/* keep the front desktop's clients animating: they get no
+		 * frame_done while hidden, so nudge them before the shot */
+		struct expo_frame_done_data data = { .when = *now };
+		wlr_scene_node_for_each_buffer(
+			&e->server->workspaces[front]->node,
+			expo_send_frame_done, &data);
 		expo_capture_desktop(e, front);
 		e->last_front_refresh = *now;
 	}
