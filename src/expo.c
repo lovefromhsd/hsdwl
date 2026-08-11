@@ -889,25 +889,72 @@ static int expo_view_workspace(struct hsdwl_expo *e, struct hsdwl_view *view)
 	return (int)e->server->current_workspace;
 }
 
+static const char *expo_view_kind(struct hsdwl_view *view)
+{
+	if (view->xdg_surface)
+		return "xdg";
+	if (view->xwayland_surface)
+		return "xwayland";
+	return "unknown";
+}
+
 static bool expo_view_usable(struct hsdwl_view *view)
 {
-	if (!view || !view->scene_tree)
+	if (!view)
 		return false;
+	if (!view->scene_tree)
+	{
+		wlr_log(WLR_INFO, "expo: unusable %s %p: no scene_tree (unmapped)",
+			expo_view_kind(view), (void *)view);
+		return false;
+	}
 	struct wlr_surface *surface = view_get_surface(view);
-	if (!surface || !surface->current.buffer)
+	if (!surface)
+	{
+		wlr_log(WLR_INFO, "expo: unusable %s %p: no surface",
+			expo_view_kind(view), (void *)view);
 		return false;
+	}
+	if (!surface->current.buffer)
+	{
+		wlr_log(WLR_INFO, "expo: unusable %s %p: no current buffer",
+			expo_view_kind(view), (void *)view);
+		return false;
+	}
 	if (!view->xdg_surface && !view->xwayland_surface)
+	{
+		wlr_log(WLR_INFO, "expo: unusable %s %p: no role surface",
+			expo_view_kind(view), (void *)view);
 		return false;
+	}
 	if (view->xdg_surface)
 	{
-		if (!view->xdg_surface->configured
-			|| view->xdg_surface->geometry.width < 1
-			|| view->xdg_surface->geometry.height < 1)
+		if (!view->xdg_surface->configured)
+		{
+			wlr_log(WLR_INFO, "expo: unusable xdg %p: not configured",
+				(void *)view);
 			return false;
+		}
+		if (view->xdg_surface->geometry.width < 1
+			|| view->xdg_surface->geometry.height < 1)
+		{
+			wlr_log(WLR_INFO,
+				"expo: unusable xdg %p: zero geometry %dx%d",
+				(void *)view,
+				view->xdg_surface->geometry.width,
+				view->xdg_surface->geometry.height);
+			return false;
+		}
 	}
 	else if (view->xwayland_surface->width < 1
 		|| view->xwayland_surface->height < 1)
+	{
+		wlr_log(WLR_INFO,
+			"expo: unusable xwayland %p: zero size %dx%d",
+			(void *)view, view->xwayland_surface->width,
+			view->xwayland_surface->height);
 		return false;
+	}
 	return true;
 }
 
@@ -940,11 +987,7 @@ static bool expo_add_item(struct hsdwl_expo *e, struct hsdwl_view *view)
 		return false;
 	}
 	if (!expo_view_usable(view))
-	{
-		wlr_log(WLR_INFO, "expo: skip %p (no surface/scene tree)",
-			(void *)view);
 		return false;
-	}
 
 	int cw = 0, ch = 0;
 	expo_get_view_size(view, &cw, &ch);
