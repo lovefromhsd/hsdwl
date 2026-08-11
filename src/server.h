@@ -22,6 +22,7 @@ struct wlr_renderer;
 struct wlr_session;
 struct wlr_allocator;
 struct wlr_scene;
+struct wlr_scene_buffer;
 struct wlr_scene_tree;
 struct wlr_scene_rect;
 struct wlr_scene_output_layout;
@@ -135,6 +136,12 @@ struct hsdwl_server
 	struct wl_listener new_constraint;
 	struct wl_listener constraint_destroy;
 	struct wl_listener constraint_set_region;
+	/* built-in wallpaper (config background_wallpaper) */
+	struct wlr_scene_buffer *wallpaper_buf;
+	int wallpaper_tex_w;
+	int wallpaper_tex_h;
+	int wallpaper_w;  /* last laid-out output size */
+	int wallpaper_h;
 	/* Last absolute pointer position, for computing relative
 	 * deltas when pointer is locked with absolute input devices */
 	double last_abs_x;

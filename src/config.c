@@ -63,6 +63,7 @@ static const bool def_shadow_enabled = false;
 static const int def_shadow_x_offset = 4;
 static const int def_shadow_y_offset = 4;
 static const float def_shadow_opacity = 0.35f;
+static const char def_background_wallpaper[] = "";
 
 const struct config_field config_fields[] = {
 	{"cursor_size",             FIELD_INT,    offsetof(struct hsdwl_config, cursor_size),             0, &def_cursor_size},
@@ -96,6 +97,7 @@ const struct config_field config_fields[] = {
 	{"shadow_y_offset",         FIELD_INT,    offsetof(struct hsdwl_config, shadow_y_offset),          0, &def_shadow_y_offset},
 	{"shadow_color",            FIELD_COLOR,  offsetof(struct hsdwl_config, shadow_color),             0, "#000000"},
 	{"shadow_opacity",          FIELD_FLOAT,  offsetof(struct hsdwl_config, shadow_opacity),           0, &def_shadow_opacity},
+	{"background_wallpaper",    FIELD_STRING, offsetof(struct hsdwl_config, background_wallpaper),    512, def_background_wallpaper},
 	{"group_overlap_threshold", FIELD_FLOAT,  offsetof(struct hsdwl_config, group_overlap_threshold), 0, &def_group_overlap_threshold},
 	{"animation_bezier",        FIELD_BEZIER, offsetof(struct hsdwl_config, anim_bezier_x1),          16, "0.25, 0.1, 0.25, 1.0"},
 };

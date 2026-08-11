@@ -70,6 +70,8 @@ struct hsdwl_config
 	float shadow_color[4];
 	float shadow_opacity;
 
+	char background_wallpaper[512];
+
 	struct wl_list bindings;
 };
 

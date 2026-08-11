@@ -8,6 +8,7 @@
 #include "server.h"
 #include "stage-3d.h"
 #include "stage.h"
+#include "wallpaper.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -30,6 +31,8 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
+
+	hsdwl_wallpaper_update(output->server, output->wlr_output);
 
 	stage_3d_tick(output->server, &now);
 	animation_tick(output->server, &now);

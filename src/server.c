@@ -14,6 +14,7 @@
 #include "tab-group.h"
 #include "view.h"
 #include "view-maximize.h"
+#include "wallpaper.h"
 #include "xwayland.h"
 
 #include <pwd.h>
@@ -460,6 +461,8 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	wlr_scene_node_raise_to_top(
 		&server->animation_tree->node);
 
+	hsdwl_wallpaper_load(server);
+
 	return true;
 }
 
@@ -484,6 +487,7 @@ void hsdwl_server_destroy(struct hsdwl_server *server)
 	wlr_cursor_destroy(server->cursor);
 	if (server->preview_tree)
 		wlr_scene_node_destroy(&server->preview_tree->node);
+	hsdwl_wallpaper_destroy(server);
 	animation_cancel_all(server);
 	stage_3d_cancel(server);
 	if (server->animation_tree)

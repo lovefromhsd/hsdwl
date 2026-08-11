@@ -15,6 +15,7 @@ hsdwl_src = files(
   'tab-group-layout.c',
   'view-maximize.c',
   'view.c',
+  'wallpaper.c',
   'input.c',
   'output-management.c',
   'output.c',
