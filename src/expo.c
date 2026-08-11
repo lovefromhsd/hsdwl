@@ -934,9 +934,12 @@ static struct wlr_texture *expo_build_backdrop(struct hsdwl_expo *e,
 		expo_cover_draw(pass, s_tex, e->sw, e->sh, 1.0);
 		wlr_texture_destroy(s_tex);
 	}
+	/* darken the picture; with no picture at all the plane is
+	 * opaque black, so nothing stale shows through the strip */
+	float dark = small ? (float)HSDWL_EXPO_BACKDROP_DARK : 1.0f;
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
-		.color = { .r = 0, .g = 0, .b = 0, .a = (float)HSDWL_EXPO_BACKDROP_DARK },
+		.color = { .r = 0, .g = 0, .b = 0, .a = dark },
 	});
 	wlr_render_pass_submit(pass);
 
