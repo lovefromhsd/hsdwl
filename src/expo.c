@@ -1088,14 +1088,14 @@ bool expo_open(struct hsdwl_server *server)
 		return false;
 	if (!server->config.expo_enabled)
 	{
-		wlr_log(WLR_INFO, "expo: open refused (disabled in config)");
+		wlr_log(WLR_INFO, "%s", "expo: open refused (disabled in config)");
 		return false;
 	}
 	struct wlr_output *out =
 		wlr_output_layout_get_center_output(server->output_layout);
 	if (!out)
 	{
-		wlr_log(WLR_INFO, "expo: open refused (no output)");
+		wlr_log(WLR_INFO, "%s", "expo: open refused (no output)");
 		return false;
 	}
 	struct wlr_box box;
