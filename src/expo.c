@@ -616,14 +616,8 @@ static void expo_draw_card(struct hsdwl_expo *e,
 		0, 1, 0, e->sh, 0, 1, 0, 1,
 		HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS, 1.0f, true);
 
-	/* wallpaper */
-	if (e->wp_tex)
-		expo_draw_grid(e, pass, e->wp_tex, NULL, a, b,
-			0, 1, 0, e->sh, 0, 1, 0, 1,
-			HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS, 1.0f, true);
-
-	/* workspace snapshot; the texture has real alpha, so the
-	 * wallpaper shows through the empty parts */
+	/* workspace snapshot: a full composite of the desktop, so it
+	 * includes the wallpaper and any bars that would be on screen */
 	if (e->card_tex[d])
 		expo_draw_grid(e, pass, e->card_tex[d], NULL, a, b,
 			0, 1, 0, e->sh, 0, 1, 0, 1,
@@ -834,10 +828,12 @@ static struct wlr_texture *expo_capture_wallpaper(struct hsdwl_expo *e)
 }
 
 /*
- * Capture.  Each card is an offscreen render of its whole workspace
- * tree (windows, stage canvas, sidebar), scaled by
- * HSDWL_EXPO_SNAP_SCALE.  The wallpaper is a single composite of the
- * background/bottom layer surfaces, drawn under every card.
+ * Capture.  Each card is an offscreen render of everything a desktop
+ * would show, at full resolution: the background and bottom layers
+ * (wallpaper, docks), the workspace itself (windows, stage canvas,
+ * sidebar), and the top and overlay layers (bars, panels).  The
+ * wallpaper composite kept for the backs of the cards comes from
+ * expo_capture_wallpaper below.
  */
 
 struct expo_capture_ctx
@@ -869,7 +865,7 @@ static void expo_capture_buffer(struct wlr_scene_buffer *sb,
 	int y = (int)lround(sy * HSDWL_EXPO_SNAP_SCALE);
 	int w = MAX((int)lround(sb->dst_width * HSDWL_EXPO_SNAP_SCALE), 1);
 	int h = MAX((int)lround(sb->dst_height * HSDWL_EXPO_SNAP_SCALE), 1);
-	int bw = e->sw / 2, bh = e->sh / 2;
+	int bw = e->sw, bh = e->sh;
 	if (x + w > bw)
 		w = bw - x;
 	if (y + h > bh)
@@ -893,9 +889,11 @@ static void expo_capture_buffer(struct wlr_scene_buffer *sb,
 		wlr_texture_destroy(tex);
 }
 
-/* Render workspace d into its card buffer and rebuild its texture.
- * The tree is temporarily re-enabled so hidden desktops still
- * capture; nothing renders mid-capture (single event loop). */
+/* Render desktop d into its card buffer and rebuild its texture.
+ * Everything that would be on screen for that desktop is composited:
+ * wallpaper layers, the desktop's own tree, and the bars on top.
+ * The hidden trees are temporarily re-enabled so they still capture;
+ * nothing renders mid-capture (single event loop). */
 static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 {
 	struct hsdwl_server *server = e->server;
@@ -907,14 +905,28 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 	if (!pass)
 		return false;
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
-		.box = { .x = 0, .y = 0, .width = e->sw / 2, .height = e->sh / 2 },
+		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
 		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
 	});
+	struct expo_capture_ctx ctx = { .e = e, .pass = pass };
+	/* wallpaper and docks, shared by every desktop */
+	for (int i = 0; i < 2; i++)
+	{
+		wlr_scene_node_set_enabled(&server->layer_trees[i]->node, true);
+		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
+			expo_capture_buffer, &ctx);
+	}
+	/* the desktop itself */
 	struct wlr_scene_node *node = &server->workspaces[d]->node;
 	wlr_scene_node_set_enabled(node, true);
-	struct expo_capture_ctx ctx = { .e = e, .pass = pass };
 	wlr_scene_node_for_each_buffer(node, expo_capture_buffer, &ctx);
 	wlr_scene_node_set_enabled(node, false);
+	/* bars and overlays */
+	for (int i = 2; i < 4; i++)
+		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
+			expo_capture_buffer, &ctx);
+	for (int i = 0; i < 2; i++)
+		wlr_scene_node_set_enabled(&server->layer_trees[i]->node, false);
 	if (!wlr_render_pass_submit(pass))
 		return false;
 	wlr_log(WLR_DEBUG, "expo: desktop %d: %d buffers captured",
@@ -1169,11 +1181,11 @@ bool expo_open(struct hsdwl_server *server)
 
 	e->wp_tex = expo_capture_wallpaper(e);
 
-	/* card buffers + initial snapshot of every desktop */
+	/* card buffers, one full-resolution snapshot per desktop */
 	for (int d = 0; d < HSDWL_NUM_WORKSPACES; d++)
 	{
 		struct wlr_buffer *buf = expo_alloc_buffer(server,
-			e->sw / 2, e->sh / 2);
+			e->sw, e->sh);
 		if (!buf)
 			continue;
 		e->card_buf[d] = wlr_buffer_lock(buf);

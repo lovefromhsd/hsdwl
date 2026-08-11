@@ -19,7 +19,7 @@ struct wlr_pointer_button_event;
 struct wlr_pointer_axis_event;
 
 /* Ring camera + strip constants (reimplementation of fwm's expo design) */
-#define HSDWL_EXPO_SNAP_SCALE 0.5
+#define HSDWL_EXPO_SNAP_SCALE 1.0
 #define HSDWL_EXPO_ZOOM_NEAR 1.3
 #define HSDWL_EXPO_ZOOM_FAR 3.0
 #define HSDWL_EXPO_ZOOM_SPEED 11.0
