@@ -624,25 +624,20 @@ static void expo_draw_card(struct hsdwl_expo *e,
 			HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS, 1.0f, true);
 }
 
-/* The far wall of a backfacing card: a tint plus the wallpaper. */
+/* The far wall of a backfacing card: the backdrop picture, so the
+ * ring reads as one continuous blurred wallpaper and the strip ends
+ * don't show anything mirrored or stale. */
 static void expo_draw_inner(struct hsdwl_expo *e,
 		struct wlr_render_pass *pass, const struct expo_vert q[4],
 		struct expo_pt a, struct expo_pt b)
 {
-	float tint[3] = {
-		e->server->config.titlebar_color_focused[0],
-		e->server->config.titlebar_color_focused[1],
-		e->server->config.titlebar_color_focused[2],
-	};
-	expo_draw_grid_solid(e, pass, q, tint, HSDWL_EXPO_INNER_ALPHA,
-		HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS);
-	if (e->wp_tex)
+	(void)q;
+	if (e->bg_tex)
 	{
 		/* re-project the facet, no backface culling */
-		expo_draw_grid(e, pass, e->wp_tex, NULL, a, b,
+		expo_draw_grid(e, pass, e->bg_tex, NULL, a, b,
 			0, 1, 0, e->sh, 0, 1, 0, 1,
-			HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS,
-			HSDWL_EXPO_INNER_IMAGE, false);
+			HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS, 1.0f, false);
 	}
 }
 
@@ -736,14 +731,9 @@ static void expo_draw_canvas(struct hsdwl_expo *e)
 
 static void expo_layout(struct hsdwl_expo *e)
 {
-	double open = expo_openness(e);
-	float alpha = (float)(HSDWL_EXPO_BACKDROP_ALPHA * open);
-	if (fabsf(alpha - e->backdrop_alpha) > 0.001f)
-	{
-		e->backdrop_alpha = alpha;
-		float col[4] = { 0, 0, 0, alpha };
-		wlr_scene_rect_set_color(e->backdrop, col);
-	}
+	/* the backdrop is an opaque picture now; no fade needed — the
+	 * front card covers the screen exactly at zoom 1.0, so the
+	 * backdrop only shows where the strip doesn't reach */
 	expo_draw_canvas(e);
 }
 
@@ -767,73 +757,14 @@ static struct wlr_buffer *expo_alloc_buffer(struct hsdwl_server *server,
 	return wlr_allocator_create_buffer(server->allocator, w, h, &fmt);
 }
 
-static struct wlr_texture *expo_capture_wallpaper(struct hsdwl_expo *e)
-{
-	struct hsdwl_server *server = e->server;
-	struct wlr_buffer *buf = expo_alloc_buffer(server, e->sw, e->sh);
-	if (!buf)
-		return NULL;
-	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
-		server->renderer, buf, NULL);
-	if (!pass)
-	{
-		wlr_buffer_drop(buf);
-		return NULL;
-	}
-	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
-		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
-		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
-	});
-	struct hsdwl_layer_surface *ls;
-	wl_list_for_each(ls, &server->layer_surfaces, link)
-	{
-		if (!ls->scene_tree || !ls->scene_tree->node.enabled)
-			continue;
-		struct wlr_layer_surface_v1 *layer = ls->layer_surface;
-		if (!layer || !layer->surface->mapped)
-			continue;
-		if (layer->output && layer->output != e->out)
-			continue;
-		if (layer->current.layer != ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND
-			&& layer->current.layer != ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM)
-			continue;
-		struct wlr_surface *surface = layer->surface;
-		if (!surface || !surface->current.buffer)
-			continue;
-		struct wlr_texture *tex = wlr_surface_get_texture(surface);
-		if (!tex)
-			continue;
-		int lx = 0, ly = 0;
-		if (!wlr_scene_node_coords(&ls->scene_tree->node, &lx, &ly))
-			continue;
-		float alpha = 1.0f;
-		struct wlr_box dst = {
-			.x = lx - e->ox,
-			.y = ly - e->oy,
-			.width = surface->current.width,
-			.height = surface->current.height,
-		};
-		wlr_render_pass_add_texture(pass,
-			&(struct wlr_render_texture_options){
-				.texture = tex,
-				.dst_box = dst,
-				.alpha = &alpha,
-				.transform = WL_OUTPUT_TRANSFORM_NORMAL,
-			});
-	}
-	wlr_render_pass_submit(pass);
-	struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
-	wlr_buffer_drop(buf);
-	return tex;
-}
-
 /*
  * Capture.  Each card is an offscreen render of everything a desktop
  * would show, at full resolution: the background and bottom layers
  * (wallpaper, docks), the workspace itself (windows, stage canvas,
  * sidebar), and the top and overlay layers (bars, panels).  The
  * wallpaper composite kept for the backs of the cards comes from
- * expo_capture_wallpaper below.
+ * expo_capture_wallpaper above; the strip backdrop is a blurred and
+ * darkened version of it (expo_build_backdrop).
  */
 
 struct expo_capture_ctx
@@ -887,6 +818,136 @@ static void expo_capture_buffer(struct wlr_scene_buffer *sb,
 	ctx->buffers++;
 	if (owned)
 		wlr_texture_destroy(tex);
+}
+
+/* Composite the wallpaper layers (background + bottom, which covers
+ * both the built-in wallpaper and external layer-shell clients) into
+ * one full-screen texture. */
+static struct wlr_texture *expo_capture_wallpaper(struct hsdwl_expo *e)
+{
+	struct hsdwl_server *server = e->server;
+	struct wlr_buffer *buf = expo_alloc_buffer(server, e->sw, e->sh);
+	if (!buf)
+		return NULL;
+	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
+		server->renderer, buf, NULL);
+	if (!pass)
+	{
+		wlr_buffer_drop(buf);
+		return NULL;
+	}
+	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
+		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
+		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
+	});
+	struct expo_capture_ctx ctx = { .e = e, .pass = pass };
+	for (int i = 0; i < 2; i++)
+		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
+			expo_capture_buffer, &ctx);
+	wlr_render_pass_submit(pass);
+	struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
+	wlr_buffer_drop(buf);
+	return tex;
+}
+
+/* Draw `tex` cover-fit (with an extra zoom) into the pass, centered
+ * in a w×h area, cropping the overflow. */
+static void expo_cover_draw(struct wlr_render_pass *pass,
+		struct wlr_texture *tex, int w, int h, double zoom)
+{
+	double scale = fmax((double)w / tex->width,
+		(double)h / tex->height) * zoom;
+	int dw = (int)lround(tex->width * scale);
+	int dh = (int)lround(tex->height * scale);
+	float alpha = 1.0f;
+	wlr_render_pass_add_texture(pass, &(struct wlr_render_texture_options){
+		.texture = tex,
+		.dst_box = { .x = (w - dw) / 2, .y = (h - dh) / 2,
+			.width = dw, .height = dh },
+		.alpha = &alpha,
+		.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+	});
+}
+
+/* Build the strip's backdrop: the wallpaper, zoomed in, darkened, and
+ * blurred by downsampling to an eighth and stretching back up.  The
+ * result is opaque, so nothing behind the strip (like the previous
+ * frame) can leak through.  With no wallpaper at all it is just a
+ * dark plane.  On success stores the buffer in *out_buf and returns
+ * a texture of it; the caller gives the buffer to a scene node. */
+static struct wlr_texture *expo_build_backdrop(struct hsdwl_expo *e,
+		struct wlr_buffer **out_buf)
+{
+	struct hsdwl_server *server = e->server;
+	int bw = MAX(e->sw / 8, 1);
+	int bh = MAX(e->sh / 8, 1);
+
+	struct wlr_buffer *small = NULL;
+	if (e->wp_tex)
+	{
+		small = expo_alloc_buffer(server, bw, bh);
+		if (!small)
+			return NULL;
+		struct wlr_render_pass *p = wlr_renderer_begin_buffer_pass(
+			server->renderer, small, NULL);
+		if (!p)
+		{
+			wlr_buffer_drop(small);
+			return NULL;
+		}
+		wlr_render_pass_add_rect(p, &(struct wlr_render_rect_options){
+			.box = { .x = 0, .y = 0, .width = bw, .height = bh },
+			.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
+		});
+		expo_cover_draw(p, e->wp_tex, bw, bh, 1.2);
+		wlr_render_pass_submit(p);
+	}
+
+	struct wlr_buffer *big = expo_alloc_buffer(server, e->sw, e->sh);
+	if (!big)
+	{
+		if (small)
+			wlr_buffer_drop(small);
+		return NULL;
+	}
+	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
+		server->renderer, big, NULL);
+	if (!pass)
+	{
+		if (small)
+			wlr_buffer_drop(small);
+		wlr_buffer_drop(big);
+		return NULL;
+	}
+	if (small)
+	{
+		struct wlr_texture *s_tex = wlr_texture_from_buffer(
+			server->renderer, small);
+		wlr_buffer_drop(small);
+		if (!s_tex)
+		{
+			wlr_render_pass_submit(pass);
+			wlr_buffer_drop(big);
+			return NULL;
+		}
+		/* stretching the eighth-size picture back up blurs it */
+		expo_cover_draw(pass, s_tex, e->sw, e->sh, 1.0);
+		wlr_texture_destroy(s_tex);
+	}
+	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
+		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
+		.color = { .r = 0, .g = 0, .b = 0, .a = (float)HSDWL_EXPO_BACKDROP_DARK },
+	});
+	wlr_render_pass_submit(pass);
+
+	struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, big);
+	if (!tex)
+	{
+		wlr_buffer_drop(big);
+		return NULL;
+	}
+	*out_buf = big;
+	return tex;
 }
 
 /* Render desktop d into its card buffer and rebuild its texture.
@@ -1024,6 +1085,8 @@ static void expo_teardown(struct hsdwl_server *server)
 	}
 	if (e->wp_tex)
 		wlr_texture_destroy(e->wp_tex);
+	if (e->bg_tex)
+		wlr_texture_destroy(e->bg_tex);
 	for (int i = 0; i < 2; i++)
 	{
 		if (e->canvas_buf[i])
@@ -1153,13 +1216,6 @@ bool expo_open(struct hsdwl_server *server)
 	/* hand the pointer to the server now, so failures can teardown */
 	server->expo = e;
 
-	e->backdrop = wlr_scene_rect_create(e->tree, e->sw, e->sh,
-		(float[]){0, 0, 0, 0});
-	if (!e->backdrop)
-	{
-		expo_teardown(server);
-		return false;
-	}
 	e->canvas = wlr_scene_buffer_create(e->tree, NULL);
 	if (!e->canvas)
 	{
@@ -1180,6 +1236,21 @@ bool expo_open(struct hsdwl_server *server)
 	}
 
 	e->wp_tex = expo_capture_wallpaper(e);
+
+	/* backdrop: an opaque blurred/darkened wallpaper picture; with no
+	 * wallpaper it is a plain dark plane.  Either way nothing behind
+	 * the strip can leak through. */
+	e->bg_tex = expo_build_backdrop(e, &e->bg_buf);
+	e->backdrop = wlr_scene_buffer_create(e->tree, e->bg_buf);
+	if (e->bg_buf)
+		wlr_buffer_drop(e->bg_buf);
+	e->bg_buf = NULL;  /* the scene holds it now */
+	if (!e->backdrop)
+	{
+		expo_teardown(server);
+		return false;
+	}
+	wlr_scene_buffer_set_dest_size(e->backdrop, e->sw, e->sh);
 
 	/* card buffers, one full-resolution snapshot per desktop */
 	for (int d = 0; d < HSDWL_NUM_WORKSPACES; d++)
@@ -1391,12 +1462,15 @@ bool expo_handle_key(struct hsdwl_expo *e, struct wlr_keyboard *kb,
 		expo_zoom_step(e);
 		break;
 	case XKB_KEY_Left:
+	case XKB_KEY_h:
 		expo_pan_by(e, -expo_pitch(e));
 		break;
 	case XKB_KEY_Right:
+	case XKB_KEY_l:
 		expo_pan_by(e, expo_pitch(e));
 		break;
 	case XKB_KEY_Up:
+	case XKB_KEY_k:
 		if (expo_can_orbit(e))
 		{
 			e->tilt_target += HSDWL_EXPO_TILT_STEP;
@@ -1406,6 +1480,7 @@ bool expo_handle_key(struct hsdwl_expo *e, struct wlr_keyboard *kb,
 		}
 		break;
 	case XKB_KEY_Down:
+	case XKB_KEY_j:
 		if (expo_can_orbit(e))
 		{
 			e->tilt_target -= HSDWL_EXPO_TILT_STEP;

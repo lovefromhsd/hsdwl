@@ -42,7 +42,7 @@ struct wlr_pointer_axis_event;
 #define HSDWL_EXPO_SPIN_DECAY 2.4
 #define HSDWL_EXPO_SPIN_MIN 40.0
 #define HSDWL_EXPO_CAM_DIST 2.2
-#define HSDWL_EXPO_BACKDROP_ALPHA 0.72
+#define HSDWL_EXPO_BACKDROP_DARK 0.55
 #define HSDWL_EXPO_HILIGHT_PX 6.0
 #define HSDWL_EXPO_CARD_CELLS 16
 #define HSDWL_EXPO_FRONT_REFRESH_S 0.1
@@ -70,13 +70,14 @@ struct hsdwl_expo
 	int ox, oy;        /* output position in the layout */
 
 	struct wlr_scene_tree *tree;
-	struct wlr_scene_rect *backdrop;
+	struct wlr_scene_buffer *backdrop;
 	struct wlr_scene_buffer *canvas;
 	struct wlr_buffer *canvas_buf[2];
 	int canvas_i;
-	float backdrop_alpha;   /* last alpha applied, avoids re-damage */
 
 	struct wlr_texture *wp_tex;  /* wallpaper composite, full screen */
+	struct wlr_texture *bg_tex;  /* blurred, darkened backdrop */
+	struct wlr_buffer *bg_buf;   /* backdrop buffer (scene owns it) */
 
 	/* one snapshot per desktop, at HSDWL_EXPO_SNAP_SCALE */
 	struct wlr_texture *card_tex[HSDWL_NUM_WORKSPACES];
