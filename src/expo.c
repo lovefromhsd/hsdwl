@@ -1153,7 +1153,7 @@ static void expo_sync_items(struct hsdwl_expo *e)
 				break;
 			}
 		}
-		if (!found)
+		if (!found && view->scene_tree && view_get_surface(view))
 			expo_add_item(e, view);
 	}
 	for (int i = e->n_items - 1; i >= 0; i--)
