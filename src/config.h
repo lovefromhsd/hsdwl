@@ -18,6 +18,7 @@ enum hsdwl_action
 	HSDWL_ACTION_MAXIMIZE,
 	HSDWL_ACTION_CYCLE_TAB_NEXT,
 	HSDWL_ACTION_CYCLE_TAB_PREV,
+	HSDWL_ACTION_EXPO,
 };
 
 struct hsdwl_binding
@@ -61,6 +62,7 @@ struct hsdwl_config
 	bool stage_manager_enabled;
 	int stage_anim_duration;
 	bool stage_3d_enabled;
+	bool expo_enabled;
 	int stage_float_max_size;
 	bool shadow_enabled;
 	int shadow_x_offset;

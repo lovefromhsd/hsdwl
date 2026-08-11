@@ -2,6 +2,7 @@
 #define WLR_USE_UNSTABLE
 
 #include "binding.h"
+#include "expo.h"
 #include "input.h"
 #include "pointer.h"
 #include "server.h"
@@ -46,6 +47,10 @@ static void keyboard_handle_key(struct wl_listener *listener, void *data)
 				sym - XKB_KEY_XF86Switch_VT_1 + 1);
 			return;
 		}
+
+		if (server->expo && expo_handle_key(server->expo,
+				wlr_keyboard, event))
+			return;
 
 		if (binding_dispatch(server, wlr_keyboard, event))
 			return;

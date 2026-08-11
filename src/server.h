@@ -39,6 +39,7 @@ struct wlr_pointer_constraint_v1;
 
 struct hsdwl_view;
 struct hsdwl_layer_surface;
+struct hsdwl_expo;
 
 enum hsdwl_cursor_mode
 {
@@ -130,6 +131,7 @@ struct hsdwl_server
 	struct wlr_pointer_constraints_v1 *pointer_constraints;
 	struct wlr_relative_pointer_manager_v1 *relative_pointer_manager;
 	struct wlr_pointer_constraint_v1 *active_constraint;
+	struct hsdwl_expo *expo;
 	struct wl_listener new_constraint;
 	struct wl_listener constraint_destroy;
 	struct wl_listener constraint_set_region;

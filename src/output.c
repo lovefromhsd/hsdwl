@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "animation.h"
+#include "expo.h"
 #include "layer-shell.h"
 #include "output.h"
 #include "output-management.h"
@@ -33,11 +34,17 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 	stage_3d_tick(output->server, &now);
 	animation_tick(output->server, &now);
 
+	if (output->server->expo
+			&& output->server->expo->out == output->wlr_output)
+		expo_tick(output->server, &now);
+
 	stage_manager_check_sidebar_overlap(output->server,
 		output->server->current_workspace);
 
 	if (!wl_list_empty(&output->server->animations)
-		|| !wl_list_empty(&output->server->tilt_animations))
+		|| !wl_list_empty(&output->server->tilt_animations)
+		|| (output->server->expo
+			&& output->server->expo->out == output->wlr_output))
 		wlr_output_schedule_frame(output->wlr_output);
 
 	if (!wlr_scene_output_commit(scene_output, NULL))
@@ -53,6 +60,9 @@ static void output_handle_destroy(struct wl_listener *listener, void *data)
 	wl_list_remove(&output->link);
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->destroy.link);
+	if (output->server->expo
+			&& output->server->expo->out == output->wlr_output)
+		expo_output_gone(output->server, output->wlr_output);
 	layer_shell_rearrange(output->server);
 	free(output);
 }
@@ -98,4 +108,10 @@ void output_handle_new(struct wl_listener *listener, void *data)
 
 	output_manager_update(server);
 	layer_shell_rearrange(server);
+
+	/* Test hook: HSDWL_EXPO_TEST opens the strip at startup (FAR
+	 * zoom + tilt from the env) so the renderer can be exercised
+	 * headless, exactly like fwm's FWM_TEST_ORBIT. */
+	if (getenv("HSDWL_EXPO_TEST") && !server->expo)
+		expo_open(server);
 }

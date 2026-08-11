@@ -4,6 +4,7 @@ hsdwl_src = files(
   'config.c',
   'constraint.c',
   'deco.c',
+  'expo.c',
   'layer-shell.c',
   'main.c',
   'server.c',

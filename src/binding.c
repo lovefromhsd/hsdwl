@@ -11,6 +11,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include "binding.h"
 #include "config.h"
+#include "expo.h"
 #include "server.h"
 #include "view-maximize.h"
 #include "stage.h"
@@ -77,6 +78,7 @@ bool binding_dispatch(struct hsdwl_server *server,
 		case HSDWL_ACTION_QUIT:
 		case HSDWL_ACTION_CLOSE_FOCUSED:
 		case HSDWL_ACTION_MAXIMIZE:
+		case HSDWL_ACTION_EXPO:
 			if (xkb_keysym_to_lower(sym) != xkb_keysym_to_lower(b->keysym))
 			{
 
@@ -189,6 +191,9 @@ bool binding_dispatch(struct hsdwl_server *server,
 			if (cur) view_maximize(server, cur);
 			return true;
 		}
+		case HSDWL_ACTION_EXPO:
+			expo_toggle(server);
+			return true;
 		default:
 			return false;
 		}

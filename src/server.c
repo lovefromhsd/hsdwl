@@ -2,6 +2,7 @@
 
 #include "server.h"
 #include "constraint.h"
+#include "expo.h"
 #include "input.h"
 #include "layer-shell.h"
 #include "output.h"
@@ -205,6 +206,8 @@ static int signal_event(int fd, uint32_t mask, void *data)
 
 bool hsdwl_server_init(struct hsdwl_server *server)
 {
+	server->expo = NULL;
+
 	hsdwl_config_load(&server->config);
 
 	server->display = wl_display_create();
@@ -462,6 +465,8 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 
 void hsdwl_server_destroy(struct hsdwl_server *server)
 {
+	expo_destroy(server);
+
 	wl_list_remove(&server->cursor_motion.link);
 	wl_list_remove(&server->cursor_motion_absolute.link);
 	wl_list_remove(&server->cursor_button.link);

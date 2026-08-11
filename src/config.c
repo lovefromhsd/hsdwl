@@ -56,6 +56,7 @@ static const float def_group_overlap_threshold = 0.5f;
 static const bool def_smart_gaps = true;
 static const bool def_stage_manager_enabled = true;
 static const bool def_stage_3d_enabled = true;
+static const bool def_expo_enabled = true;
 static const int def_stage_float_max_size = 360;
 static const int def_titlebar_height = -1;
 static const bool def_shadow_enabled = false;
@@ -88,6 +89,7 @@ const struct config_field config_fields[] = {
 	{"stage_manager",           FIELD_BOOL,   offsetof(struct hsdwl_config, stage_manager_enabled),   0, &def_stage_manager_enabled},
 	{"stage_anim_duration",     FIELD_INT,    offsetof(struct hsdwl_config, stage_anim_duration),     0, &def_stage_anim_duration},
 	{"stage_3d_enabled",        FIELD_BOOL,   offsetof(struct hsdwl_config, stage_3d_enabled),        0, &def_stage_3d_enabled},
+	{"expo_enabled",            FIELD_BOOL,   offsetof(struct hsdwl_config, expo_enabled),            0, &def_expo_enabled},
 	{"stage_float_max_size",    FIELD_INT,    offsetof(struct hsdwl_config, stage_float_max_size),    0, &def_stage_float_max_size},
 	{"shadow_enabled",          FIELD_BOOL,   offsetof(struct hsdwl_config, shadow_enabled),           0, &def_shadow_enabled},
 	{"shadow_x_offset",         FIELD_INT,    offsetof(struct hsdwl_config, shadow_x_offset),          0, &def_shadow_x_offset},
@@ -109,6 +111,7 @@ const struct action_entry action_map[] = {
 	{"maximize",             HSDWL_ACTION_MAXIMIZE},
 	{"cycle_tab_next",       HSDWL_ACTION_CYCLE_TAB_NEXT},
 	{"cycle_tab_prev",       HSDWL_ACTION_CYCLE_TAB_PREV},
+	{"expo",                 HSDWL_ACTION_EXPO},
 };
 int action_map_count = sizeof(action_map) / sizeof(action_map[0]);
 
@@ -163,6 +166,7 @@ static void write_default_config(const char *path)
 	fputs("bind = mod_key+h, cycle_tab_prev\n", f);
 	fputs("bind = mod_key+l, cycle_tab_next\n", f);
 	fputs("bind = Control+Shift+Tab, cycle_tab_prev\n", f);
+	fputs("bind = mod_key+a, expo\n", f);
 	fclose(f);
 }
 

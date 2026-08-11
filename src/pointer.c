@@ -4,6 +4,7 @@
 #include "layer-shell.h"
 #include "pointer.h"
 #include "constraint.h"
+#include "expo.h"
 #include "server.h"
 #include "stage.h"
 #include "tab-group.h"
@@ -566,6 +567,10 @@ static void server_cursor_motion(struct wl_listener *listener, void *data)
 	wlr_cursor_move(server->cursor, &event->pointer->base,
 		event->delta_x, event->delta_y);
 
+	if (server->expo && expo_handle_motion(server->expo,
+			server->cursor->x, server->cursor->y))
+		return;
+
 	if (handle_grab_motion(server))
 		return;
 
@@ -626,6 +631,10 @@ static void server_cursor_motion_absolute(
 	wlr_cursor_warp_absolute(server->cursor, &event->pointer->base,
 		event->x, event->y);
 
+	if (server->expo && expo_handle_motion(server->expo,
+			server->cursor->x, server->cursor->y))
+		return;
+
 	if (handle_grab_motion(server))
 		return;
 
@@ -637,6 +646,9 @@ static void server_cursor_button(struct wl_listener *listener, void *data)
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, cursor_button);
 	struct wlr_pointer_button_event *event = data;
+
+	if (server->expo && expo_handle_button(server->expo, event))
+		return;
 
 	if (event->state == WL_POINTER_BUTTON_STATE_PRESSED
 			&& server->cursor_mode == HSDWL_CURSOR_STAGE_DRAG)
@@ -1038,6 +1050,9 @@ static void server_cursor_axis(struct wl_listener *listener, void *data)
 	struct hsdwl_server *server = wl_container_of(
 		listener, server, cursor_axis);
 	struct wlr_pointer_axis_event *event = data;
+
+	if (server->expo && expo_handle_axis(server->expo, event))
+		return;
 	wlr_seat_pointer_notify_axis(server->seat, event->time_msec,
 		event->orientation, event->delta, event->delta_discrete,
 		event->source, event->relative_direction);
