@@ -5,10 +5,6 @@
 #include "config.h"
 #include "layer-shell.h"
 #include "server.h"
-#include "stage.h"
-#include "view.h"
-#include "view-capture.h"
-#include "view-maximize.h"
 
 #include <drm_fourcc.h>
 #include <limits.h>
@@ -572,44 +568,9 @@ static void expo_draw_grid_solid(struct hsdwl_expo *e,
  * fades in under it.
  */
 
-static void expo_draw_item(struct hsdwl_expo *e,
-		struct wlr_render_pass *pass, struct hsdwl_expo_item *it,
-		double scale)
-{
-	int d = it->desktop;
-	double s0 = (it->wx - d * e->sw) / e->sw;
-	double s1 = (it->wx + it->w - d * e->sw) / e->sw;
-	struct expo_pt a, b;
-	expo_facet_ends(e, d, &a, &b);
-	struct expo_vert q[4];
-	expo_quad(e, a, b, s0, s1, it->wy, it->wy + it->h,
-		0, 1, 0, 1, q);
-	if (!expo_quad_onscreen(q, e->sw, e->sh))
-		return;
-	if (!expo_quad_front(q))
-		return;
-	if (it == e->hover)
-	{
-		struct expo_vert hi[4];
-		expo_inflate(q, fmax(HSDWL_EXPO_HILIGHT_PX * scale, 2.0), hi);
-		float accent[3] = {
-			e->server->config.border_color_focused[0],
-			e->server->config.border_color_focused[1],
-			e->server->config.border_color_focused[2],
-		};
-		expo_draw_grid_solid(e, pass, hi, accent, 0.9f,
-			HSDWL_EXPO_WIN_CELLS, HSDWL_EXPO_WIN_CELLS);
-	}
-	if (it->tex)
-		expo_draw_grid(e, pass, it->tex, NULL, a, b,
-			s0, s1, it->wy, it->wy + it->h,
-			0, 1, 0, 1,
-			HSDWL_EXPO_WIN_CELLS, HSDWL_EXPO_WIN_CELLS, 1.0f, true);
-}
-
 static void expo_draw_card(struct hsdwl_expo *e,
 		struct wlr_render_pass *pass, int d, int looking_at,
-		double open, double scale)
+		double open)
 {
 	struct expo_pt a, b;
 	expo_facet_ends(e, d, &a, &b);
@@ -620,15 +581,18 @@ static void expo_draw_card(struct hsdwl_expo *e,
 	if (!expo_quad_front(q))
 		return;
 
+	bool hilight = (d == e->hover_d);
+
 	/* edge frame: an inflated solid under the base, so only the
-	 * margin around the card shows */
-	double m = HSDWL_EXPO_EDGE_PX * open;
+	 * margin around the card shows.  Hover widens the accent. */
+	double m = (hilight ? HSDWL_EXPO_HILIGHT_PX : HSDWL_EXPO_EDGE_PX)
+		* open;
 	if (m > 0.1)
 	{
 		struct expo_vert ei[4];
 		expo_inflate(q, m, ei);
 		float ec[3];
-		if (d == looking_at)
+		if (d == looking_at || hilight)
 		{
 			ec[0] = e->server->config.border_color_focused[0];
 			ec[1] = e->server->config.border_color_focused[1];
@@ -658,13 +622,12 @@ static void expo_draw_card(struct hsdwl_expo *e,
 			0, 1, 0, e->sh, 0, 1, 0, 1,
 			HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS, 1.0f, true);
 
-	/* windows */
-	for (int i = 0; i < e->n_items; i++)
-	{
-		struct hsdwl_expo_item *it = &e->items[i];
-		if (it->desktop == d)
-			expo_draw_item(e, pass, it, scale);
-	}
+	/* workspace snapshot; the texture has real alpha, so the
+	 * wallpaper shows through the empty parts */
+	if (e->card_tex[d])
+		expo_draw_grid(e, pass, e->card_tex[d], NULL, a, b,
+			0, 1, 0, e->sh, 0, 1, 0, 1,
+			HSDWL_EXPO_CARD_CELLS, HSDWL_EXPO_CARD_CELLS, 1.0f, true);
 }
 
 /* The far wall of a backfacing card: a tint plus the wallpaper. */
@@ -696,9 +659,9 @@ static bool expo_canvas_current(struct hsdwl_expo *e)
 	if (e->drawn_zoom != e->zoom || e->drawn_pan != e->pan
 		|| e->drawn_tilt != e->tilt || e->drawn_dist != e->dist)
 		return false;
-	if (e->drawn_items != e->n_items)
+	if (e->drawn_generation != e->generation)
 		return false;
-	if (e->drawn_hover != e->hover)
+	if (e->drawn_hover_d != e->hover_d)
 		return false;
 	return true;
 }
@@ -741,7 +704,6 @@ static void expo_draw_canvas(struct hsdwl_expo *e)
 	}
 
 	double open = expo_openness(e);
-	double scale = expo_scale(e);
 	int looking_at = expo_view_desktop(e);
 
 	/* far wall inners, backfaces only */
@@ -763,7 +725,7 @@ static void expo_draw_canvas(struct hsdwl_expo *e)
 	for (int k = 0; k < HSDWL_NUM_WORKSPACES; k++)
 	{
 		int d = order[k];
-		expo_draw_card(e, pass, d, looking_at, open, scale);
+		expo_draw_card(e, pass, d, looking_at, open);
 	}
 
 	wlr_render_pass_submit(pass);
@@ -773,8 +735,8 @@ static void expo_draw_canvas(struct hsdwl_expo *e)
 	e->drawn_pan = e->pan;
 	e->drawn_tilt = e->tilt;
 	e->drawn_dist = e->dist;
-	e->drawn_items = e->n_items;
-	e->drawn_hover = e->hover;
+	e->drawn_generation = e->generation;
+	e->drawn_hover_d = e->hover_d;
 	e->canvas_dirty = false;
 }
 
@@ -871,417 +833,127 @@ static struct wlr_texture *expo_capture_wallpaper(struct hsdwl_expo *e)
 	return tex;
 }
 
-static int expo_view_workspace(struct hsdwl_expo *e, struct hsdwl_view *view)
+/*
+ * Capture.  Each card is an offscreen render of its whole workspace
+ * tree (windows, stage canvas, sidebar), scaled by
+ * HSDWL_EXPO_SNAP_SCALE.  The wallpaper is a single composite of the
+ * background/bottom layer surfaces, drawn under every card.
+ */
+
+struct expo_capture_ctx
 {
-	struct wlr_scene_node *p = view->scene_tree
-		? &view->scene_tree->node : NULL;
-	if (view->tab_group && view->tab_group->scene_tree)
-		p = &view->tab_group->scene_tree->node;
-	while (p)
+	struct hsdwl_expo *e;
+	struct wlr_render_pass *pass;
+};
+
+static void expo_capture_buffer(struct wlr_scene_buffer *sb,
+		int sx, int sy, void *data)
+{
+	struct expo_capture_ctx *ctx = data;
+	struct hsdwl_expo *e = ctx->e;
+	if (!sb->buffer)
+		return;
+	/* the scene's own cached texture when it has one (avoids an
+	 * upload per capture); fall back to creating one on demand */
+	struct wlr_texture *tex = sb->WLR_PRIVATE.texture;
+	bool owned = false;
+	if (!tex)
 	{
-		for (size_t i = 0; i < HSDWL_NUM_WORKSPACES; i++)
-		{
-			if (p == &e->server->workspaces[i]->node)
-				return (int)i;
-		}
-		p = p->parent ? &p->parent->node : NULL;
+		tex = wlr_texture_from_buffer(e->server->renderer, sb->buffer);
+		owned = true;
 	}
-	return (int)e->server->current_workspace;
+	if (!tex)
+		return;
+	int x = (int)lround(sx * HSDWL_EXPO_SNAP_SCALE);
+	int y = (int)lround(sy * HSDWL_EXPO_SNAP_SCALE);
+	int w = MAX((int)lround(sb->dst_width * HSDWL_EXPO_SNAP_SCALE), 1);
+	int h = MAX((int)lround(sb->dst_height * HSDWL_EXPO_SNAP_SCALE), 1);
+	int bw = e->sw / 2, bh = e->sh / 2;
+	if (x + w > bw)
+		w = bw - x;
+	if (y + h > bh)
+		h = bh - y;
+	if (w < 1 || h < 1)
+	{
+		if (owned)
+			wlr_texture_destroy(tex);
+		return;
+	}
+	float alpha = 1.0f;
+	wlr_render_pass_add_texture(ctx->pass,
+		&(struct wlr_render_texture_options){
+			.texture = tex,
+			.dst_box = { .x = x, .y = y, .width = w, .height = h },
+			.alpha = &alpha,
+			.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+		});
+	if (owned)
+		wlr_texture_destroy(tex);
 }
 
-static const char *expo_view_kind(struct hsdwl_view *view)
-{
-	if (view->xdg_surface)
-		return "xdg";
-	if (view->xwayland_surface)
-		return "xwayland";
-	return "unknown";
-}
-
-static const char *expo_view_title(struct hsdwl_view *view)
-{
-	if (view->xdg_surface && view->xdg_surface->toplevel
-			&& view->xdg_surface->toplevel->title)
-		return view->xdg_surface->toplevel->title;
-	if (view->xwayland_surface && view->xwayland_surface->title)
-		return view->xwayland_surface->title;
-	return "(untitled)";
-}
-
-static bool expo_view_usable(struct hsdwl_view *view)
-{
-	if (!view)
-		return false;
-	if (!view->scene_tree)
-	{
-		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: no scene_tree (unmapped)",
-			expo_view_kind(view), expo_view_title(view), (void *)view);
-		return false;
-	}
-	if (!view->scene_tree->node.enabled)
-	{
-		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: scene tree disabled (unmapped)",
-			expo_view_kind(view), expo_view_title(view), (void *)view);
-		return false;
-	}
-	struct wlr_surface *surface = view_get_surface(view);
-	if (!surface)
-	{
-		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: no surface",
-			expo_view_kind(view), expo_view_title(view), (void *)view);
-		return false;
-	}
-	if (!surface->current.buffer)
-	{
-		wlr_log(WLR_INFO,
-			"expo: unusable %s '%s' %p: no current buffer (mapped=%d)",
-			expo_view_kind(view), expo_view_title(view), (void *)view,
-			surface->mapped);
-		return false;
-	}
-	if (!view->xdg_surface && !view->xwayland_surface)
-	{
-		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: no role surface",
-			expo_view_kind(view), expo_view_title(view), (void *)view);
-		return false;
-	}
-	if (view->xdg_surface)
-	{
-		if (!view->xdg_surface->configured)
-		{
-			wlr_log(WLR_INFO, "expo: unusable xdg '%s' %p: not configured",
-				expo_view_title(view), (void *)view);
-			return false;
-		}
-		if (view->xdg_surface->geometry.width < 1
-			|| view->xdg_surface->geometry.height < 1)
-		{
-			wlr_log(WLR_INFO,
-				"expo: unusable xdg '%s' %p: zero geometry %dx%d",
-				expo_view_title(view), (void *)view,
-				view->xdg_surface->geometry.width,
-				view->xdg_surface->geometry.height);
-			return false;
-		}
-	}
-	else if (view->xwayland_surface->width < 1
-		|| view->xwayland_surface->height < 1)
-	{
-		wlr_log(WLR_INFO,
-			"expo: unusable xwayland '%s' %p: zero size %dx%d",
-			expo_view_title(view), (void *)view,
-			view->xwayland_surface->width,
-			view->xwayland_surface->height);
-		return false;
-	}
-	return true;
-}
-
-static void expo_get_view_size(struct hsdwl_view *view, int *cw, int *ch)
-{
-	if (view->xdg_surface && view->xdg_surface->configured)
-	{
-		*cw = view->xdg_surface->geometry.width;
-		*ch = view->xdg_surface->geometry.height;
-	}
-	else if (view->xwayland_surface)
-	{
-		*cw = view->xwayland_surface->width;
-		*ch = view->xwayland_surface->height;
-	}
-	else
-	{
-		*cw = 0;
-		*ch = 0;
-	}
-}
-
-static bool expo_add_item(struct hsdwl_expo *e, struct hsdwl_view *view)
+/* Render workspace d into its card buffer and rebuild its texture.
+ * The tree is temporarily re-enabled so hidden desktops still
+ * capture; nothing renders mid-capture (single event loop). */
+static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 {
 	struct hsdwl_server *server = e->server;
-	if (e->n_items >= HSDWL_EXPO_MAX_ITEMS)
-	{
-		wlr_log(WLR_INFO, "expo: skip %p (item limit %d)",
-			(void *)view, HSDWL_EXPO_MAX_ITEMS);
-		return false;
-	}
-	if (!expo_view_usable(view))
-		return false;
-
-	int cw = 0, ch = 0;
-	expo_get_view_size(view, &cw, &ch);
-	int bw = server->config.border_width;
-	int tb = server->config.titlebar_height;
-	if (tb < 0)
-		tb = 0;
-	int ww = cw + 2 * bw;
-	int wh = ch + (tb > 0 ? tb : bw) + bw;
-	int tw = (int)lround(ww * HSDWL_EXPO_SNAP_SCALE);
-	int th = (int)lround(wh * HSDWL_EXPO_SNAP_SCALE);
-	if (tw < 1)
-		tw = 1;
-	if (th < 1)
-		th = 1;
-
-	struct wlr_buffer *full = view_capture_full_window(server, view,
-		cw, ch, bw, tb);
-	if (!full)
-		return false;
-
-	struct wlr_buffer *buf = expo_alloc_buffer(server, tw, th);
+	struct wlr_buffer *buf = e->card_buf[d];
 	if (!buf)
-	{
-		wlr_buffer_drop(full);
 		return false;
-	}
-	struct wlr_texture *full_tex =
-		wlr_texture_from_buffer(server->renderer, full);
-	if (full_tex)
-	{
-		struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
-			server->renderer, buf, NULL);
-		if (pass)
-		{
-			wlr_render_pass_add_rect(pass,
-				&(struct wlr_render_rect_options){
-					.box = { .x = 0, .y = 0,
-						.width = tw, .height = th },
-					.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
-				});
-			float alpha = 1.0f;
-			wlr_render_pass_add_texture(pass,
-				&(struct wlr_render_texture_options){
-					.texture = full_tex,
-					.dst_box = { .x = 0, .y = 0,
-						.width = tw, .height = th },
-					.alpha = &alpha,
-					.transform = WL_OUTPUT_TRANSFORM_NORMAL,
-				});
-			wlr_render_pass_submit(pass);
-		}
-		wlr_texture_destroy(full_tex);
-	}
-	wlr_buffer_drop(full);
-
+	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
+		server->renderer, buf, NULL);
+	if (!pass)
+		return false;
+	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
+		.box = { .x = 0, .y = 0, .width = e->sw / 2, .height = e->sh / 2 },
+		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
+	});
+	struct wlr_scene_node *node = &server->workspaces[d]->node;
+	wlr_scene_node_set_enabled(node, true);
+	struct expo_capture_ctx ctx = { .e = e, .pass = pass };
+	wlr_scene_node_for_each_buffer(node, expo_capture_buffer, &ctx);
+	wlr_scene_node_set_enabled(node, false);
+	if (!wlr_render_pass_submit(pass))
+		return false;
 	struct wlr_texture *tex =
 		wlr_texture_from_buffer(server->renderer, buf);
 	if (!tex)
-	{
-		wlr_buffer_drop(buf);
 		return false;
-	}
-
-	struct hsdwl_expo_item *it = &e->items[e->n_items++];
-	it->view = view;
-	it->seen = view_get_surface(view)->current.buffer;
-	it->snapped = e->clock;
-	it->tex = tex;
-	it->buf = wlr_buffer_lock(buf);
-	wlr_buffer_drop(buf);
-	it->w = ww;
-	it->h = wh;
-	int nx = 0, ny = 0;
-	/* hsdwl keeps every workspace tree at scene (0,0): a view's
-	 * absolute coords are its LOCAL position on the desktop.  Map to
-	 * expo world space, where desktop d spans [d*sw,(d+1)*sw]. */
-	it->desktop = expo_view_workspace(e, view);
-	if (wlr_scene_node_coords(&view->scene_tree->node, &nx, &ny))
-	{
-		it->wx = it->desktop * e->sw + nx;
-		it->wy = ny;
-	}
-	else
-	{
-		it->wx = it->desktop * e->sw;
-		it->wy = 0;
-	}
-	wlr_log(WLR_INFO, "expo: item %d: view %p %dx%d at world %.0f,%.0f on desktop %d",
-		e->n_items - 1, (void *)view, it->w, it->h,
-		it->wx, it->wy, it->desktop);
+	if (e->card_tex[d])
+		wlr_texture_destroy(e->card_tex[d]);
+	e->card_tex[d] = tex;
+	e->generation++;
 	return true;
 }
 
-static bool expo_resnap_item(struct hsdwl_expo *e,
-		struct hsdwl_expo_item *it)
+/* Refresh cadence while open: the front card at ~10Hz, all cards
+ * every second.  Every capture bumps the generation so the canvas
+ * cache redraws with the fresh texture. */
+static void expo_refresh_cards(struct hsdwl_expo *e,
+		const struct timespec *now)
 {
-	struct hsdwl_server *server = e->server;
-	struct hsdwl_view *view = it->view;
-	if (!expo_view_usable(view))
-		return false;
-
-	int cw = 0, ch = 0;
-	expo_get_view_size(view, &cw, &ch);
-	int bw = server->config.border_width;
-	int tb = server->config.titlebar_height;
-	if (tb < 0)
-		tb = 0;
-	int ww = cw + 2 * bw;
-	int wh = ch + (tb > 0 ? tb : bw) + bw;
-	if (ww != it->w || wh != it->h)
-		return false;
-	int tw = (int)lround(ww * HSDWL_EXPO_SNAP_SCALE);
-	int th = (int)lround(wh * HSDWL_EXPO_SNAP_SCALE);
-	if (tw < 1)
-		tw = 1;
-	if (th < 1)
-		th = 1;
-	int nx = 0, ny = 0;
-
-	/* Re-render into the same buffer: the texture views it, so the
-	 * snapshot updates in place. */
-	struct wlr_buffer *full = view_capture_full_window(server, view,
-		cw, ch, bw, tb);
-	if (!full)
-		return false;
-	struct wlr_texture *full_tex =
-		wlr_texture_from_buffer(server->renderer, full);
-	if (full_tex)
+	double front_dt = (now->tv_sec - e->last_front_refresh.tv_sec)
+		+ (now->tv_nsec - e->last_front_refresh.tv_nsec) / 1e9;
+	double all_dt = (now->tv_sec - e->last_all_refresh.tv_sec)
+		+ (now->tv_nsec - e->last_all_refresh.tv_nsec) / 1e9;
+	int front = expo_view_desktop(e);
+	if (all_dt >= HSDWL_EXPO_ALL_REFRESH_S)
 	{
-		struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
-			server->renderer, it->buf, NULL);
-		if (pass)
+		for (int d = 0; d < HSDWL_NUM_WORKSPACES; d++)
 		{
-			wlr_render_pass_add_rect(pass,
-				&(struct wlr_render_rect_options){
-					.box = { .x = 0, .y = 0,
-						.width = tw, .height = th },
-					.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
-				});
-			float alpha = 1.0f;
-			wlr_render_pass_add_texture(pass,
-				&(struct wlr_render_texture_options){
-					.texture = full_tex,
-					.dst_box = { .x = 0, .y = 0,
-						.width = tw, .height = th },
-					.alpha = &alpha,
-					.transform = WL_OUTPUT_TRANSFORM_NORMAL,
-				});
-			wlr_render_pass_submit(pass);
+			if (d != front)
+				expo_capture_desktop(e, d);
 		}
-		wlr_texture_destroy(full_tex);
+		e->last_all_refresh = *now;
 	}
-	wlr_buffer_drop(full);
-
-	if (!wlr_scene_node_coords(&view->scene_tree->node, &nx, &ny))
+	if (front_dt >= HSDWL_EXPO_FRONT_REFRESH_S)
 	{
-		it->wx = it->desktop * e->sw;
-		it->wy = 0;
-	}
-	else
-	{
-		it->wx = it->desktop * e->sw + nx;
-		it->wy = ny;
-	}
-	it->seen = view_get_surface(view)->current.buffer;
-	it->snapped = e->clock;
-	return true;
-}
-
-static void expo_forget_view(struct hsdwl_expo *e, struct hsdwl_view *view)
-{
-	for (int i = 0; i < e->n_items; i++)
-	{
-		if (e->items[i].view != view)
-			continue;
-		if (e->hover == &e->items[i])
-			e->hover = NULL;
-		wlr_texture_destroy(e->items[i].tex);
-		wlr_buffer_unlock(e->items[i].buf);
-		int last = e->n_items - 1;
-		if (i != last)
-		{
-			if (e->hover == &e->items[last])
-				e->hover = &e->items[i];
-			e->items[i] = e->items[last];
-		}
-		memset(&e->items[last], 0, sizeof(e->items[last]));
-		e->n_items--;
-		return;
+		expo_capture_desktop(e, front);
+		e->last_front_refresh = *now;
 	}
 }
 
-static void expo_sync_items(struct hsdwl_expo *e)
-{
-	struct hsdwl_server *server = e->server;
-	struct hsdwl_view *view;
-	wl_list_for_each(view, &server->views, link)
-	{
-		bool found = false;
-		for (int i = 0; i < e->n_items; i++)
-		{
-			if (e->items[i].view == view)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found && view->scene_tree
-				&& view->scene_tree->node.enabled
-				&& view_get_surface(view))
-			expo_add_item(e, view);
-	}
-	for (int i = e->n_items - 1; i >= 0; i--)
-	{
-		bool found = false;
-		wl_list_for_each(view, &server->views, link)
-		{
-			if (e->items[i].view == view)
-			{
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-			expo_forget_view(e, e->items[i].view);
-	}
-}
 
-struct expo_frame_done_data
-{
-	struct timespec when;
-};
-
-static void expo_send_frame_done(struct wlr_scene_buffer *sb,
-		int sx, int sy, void *data)
-{
-	(void)sx;
-	(void)sy;
-	struct wlr_surface *surface = wlr_scene_surface_try_from_buffer(sb)
-		? wlr_scene_surface_try_from_buffer(sb)->surface : NULL;
-	if (surface)
-		wlr_surface_send_frame_done(surface, data);
-}
-
-static void expo_live_pass(struct hsdwl_expo *e)
-{
-	struct timespec now;
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	int live_d = expo_view_desktop(e);
-	for (int i = 0; i < e->n_items; i++)
-	{
-		struct hsdwl_expo_item *it = &e->items[i];
-		struct hsdwl_view *view = it->view;
-		if (it->desktop != live_d)
-			continue;
-		if (!view->scene_tree)
-			continue;
-		wlr_scene_node_for_each_buffer(&view->scene_tree->node,
-			expo_send_frame_done, &now);
-		struct wlr_surface *surface = view_get_surface(view);
-		if (!surface || surface->current.buffer == it->seen)
-			continue;
-		if (e->clock - it->snapped < HSDWL_EXPO_LIVE_S)
-			continue;
-		/* keep the view pointer: forget compacts the slot */
-		struct hsdwl_view *local = view;
-		if (!expo_resnap_item(e, it))
-		{
-			expo_forget_view(e, local);
-			expo_add_item(e, local);
-		}
-		e->canvas_dirty = true;
-	}
-}
 
 /*
  * State machine: open, close (animated collapse), teardown.
@@ -1305,10 +977,12 @@ static void expo_teardown(struct hsdwl_server *server)
 		return;
 	server->expo = NULL;
 
-	for (int i = 0; i < e->n_items; i++)
+	for (int i = 0; i < HSDWL_NUM_WORKSPACES; i++)
 	{
-		wlr_texture_destroy(e->items[i].tex);
-		wlr_buffer_unlock(e->items[i].buf);
+		if (e->card_tex[i])
+			wlr_texture_destroy(e->card_tex[i]);
+		if (e->card_buf[i])
+			wlr_buffer_unlock(e->card_buf[i]);
 	}
 	if (e->wp_tex)
 		wlr_texture_destroy(e->wp_tex);
@@ -1459,13 +1133,21 @@ bool expo_open(struct hsdwl_server *server)
 
 	e->wp_tex = expo_capture_wallpaper(e);
 
-	struct hsdwl_view *view;
-	wl_list_for_each(view, &server->views, link)
-		expo_add_item(e, view);
+	/* card buffers + initial snapshot of every desktop */
+	for (int d = 0; d < HSDWL_NUM_WORKSPACES; d++)
+	{
+		struct wlr_buffer *buf = expo_alloc_buffer(server,
+			e->sw / 2, e->sh / 2);
+		if (!buf)
+			continue;
+		e->card_buf[d] = wlr_buffer_lock(buf);
+		wlr_buffer_drop(buf);
+	}
+	for (int d = 0; d < HSDWL_NUM_WORKSPACES; d++)
+		expo_capture_desktop(e, d);
 
-	wlr_log(WLR_INFO, "expo: open %dx%d, %d views -> %d items, curved=%d",
-		sw, sh, wl_list_length(&server->views), e->n_items,
-		e->curved);
+	wlr_log(WLR_INFO, "expo: open %dx%d curved=%d (%d desktops)",
+		sw, sh, e->curved, HSDWL_NUM_WORKSPACES);
 
 	expo_set_world_visible(e, false);
 	expo_layout(e);
@@ -1489,7 +1171,7 @@ void expo_close(struct hsdwl_server *server, int desktop)
 
 	e->leaving = true;
 	e->zoom_target = 1.0;
-	e->hover = NULL;
+	e->hover_d = -1;
 	double was = expo_center(e);
 	e->home = desktop;
 	/* position the strip so the target desktop lands centered and
@@ -1589,9 +1271,8 @@ void expo_tick(struct hsdwl_server *server, const struct timespec *now)
 
 	if (!e->leaving)
 	{
-		expo_sync_items(e);
 		e->clock += dt;
-		expo_live_pass(e);
+		expo_refresh_cards(e, now);
 	}
 
 	if (!expo_can_orbit(e))
@@ -1642,25 +1323,6 @@ static void expo_pan_by(struct hsdwl_expo *e, double strip_px)
 	wlr_output_schedule_frame(e->out);
 }
 
-static struct hsdwl_expo_item *expo_item_at(struct hsdwl_expo *e,
-		double lx, double ly)
-{
-	int d;
-	double wx, wy;
-	if (!expo_point(e, lx, ly, &d, &wx, &wy))
-		return NULL;
-	struct hsdwl_expo_item *found = NULL;
-	for (int i = 0; i < e->n_items; i++)
-	{
-		struct hsdwl_expo_item *it = &e->items[i];
-		if (it->desktop != d)
-			continue;
-		if (wx >= it->wx && wx < it->wx + it->w
-			&& wy >= it->wy && wy < it->wy + it->h)
-			found = it;  /* last match: drawn on top */
-	}
-	return found;
-}
 
 bool expo_handle_key(struct hsdwl_expo *e, struct wlr_keyboard *kb,
 		struct wlr_keyboard_key_event *event)
@@ -1771,10 +1433,21 @@ bool expo_handle_motion(struct hsdwl_expo *e, double gx, double gy)
 		wlr_output_schedule_frame(e->out);
 		return true;
 	}
-	struct hsdwl_expo_item *it = expo_item_at(e, lx, ly);
-	if (it != e->hover)
+	/* hover: the desktop under the cursor, for the card hilight */
+	int d;
+	double wx, wy;
+	if (expo_point(e, lx, ly, &d, &wx, &wy))
 	{
-		e->hover = it;
+		if (d != e->hover_d)
+		{
+			e->hover_d = d;
+			expo_layout(e);
+			wlr_output_schedule_frame(e->out);
+		}
+	}
+	else if (e->hover_d != -1)
+	{
+		e->hover_d = -1;
 		expo_layout(e);
 		wlr_output_schedule_frame(e->out);
 	}
@@ -1812,26 +1485,11 @@ bool expo_handle_button(struct hsdwl_expo *e,
 	if (event->button != BTN_LEFT)
 		return true;
 
-	/* plain left click: focus the window and collapse into its
-	 * desktop, or collapse into the desktop under the cursor */
-	struct hsdwl_expo_item *it = expo_item_at(e, e->lx, e->ly);
-	if (it)
-	{
-		struct hsdwl_view *view = it->view;
-		if (view && view->scene_tree)
-		{
-			e->server->focused_views[it->desktop] = view;
-			view_focus(e->server, view);
-		}
-		expo_close(e->server, it->desktop);
-	}
-	else
-	{
-		int d;
-		double wx, wy;
-		if (expo_point(e, e->lx, e->ly, &d, &wx, &wy))
-			expo_close(e->server, d);
-	}
+	/* plain left click: collapse into the desktop under the cursor */
+	int d;
+	double wx, wy;
+	if (expo_point(e, e->lx, e->ly, &d, &wx, &wy))
+		expo_close(e->server, d);
 	return true;
 }
 

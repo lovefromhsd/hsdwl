@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <time.h>
 
-struct hsdwl_server;
-struct hsdwl_view;
+#include "server.h"
+
 struct wlr_output;
 struct wlr_texture;
 struct wlr_buffer;
@@ -39,15 +39,14 @@ struct wlr_pointer_axis_event;
 #define HSDWL_EXPO_DIST_STEP 1.18
 #define HSDWL_EXPO_ORBIT_SPEED 9.0
 #define HSDWL_EXPO_ORBIT_HOME_SPEED 18.0
-#define HSDWL_EXPO_LIVE_S (1.0 / 30.0)
 #define HSDWL_EXPO_SPIN_DECAY 2.4
 #define HSDWL_EXPO_SPIN_MIN 40.0
 #define HSDWL_EXPO_CAM_DIST 2.2
 #define HSDWL_EXPO_BACKDROP_ALPHA 0.72
 #define HSDWL_EXPO_HILIGHT_PX 6.0
-#define HSDWL_EXPO_MAX_ITEMS 64
 #define HSDWL_EXPO_CARD_CELLS 16
-#define HSDWL_EXPO_WIN_CELLS 8
+#define HSDWL_EXPO_FRONT_REFRESH_S 0.1
+#define HSDWL_EXPO_ALL_REFRESH_S 1.0
 
 /* A point in ring space: x right, y down, z toward the viewer.
  * The origin sits at the front of the strip. */
@@ -61,18 +60,6 @@ struct expo_pt
 struct expo_vert
 {
 	double x, y, w, u, v;
-};
-
-struct hsdwl_expo_item
-{
-	struct hsdwl_view *view;
-	struct wlr_buffer *seen;  /* surface->current.buffer at snap time */
-	double snapped;           /* expo clock (s) when last snapped */
-	struct wlr_texture *tex;  /* snapshot texture */
-	struct wlr_buffer *buf;   /* locked capture buffer */
-	double wx, wy;            /* world position (absolute px) */
-	int w, h;                 /* capture size in world px */
-	int desktop;
 };
 
 struct hsdwl_expo
@@ -91,8 +78,10 @@ struct hsdwl_expo
 
 	struct wlr_texture *wp_tex;  /* wallpaper composite, full screen */
 
-	struct hsdwl_expo_item items[HSDWL_EXPO_MAX_ITEMS];
-	int n_items;
+	/* one snapshot per desktop, at HSDWL_EXPO_SNAP_SCALE */
+	struct wlr_texture *card_tex[HSDWL_NUM_WORKSPACES];
+	struct wlr_buffer *card_buf[HSDWL_NUM_WORKSPACES];
+	int generation;      /* bumped on every capture; canvas cache key */
 
 	bool curved;         /* ring camera enabled (stage_3d_enabled) */
 
@@ -114,13 +103,15 @@ struct hsdwl_expo
 
 	bool canvas_dirty;
 	double drawn_zoom, drawn_pan, drawn_tilt, drawn_dist;
-	int drawn_items;
-	struct hsdwl_expo_item *drawn_hover;
+	int drawn_generation;
+	int drawn_hover_d;
 
-	struct hsdwl_expo_item *hover;
+	int hover_d;         /* desktop under the cursor, -1 none */
 
 	double lx, ly;       /* last pointer position in output coords */
 
+	struct timespec last_front_refresh;
+	struct timespec last_all_refresh;
 	struct timespec last_tick;
 	bool have_last_tick;
 };
