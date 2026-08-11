@@ -844,6 +844,7 @@ struct expo_capture_ctx
 {
 	struct hsdwl_expo *e;
 	struct wlr_render_pass *pass;
+	int buffers;
 };
 
 static void expo_capture_buffer(struct wlr_scene_buffer *sb,
@@ -887,6 +888,7 @@ static void expo_capture_buffer(struct wlr_scene_buffer *sb,
 			.alpha = &alpha,
 			.transform = WL_OUTPUT_TRANSFORM_NORMAL,
 		});
+	ctx->buffers++;
 	if (owned)
 		wlr_texture_destroy(tex);
 }
@@ -915,6 +917,8 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 	wlr_scene_node_set_enabled(node, false);
 	if (!wlr_render_pass_submit(pass))
 		return false;
+	wlr_log(WLR_DEBUG, "expo: desktop %d: %d buffers captured",
+		d, ctx.buffers);
 	struct wlr_texture *tex =
 		wlr_texture_from_buffer(server->renderer, buf);
 	if (!tex)
@@ -1071,17 +1075,27 @@ bool expo_open(struct hsdwl_server *server)
 	if (server->expo)
 		return false;
 	if (!server->config.expo_enabled)
+	{
+		wlr_log(WLR_INFO, "expo: open refused (disabled in config)");
 		return false;
+	}
 	struct wlr_output *out =
 		wlr_output_layout_get_center_output(server->output_layout);
 	if (!out)
+	{
+		wlr_log(WLR_INFO, "expo: open refused (no output)");
 		return false;
+	}
 	struct wlr_box box;
 	wlr_output_layout_get_box(server->output_layout, out, &box);
 	int sw = box.width;
 	int sh = box.height;
 	if (sw <= 0 || sh <= 0)
+	{
+		wlr_log(WLR_INFO, "expo: open refused (bad output size %dx%d)",
+			sw, sh);
 		return false;
+	}
 
 	struct hsdwl_expo *e = calloc(1, sizeof(*e));
 	if (!e)
