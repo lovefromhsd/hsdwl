@@ -898,49 +898,67 @@ static const char *expo_view_kind(struct hsdwl_view *view)
 	return "unknown";
 }
 
+static const char *expo_view_title(struct hsdwl_view *view)
+{
+	if (view->xdg_surface && view->xdg_surface->toplevel
+			&& view->xdg_surface->toplevel->title)
+		return view->xdg_surface->toplevel->title;
+	if (view->xwayland_surface && view->xwayland_surface->title)
+		return view->xwayland_surface->title;
+	return "(untitled)";
+}
+
 static bool expo_view_usable(struct hsdwl_view *view)
 {
 	if (!view)
 		return false;
 	if (!view->scene_tree)
 	{
-		wlr_log(WLR_INFO, "expo: unusable %s %p: no scene_tree (unmapped)",
-			expo_view_kind(view), (void *)view);
+		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: no scene_tree (unmapped)",
+			expo_view_kind(view), expo_view_title(view), (void *)view);
+		return false;
+	}
+	if (!view->scene_tree->node.enabled)
+	{
+		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: scene tree disabled (unmapped)",
+			expo_view_kind(view), expo_view_title(view), (void *)view);
 		return false;
 	}
 	struct wlr_surface *surface = view_get_surface(view);
 	if (!surface)
 	{
-		wlr_log(WLR_INFO, "expo: unusable %s %p: no surface",
-			expo_view_kind(view), (void *)view);
+		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: no surface",
+			expo_view_kind(view), expo_view_title(view), (void *)view);
 		return false;
 	}
 	if (!surface->current.buffer)
 	{
-		wlr_log(WLR_INFO, "expo: unusable %s %p: no current buffer",
-			expo_view_kind(view), (void *)view);
+		wlr_log(WLR_INFO,
+			"expo: unusable %s '%s' %p: no current buffer (mapped=%d)",
+			expo_view_kind(view), expo_view_title(view), (void *)view,
+			surface->mapped);
 		return false;
 	}
 	if (!view->xdg_surface && !view->xwayland_surface)
 	{
-		wlr_log(WLR_INFO, "expo: unusable %s %p: no role surface",
-			expo_view_kind(view), (void *)view);
+		wlr_log(WLR_INFO, "expo: unusable %s '%s' %p: no role surface",
+			expo_view_kind(view), expo_view_title(view), (void *)view);
 		return false;
 	}
 	if (view->xdg_surface)
 	{
 		if (!view->xdg_surface->configured)
 		{
-			wlr_log(WLR_INFO, "expo: unusable xdg %p: not configured",
-				(void *)view);
+			wlr_log(WLR_INFO, "expo: unusable xdg '%s' %p: not configured",
+				expo_view_title(view), (void *)view);
 			return false;
 		}
 		if (view->xdg_surface->geometry.width < 1
 			|| view->xdg_surface->geometry.height < 1)
 		{
 			wlr_log(WLR_INFO,
-				"expo: unusable xdg %p: zero geometry %dx%d",
-				(void *)view,
+				"expo: unusable xdg '%s' %p: zero geometry %dx%d",
+				expo_view_title(view), (void *)view,
 				view->xdg_surface->geometry.width,
 				view->xdg_surface->geometry.height);
 			return false;
@@ -950,8 +968,9 @@ static bool expo_view_usable(struct hsdwl_view *view)
 		|| view->xwayland_surface->height < 1)
 	{
 		wlr_log(WLR_INFO,
-			"expo: unusable xwayland %p: zero size %dx%d",
-			(void *)view, view->xwayland_surface->width,
+			"expo: unusable xwayland '%s' %p: zero size %dx%d",
+			expo_view_title(view), (void *)view,
+			view->xwayland_surface->width,
 			view->xwayland_surface->height);
 		return false;
 	}
@@ -1196,7 +1215,9 @@ static void expo_sync_items(struct hsdwl_expo *e)
 				break;
 			}
 		}
-		if (!found && view->scene_tree && view_get_surface(view))
+		if (!found && view->scene_tree
+				&& view->scene_tree->node.enabled
+				&& view_get_surface(view))
 			expo_add_item(e, view);
 	}
 	for (int i = e->n_items - 1; i >= 0; i--)
