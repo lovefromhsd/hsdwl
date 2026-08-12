@@ -625,7 +625,7 @@ static void expo_draw_card(struct hsdwl_expo *e,
 }
 
 /* The far wall of a backfacing card: the backdrop picture, so the
- * ring reads as one continuous blurred wallpaper and the strip ends
+ * ring reads as one continuous wallpaper and the strip ends
  * don't show anything mirrored or stale. */
 static void expo_draw_inner(struct hsdwl_expo *e,
 		struct wlr_render_pass *pass, const struct expo_vert q[4],
@@ -769,9 +769,8 @@ static struct wlr_buffer *expo_alloc_buffer(struct hsdwl_server *server,
  * would show, at full resolution: the background and bottom layers
  * (wallpaper, docks), the workspace itself (windows, stage canvas,
  * sidebar), and the top and overlay layers (bars, panels).  The
- * wallpaper composite kept for the backs of the cards comes from
- * expo_capture_wallpaper above; the strip backdrop is a blurred and
- * darkened version of it (expo_build_backdrop).
+ * strip backdrop is a cover-fit (no zoom, no blur), darkened version of
+ * the configured wallpaper JPG (expo_build_backdrop).
  */
 
 struct expo_capture_ctx
@@ -827,35 +826,6 @@ static void expo_capture_buffer(struct wlr_scene_buffer *sb,
 		wlr_texture_destroy(tex);
 }
 
-/* Composite the wallpaper layers (background + bottom, which covers
- * both the built-in wallpaper and external layer-shell clients) into
- * one full-screen texture. */
-static struct wlr_texture *expo_capture_wallpaper(struct hsdwl_expo *e)
-{
-	struct hsdwl_server *server = e->server;
-	struct wlr_buffer *buf = expo_alloc_buffer(server, e->sw, e->sh);
-	if (!buf)
-		return NULL;
-	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
-		server->renderer, buf, NULL);
-	if (!pass)
-	{
-		wlr_buffer_drop(buf);
-		return NULL;
-	}
-	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
-		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
-		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
-	});
-	struct expo_capture_ctx ctx = { .e = e, .pass = pass };
-	for (int i = 0; i < 2; i++)
-		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
-			expo_capture_buffer, &ctx);
-	wlr_render_pass_submit(pass);
-	struct wlr_texture *tex = wlr_texture_from_buffer(server->renderer, buf);
-	wlr_buffer_drop(buf);
-	return tex;
-}
 
 /* Draw `tex` cover-fit (with an extra zoom) into the pass, centered
  * in a w×h area, cropping the overflow. */
@@ -897,11 +867,19 @@ static struct wlr_texture *expo_build_backdrop(struct hsdwl_expo *e,
 		wlr_buffer_drop(big);
 		return NULL;
 	}
-	if (e->wp_tex)
-		expo_cover_draw(pass, e->wp_tex, e->sw, e->sh, 1.0);
-	/* darken the picture; with no picture at all the plane is
+	if (server->wallpaper_buf)
+	{
+		struct wlr_texture *wp = wlr_texture_from_buffer(
+			server->renderer, server->wallpaper_buf->buffer);
+		if (wp)
+		{
+			expo_cover_draw(pass, wp, e->sw, e->sh, 1.0);
+			wlr_texture_destroy(wp);
+		}
+	}
+	/* darken the picture; with no wallpaper at all the plane is
 	 * opaque black, so nothing stale shows through the strip */
-	float dark = e->wp_tex ? (float)HSDWL_EXPO_BACKDROP_DARK : 1.0f;
+	float dark = server->wallpaper_buf ? (float)HSDWL_EXPO_BACKDROP_DARK : 1.0f;
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
 		.color = { .r = 0, .g = 0, .b = 0, .a = dark },
@@ -1051,8 +1029,6 @@ static void expo_teardown(struct hsdwl_server *server)
 		if (e->card_buf[i])
 			wlr_buffer_unlock(e->card_buf[i]);
 	}
-	if (e->wp_tex)
-		wlr_texture_destroy(e->wp_tex);
 	if (e->bg_tex)
 		wlr_texture_destroy(e->bg_tex);
 	for (int i = 0; i < 2; i++)
@@ -1203,9 +1179,7 @@ bool expo_open(struct hsdwl_server *server)
 		wlr_buffer_drop(buf);
 	}
 
-	e->wp_tex = expo_capture_wallpaper(e);
-
-	/* backdrop: an opaque blurred/darkened wallpaper picture; with no
+	/* backdrop: an opaque darkened wallpaper picture; with no
 	 * wallpaper it is a plain dark plane.  Either way nothing behind
 	 * the strip can leak through. */
 	e->bg_tex = expo_build_backdrop(e, &e->bg_buf);
