@@ -18,6 +18,9 @@ struct wlr_keyboard_key_event;
 struct wlr_pointer_button_event;
 struct wlr_pointer_axis_event;
 
+void view_expo_reveal_stage(struct hsdwl_server *server, size_t ws);
+void view_expo_restore_stage(struct hsdwl_server *server, size_t ws);
+
 /* Ring camera + strip constants (reimplementation of fwm's expo design) */
 #define HSDWL_EXPO_SNAP_SCALE 1.0
 #define HSDWL_EXPO_ZOOM_NEAR 1.3

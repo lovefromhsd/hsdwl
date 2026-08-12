@@ -6,6 +6,7 @@
 #include "tab-group-layout.h"
 #include "view.h"
 #include "server.h"
+#include <wlr/util/log.h>
 #include "deco.h"
 #include "xwayland.h"
 
@@ -408,28 +409,56 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 		view_focus(view->server, view_next(view->server, view));
 }
 
-/* DIAGNOSTIC: list maximized/zoomed windows and where their scene
- * tree lives, to debug expo capture.  Remove when fixed. */
-void view_debug_list(struct hsdwl_server *server, int d)
+/* EXPO capture: stage-manager window nodes are disabled when the sidebar
+ * is collapsed (or, for inactive stages, at stage-build time), so
+ * wlr_scene_node_for_each_buffer skips them and expo hides those windows.\ * Reveal them for the duration of one desktop's capture and restore
+ * afterwards.  Single-threaded and one workspace at a time. */
+struct expo_stage_save {
+	struct wl_list link;
+	struct wlr_scene_node *node;
+	bool was;
+};
+static struct wl_list expo_stage_saves =
+	{ &expo_stage_saves, &expo_stage_saves };
+
+void view_expo_reveal_stage(struct hsdwl_server *server, size_t ws)
 {
+	if (!server->config.stage_manager_enabled)
+		return;
+	struct wlr_scene_tree *canvas = server->ws_stage_canvases[ws];
+	if (!canvas)
+		return;
 	struct hsdwl_view *v;
 	wl_list_for_each(v, &server->views, link)
 	{
-		if (v->maximized || v->zoomed)
+		if (!v->scene_tree)
+			continue;
+		struct wlr_scene_node *p = &v->scene_tree->node;
+		while (p && p != &canvas->node)
+			p = p->parent ? &p->parent->node : NULL;
+		if (p == &canvas->node)
 		{
-			int on_ws = -1;
-			for (int i = 0; i < HSDWL_NUM_WORKSPACES; i++)
-				if (&server->workspaces[i]->node
-						== v->scene_tree->node.parent)
-					{ on_ws = i; break; }
-			wlr_log(WLR_DEBUG,
-				"expo:   win %p d=%d max=%d zoom=%d enabled=%d "
-				"on_ws=%d parent=%p cur=%zu stage=%d",
-				(void *)v, d, v->maximized, v->zoomed,
-				v->scene_tree->node.enabled, on_ws,
-				(void *)&v->scene_tree->node.parent,
-				server->current_workspace, v->stage_managed);
+			struct expo_stage_save *s = calloc(1, sizeof(*s));
+			if (!s)
+				continue;
+			s->node = &v->scene_tree->node;
+			s->was = s->node->enabled;
+			wl_list_insert(&expo_stage_saves, &s->link);
+			wlr_scene_node_set_enabled(s->node, true);
 		}
+	}
+}
+
+void view_expo_restore_stage(struct hsdwl_server *server, size_t ws)
+{
+	(void)server;
+	(void)ws;
+	struct expo_stage_save *s, *tmp;
+	wl_list_for_each_safe(s, tmp, &expo_stage_saves, link)
+	{
+		wlr_scene_node_set_enabled(s->node, s->was);
+		wl_list_remove(&s->link);
+		free(s);
 	}
 }
 

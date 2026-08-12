@@ -923,11 +923,15 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
 			expo_capture_buffer, &ctx);
 	}
-	/* the desktop itself */
+	/* the desktop itself — stage-manager windows may be disabled when
+	 * the sidebar is collapsed, so reveal them first (and restore after)
+	 * to capture the whole desktop like a normal screenshot */
 	struct wlr_scene_node *node = &server->workspaces[d]->node;
+	view_expo_reveal_stage(server, d);
 	wlr_scene_node_set_enabled(node, true);
 	wlr_scene_node_for_each_buffer(node, expo_capture_buffer, &ctx);
 	wlr_scene_node_set_enabled(node, false);
+	view_expo_restore_stage(server, d);
 	/* bars and overlays */
 	for (int i = 2; i < 4; i++)
 		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
@@ -938,7 +942,6 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 		return false;
 	wlr_log(WLR_DEBUG, "expo: desktop %d: %d buffers captured",
 		d, ctx.buffers);
-	view_debug_list(server, d);  /* DIAGNOSTIC */
 	struct wlr_texture *tex =
 		wlr_texture_from_buffer(server->renderer, buf);
 	if (!tex)
