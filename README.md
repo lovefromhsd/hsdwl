@@ -14,5 +14,5 @@
 <div align="center">
   <b><font size="6">dependencies</font></b>
   <br>
-  <sub>wlroots-0.20, wayland-server, xkbcommon, libdrm, pango, pangocairo, cairo</sub>
+  <sub>wlroots-0.20, wayland-server, xkbcommon, libdrm, pango, pangocairo, cairo, pixman-1</sub>
 </div>
