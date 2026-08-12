@@ -412,8 +412,6 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 
 		trim_tail(key);
 		trim_tail(val);
-		/* strip a single surrounding pair of quotes (single or
-		 * double) so "path" and path parse identically */
 		{
 			size_t vlen = strlen(val);
 			if (vlen >= 2 &&

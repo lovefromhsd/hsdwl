@@ -1,13 +1,3 @@
-/*
- * hsdwl — a Wayland compositor
- *
- * Built-in wallpaper: the picture from config (background_wallpaper)
- * shown on every desktop, under everything else.  The image is
- * decoded at startup (most formats via stb_image), uploaded once, and
- * laid out cover-fit into the output as a scene buffer in the
- * background layer, so the expo cards pick it up automatically.
- */
-
 #include "wallpaper.h"
 #include "config.h"
 #include "server.h"
@@ -44,8 +34,6 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 	if (!path[0])
 		return;
 
-	/* stb_image decodes most formats (PNG, JPEG, BMP, GIF, TGA,
-	 * PSD, PNM, HDR) into tightly-packed straight-alpha RGBA. */
 	int w = 0, h = 0, ch = 0;
 	uint8_t *data = stbi_load(path, &w, &h, &ch, 4);
 	if (!data)
@@ -61,10 +49,6 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 		return;
 	}
 
-	/* stb returns straight-alpha RGBA (R,G,B,A byte order).  The
-	 * renderer's wlr_texture_from_pixels accepts DRM_FORMAT_ARGB8888
-	 * (which wlroots uploads as GL_BGRA_EXT, i.e. B,G,R,A), so swap
-	 * the red and blue channels in place. */
 	uint8_t *px = data;
 	for (int i = 0; i < w * h; i++, px += 4)
 	{
@@ -83,7 +67,6 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 		return;
 	}
 
-	/* bake the texture into a buffer the scene can hold */
 	struct wlr_buffer *buf = wallpaper_alloc(server, w, h);
 	if (!buf)
 	{
@@ -98,7 +81,6 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 		wlr_buffer_drop(buf);
 		return;
 	}
-	/* clear to transparent so the opaque image composites cleanly */
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 		.box = { .x = 0, .y = 0, .width = w, .height = h },
 		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
@@ -140,7 +122,6 @@ void hsdwl_wallpaper_update(struct hsdwl_server *server,
 	server->wallpaper_w = ow;
 	server->wallpaper_h = oh;
 
-	/* cover-fit crop, centered */
 	double scale = fmax((double)ow / server->wallpaper_tex_w,
 		(double)oh / server->wallpaper_tex_h);
 	double cw = ow / scale, ch = oh / scale;

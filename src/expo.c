@@ -655,6 +655,9 @@ static bool expo_canvas_current(struct hsdwl_expo *e)
 	return true;
 }
 
+static void expo_cover_draw(struct wlr_render_pass *pass,
+		struct wlr_texture *tex, int w, int h, double zoom);
+
 static void expo_draw_canvas(struct hsdwl_expo *e)
 {
 	if (expo_canvas_current(e))
@@ -666,10 +669,14 @@ static void expo_draw_canvas(struct hsdwl_expo *e)
 		server->renderer, buf, NULL);
 	if (!pass)
 		return;
-	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
-		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
-		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
-	});
+
+	if (e->bg_tex)
+		expo_cover_draw(pass, e->bg_tex, e->sw, e->sh, 1.0);
+	else
+		wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
+			.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
+			.color = { .r = 0, .g = 0, .b = 0, .a = 1 },
+		});
 
 	/* depth order: far to near by mid-point depth */
 	int order[HSDWL_NUM_WORKSPACES];

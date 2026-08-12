@@ -44,11 +44,15 @@ static void output_handle_frame(struct wl_listener *listener, void *data)
 	stage_manager_check_sidebar_overlap(output->server,
 		output->server->current_workspace);
 
-	if (!wl_list_empty(&output->server->animations)
+	bool animating = !wl_list_empty(&output->server->animations)
 		|| !wl_list_empty(&output->server->tilt_animations)
 		|| (output->server->expo
-			&& output->server->expo->out == output->wlr_output))
+			&& output->server->expo->out == output->wlr_output);
+	if (animating)
 		wlr_output_schedule_frame(output->wlr_output);
+
+	if (animating)
+		wlr_damage_ring_add_whole(&scene_output->damage_ring);
 
 	if (!wlr_scene_output_commit(scene_output, NULL))
 		return;
