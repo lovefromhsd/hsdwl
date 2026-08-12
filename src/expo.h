@@ -74,7 +74,7 @@ struct hsdwl_expo
 	int canvas_i;
 
 	struct wlr_texture *wp_tex;  /* wallpaper composite, full screen */
-	struct wlr_texture *bg_tex;  /* blurred, darkened backdrop */
+	struct wlr_texture *bg_tex;  /* darkened backdrop */
 	struct wlr_buffer *bg_buf;   /* backdrop buffer (scene owns it) */
 
 	/* one snapshot per desktop, at HSDWL_EXPO_SNAP_SCALE */

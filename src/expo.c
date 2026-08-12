@@ -876,74 +876,32 @@ static void expo_cover_draw(struct wlr_render_pass *pass,
 	});
 }
 
-/* Build the strip's backdrop: the wallpaper, zoomed in, darkened, and
- * blurred by downsampling to an eighth and stretching back up.  The
- * result is opaque, so nothing behind the strip (like the previous
- * frame) can leak through.  With no wallpaper at all it is just a
- * dark plane.  On success stores the buffer in *out_buf and returns
- * a texture of it; the caller gives the buffer to a scene node. */
+/* Build the strip's backdrop: the wallpaper, cover-fit at 1:1 (no zoom,
+ * no blur) and darkened.  The result is opaque, so nothing behind the
+ * strip (like the previous frame) can leak through.  With no wallpaper
+ * at all it is just a dark plane.  On success stores the buffer in
+ * *out_buf and returns a texture of it; the caller gives the buffer to
+ * a scene node. */
 static struct wlr_texture *expo_build_backdrop(struct hsdwl_expo *e,
 		struct wlr_buffer **out_buf)
 {
 	struct hsdwl_server *server = e->server;
-	int bw = MAX(e->sw / 8, 1);
-	int bh = MAX(e->sh / 8, 1);
-
-	struct wlr_buffer *small = NULL;
-	if (e->wp_tex)
-	{
-		small = expo_alloc_buffer(server, bw, bh);
-		if (!small)
-			return NULL;
-		struct wlr_render_pass *p = wlr_renderer_begin_buffer_pass(
-			server->renderer, small, NULL);
-		if (!p)
-		{
-			wlr_buffer_drop(small);
-			return NULL;
-		}
-		wlr_render_pass_add_rect(p, &(struct wlr_render_rect_options){
-			.box = { .x = 0, .y = 0, .width = bw, .height = bh },
-			.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
-		});
-		expo_cover_draw(p, e->wp_tex, bw, bh, 1.2);
-		wlr_render_pass_submit(p);
-	}
 
 	struct wlr_buffer *big = expo_alloc_buffer(server, e->sw, e->sh);
 	if (!big)
-	{
-		if (small)
-			wlr_buffer_drop(small);
 		return NULL;
-	}
 	struct wlr_render_pass *pass = wlr_renderer_begin_buffer_pass(
 		server->renderer, big, NULL);
 	if (!pass)
 	{
-		if (small)
-			wlr_buffer_drop(small);
 		wlr_buffer_drop(big);
 		return NULL;
 	}
-	if (small)
-	{
-		struct wlr_texture *s_tex = wlr_texture_from_buffer(
-			server->renderer, small);
-		wlr_buffer_drop(small);
-		if (!s_tex)
-		{
-			wlr_render_pass_submit(pass);
-			wlr_buffer_drop(big);
-			return NULL;
-		}
-		/* stretching the eighth-size picture back up blurs it */
-		expo_cover_draw(pass, s_tex, e->sw, e->sh, 1.0);
-		wlr_texture_destroy(s_tex);
-	}
+	if (e->wp_tex)
+		expo_cover_draw(pass, e->wp_tex, e->sw, e->sh, 1.0);
 	/* darken the picture; with no picture at all the plane is
 	 * opaque black, so nothing stale shows through the strip */
-	float dark = small ? (float)HSDWL_EXPO_BACKDROP_DARK : 1.0f;
+	float dark = e->wp_tex ? (float)HSDWL_EXPO_BACKDROP_DARK : 1.0f;
 	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
 		.box = { .x = 0, .y = 0, .width = e->sw, .height = e->sh },
 		.color = { .r = 0, .g = 0, .b = 0, .a = dark },
