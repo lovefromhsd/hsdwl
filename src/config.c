@@ -411,6 +411,19 @@ bool hsdwl_config_load(struct hsdwl_config *cfg)
 		if (sscanf(s, "%63[^=] = %255[^\n]", key, val) < 2) continue;
 
 		trim_tail(key);
+		trim_tail(val);
+		/* strip a single surrounding pair of quotes (single or
+		 * double) so "path" and path parse identically */
+		{
+			size_t vlen = strlen(val);
+			if (vlen >= 2 &&
+				(val[0] == '"' || val[0] == '\'') &&
+				val[vlen - 1] == val[0])
+			{
+				memmove(val, val + 1, vlen - 2);
+				val[vlen - 2] = '\0';
+			}
+		}
 
 		for (int i = 0; i < config_fields_count; i++) {
 			if (strcmp(key, config_fields[i].key) == 0) {
