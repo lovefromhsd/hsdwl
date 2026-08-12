@@ -2,3 +2,5 @@ build/
 .cache/
 a.sh
 a.txt
+core.*
+a.sh.pleasedonotcommitthistogit
