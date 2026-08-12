@@ -5,6 +5,7 @@
 #include "config.h"
 #include "layer-shell.h"
 #include "server.h"
+#include "view.h"
 
 #include <drm_fourcc.h>
 #include <limits.h>
@@ -827,6 +828,64 @@ static void expo_capture_buffer(struct wlr_scene_buffer *sb,
 }
 
 
+/* Composite maximized/zoomed windows directly from their live surface
+ * texture.  for_each_buffer cannot always reach them (their surface can
+ * sit in a scene subtree the walker skips, or behind a node it disables),
+ * so draw what is actually on screen.  The on-desktop position is the
+ * full scene-tree ancestor chain plus the content offset (borders /
+ * titlebar), so it is correct whether the window is full-screen or
+ * zoomed onto the stage canvas. */
+static void expo_capture_maximized(struct hsdwl_server *server,
+		struct hsdwl_expo *e, int d, struct expo_capture_ctx *ctx)
+{
+	struct hsdwl_view *v;
+	wl_list_for_each(v, &server->views, link)
+	{
+		if (!v->maximized && !v->zoomed)
+			continue;
+		if (!view_is_on_workspace(v, server->workspaces[d]))
+			continue;
+		struct wlr_surface *surf = view_get_surface(v);
+		if (!surf)
+			continue;
+		struct wlr_texture *tex = wlr_surface_get_texture(surf);
+		if (!tex)
+			continue;
+		int bw = server->config.border_width;
+		int tb = server->config.titlebar_height > 0
+			? server->config.titlebar_height : bw;
+		int ax = bw, ay = tb;
+		for (struct wlr_scene_node *n = &v->scene_tree->node;
+				n; n = n->parent ? &n->parent->node : NULL)
+		{
+			ax += n->x;
+			ay += n->y;
+		}
+		int cw = surf->current.width;
+		int ch = surf->current.height;
+		int x = (int)lround(ax * HSDWL_EXPO_SNAP_SCALE);
+		int y = (int)lround(ay * HSDWL_EXPO_SNAP_SCALE);
+		int w = MAX((int)lround(cw * HSDWL_EXPO_SNAP_SCALE), 1);
+		int h = MAX((int)lround(ch * HSDWL_EXPO_SNAP_SCALE), 1);
+		int card_w = e->sw, card_h = e->sh;
+		if (x + w > card_w) w = card_w - x;
+		if (y + h > card_h) h = card_h - y;
+		if (w < 1 || h < 1)
+			continue;
+		float alpha = 1.0f;
+		wlr_render_pass_add_texture(ctx->pass,
+			&(struct wlr_render_texture_options){
+				.texture = tex,
+				.dst_box = { .x = x, .y = y,
+					.width = w, .height = h },
+				.alpha = &alpha,
+				.transform = WL_OUTPUT_TRANSFORM_NORMAL,
+			});
+		ctx->buffers++;
+	}
+}
+
+
 /* Draw `tex` cover-fit (with an extra zoom) into the pass, centered
  * in a w×h area, cropping the overflow. */
 static void expo_cover_draw(struct wlr_render_pass *pass,
@@ -936,13 +995,14 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 	for (int i = 2; i < 4; i++)
 		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
 			expo_capture_buffer, &ctx);
-	/* animation overlays (e.g. maximize snapshots) are what is actually
-	 * on screen for the current desktop, so composite them too — without
-	 * this, a maximized window whose real surface has not committed yet
-	 * shows as bare wallpaper in expo */
+	/* animation overlays still in flight (e.g. mid-maximize snapshots)
+	 * are composited for the current desktop */
 	if ((size_t)d == server->current_workspace)
 		wlr_scene_node_for_each_buffer(
 			&server->animation_tree->node, expo_capture_buffer, &ctx);
+	/* maximized/zoomed windows are composited directly from their live
+	 * surface, which for_each_buffer cannot always reach */
+	expo_capture_maximized(server, e, d, &ctx);
 	for (int i = 0; i < 2; i++)
 		wlr_scene_node_set_enabled(&server->layer_trees[i]->node, false);
 	if (!wlr_render_pass_submit(pass))
