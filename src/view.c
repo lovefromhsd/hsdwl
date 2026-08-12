@@ -408,6 +408,31 @@ static void view_handle_unmap(struct wl_listener *listener, void *data)
 		view_focus(view->server, view_next(view->server, view));
 }
 
+/* DIAGNOSTIC: list maximized/zoomed windows and where their scene
+ * tree lives, to debug expo capture.  Remove when fixed. */
+void view_debug_list(struct hsdwl_server *server, int d)
+{
+	struct hsdwl_view *v;
+	wl_list_for_each(v, &server->views, link)
+	{
+		if (v->maximized || v->zoomed)
+		{
+			int on_ws = -1;
+			for (int i = 0; i < HSDWL_NUM_WORKSPACES; i++)
+				if (&server->workspaces[i]->node
+						== v->scene_tree->node.parent)
+					{ on_ws = i; break; }
+			wlr_log(WLR_DEBUG,
+				"expo:   win %p d=%d max=%d zoom=%d enabled=%d "
+				"on_ws=%d parent=%p cur=%zu stage=%d",
+				(void *)v, d, v->maximized, v->zoomed,
+				v->scene_tree->node.enabled, on_ws,
+				(void *)&v->scene_tree->node.parent,
+				server->current_workspace, v->stage_managed);
+		}
+	}
+}
+
 static void view_handle_commit(struct wl_listener *listener, void *data)
 {
 	(void)data;

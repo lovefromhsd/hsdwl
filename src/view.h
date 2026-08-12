@@ -75,6 +75,7 @@ void view_close(struct hsdwl_view *view);
 bool view_is_on_workspace(struct hsdwl_view *view, struct wlr_scene_tree *ws);
 bool view_is_floating_toolbar(struct hsdwl_view *view);
 bool view_is_stage_managed(struct hsdwl_view *view);
+void view_debug_list(struct hsdwl_server *server, int d);  /* DIAGNOSTIC */
 struct wlr_scene_tree *view_popup_parent_tree(struct hsdwl_view *view);
 
 #endif

@@ -938,6 +938,7 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 		return false;
 	wlr_log(WLR_DEBUG, "expo: desktop %d: %d buffers captured",
 		d, ctx.buffers);
+	view_debug_list(server, d);  /* DIAGNOSTIC */
 	struct wlr_texture *tex =
 		wlr_texture_from_buffer(server->renderer, buf);
 	if (!tex)
