@@ -936,6 +936,13 @@ static bool expo_capture_desktop(struct hsdwl_expo *e, int d)
 	for (int i = 2; i < 4; i++)
 		wlr_scene_node_for_each_buffer(&server->layer_trees[i]->node,
 			expo_capture_buffer, &ctx);
+	/* animation overlays (e.g. maximize snapshots) are what is actually
+	 * on screen for the current desktop, so composite them too — without
+	 * this, a maximized window whose real surface has not committed yet
+	 * shows as bare wallpaper in expo */
+	if ((size_t)d == server->current_workspace)
+		wlr_scene_node_for_each_buffer(
+			&server->animation_tree->node, expo_capture_buffer, &ctx);
 	for (int i = 0; i < 2; i++)
 		wlr_scene_node_set_enabled(&server->layer_trees[i]->node, false);
 	if (!wlr_render_pass_submit(pass))
