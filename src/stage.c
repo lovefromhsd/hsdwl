@@ -378,6 +378,32 @@ void stage_manager_new_window(struct hsdwl_server *server,
 	}
 }
 
+/* If the stage-manager window count for a workspace has dropped to one or
+ * fewer, any window still in the zoomed (stage-1) state is now leaving an
+ * empty gap where the stage used to be, so promote each of them to fully
+ * maximized (stage-2).  view_maximize already does this on demand when the
+ * user toggles; this makes it happen automatically as the stage-manager
+ * windows disappear.  Only zoomed windows are touched, so already-maximized
+ * windows are left alone. */
+static void stage_manager_promote_zoomed(struct hsdwl_server *server,
+		size_t ws)
+{
+	if (!server->config.stage_manager_enabled)
+		return;
+	if (ws >= HSDWL_NUM_WORKSPACES)
+		return;
+	if (stage_manager_window_count(server, ws) > 1)
+		return;
+
+	struct hsdwl_view *view;
+	wl_list_for_each(view, &server->views, link)
+	{
+		if (view->zoomed
+				&& view_is_on_workspace(view, server->workspaces[ws]))
+			view_maximize(server, view);
+	}
+}
+
 bool stage_manager_remove_view(struct hsdwl_server *server,
 		struct hsdwl_view *view, size_t ws)
 {
@@ -416,6 +442,7 @@ bool stage_manager_remove_view(struct hsdwl_server *server,
 			stage_reparent_to_canvas(st, server);
 			stage_free(st);
 		}
+		stage_manager_promote_zoomed(server, ws);
 		return true;
 	}
 
@@ -451,6 +478,7 @@ bool stage_manager_remove_view(struct hsdwl_server *server,
 			mgr->active_stage = NULL;
 		}
 	}
+	stage_manager_promote_zoomed(server, ws);
 	return true;
 }
 
@@ -511,6 +539,7 @@ void stage_manager_notify_view_removed(struct hsdwl_server *server,
 			}
 		}
 		stage_manager_render_sidebar(server, ws);
+		stage_manager_promote_zoomed(server, ws);
 	}
 }
 
