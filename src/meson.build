@@ -9,6 +9,7 @@ hsdwl_src = files(
   'main.c',
   'server.c',
   'stage-3d.c',
+  'stb_image.c',
   'view-capture.c',
   'stage-anim.c',
   'tab-group-anim.c',

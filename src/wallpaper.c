@@ -3,18 +3,18 @@
  *
  * Built-in wallpaper: the picture from config (background_wallpaper)
  * shown on every desktop, under everything else.  The image is
- * decoded at startup (PNG through cairo), uploaded once, and laid out
- * cover-fit into the output as a scene buffer in the background
- * layer, so the expo cards pick it up automatically.
+ * decoded at startup (most formats via stb_image), uploaded once, and
+ * laid out cover-fit into the output as a scene buffer in the
+ * background layer, so the expo cards pick it up automatically.
  */
 
 #include "wallpaper.h"
 #include "config.h"
 #include "server.h"
+#include "stb_image.h"
 
 #define WLR_USE_UNSTABLE
 
-#include <cairo.h>
 #include <drm_fourcc.h>
 #include <math.h>
 #include <wlr/render/allocator.h>
@@ -44,35 +44,39 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 	if (!path[0])
 		return;
 
-	cairo_surface_t *img = cairo_image_surface_create_from_png(path);
-	cairo_status_t status = cairo_surface_status(img);
-	if (status != CAIRO_STATUS_SUCCESS)
+	/* stb_image decodes most formats (PNG, JPEG, BMP, GIF, TGA,
+	 * PSD, PNM, HDR) into tightly-packed straight-alpha RGBA. */
+	int w = 0, h = 0, ch = 0;
+	uint8_t *data = stbi_load(path, &w, &h, &ch, 4);
+	if (!data)
 	{
 		wlr_log(WLR_ERROR, "wallpaper: cannot load '%s': %s",
-			path, cairo_status_to_string(status));
-		cairo_surface_destroy(img);
+			path, stbi_failure_reason());
 		return;
 	}
-	if (cairo_image_surface_get_format(img) != CAIRO_FORMAT_ARGB32)
-	{
-		wlr_log(WLR_ERROR, "wallpaper: '%s' is not an ARGB32 PNG", path);
-		cairo_surface_destroy(img);
-		return;
-	}
-	int w = cairo_image_surface_get_width(img);
-	int h = cairo_image_surface_get_height(img);
 	if (w < 1 || h < 1)
 	{
 		wlr_log(WLR_ERROR, "wallpaper: '%s' has no pixels", path);
-		cairo_surface_destroy(img);
+		stbi_image_free(data);
 		return;
 	}
 
-	/* cairo ARGB32 is premultiplied BGRA bytes, i.e. DRM ARGB8888 */
+	/* stb returns straight-alpha RGBA (R,G,B,A byte order).  The
+	 * renderer's wlr_texture_from_pixels accepts DRM_FORMAT_ARGB8888
+	 * (which wlroots uploads as GL_BGRA_EXT, i.e. B,G,R,A), so swap
+	 * the red and blue channels in place. */
+	uint8_t *px = data;
+	for (int i = 0; i < w * h; i++, px += 4)
+	{
+		uint8_t r = px[0];
+		px[0] = px[2];
+		px[2] = r;
+	}
+
 	struct wlr_texture *tex = wlr_texture_from_pixels(server->renderer,
-		DRM_FORMAT_ARGB8888, cairo_image_surface_get_stride(img),
-		w, h, cairo_image_surface_get_data(img));
-	cairo_surface_destroy(img);
+		DRM_FORMAT_ARGB8888, (uint32_t)(w * 4),
+		w, h, data);
+	stbi_image_free(data);
 	if (!tex)
 	{
 		wlr_log(WLR_ERROR, "wallpaper: upload of '%s' failed", path);
@@ -94,6 +98,11 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 		wlr_buffer_drop(buf);
 		return;
 	}
+	/* clear to transparent so the opaque image composites cleanly */
+	wlr_render_pass_add_rect(pass, &(struct wlr_render_rect_options){
+		.box = { .x = 0, .y = 0, .width = w, .height = h },
+		.color = { .r = 0, .g = 0, .b = 0, .a = 0 },
+	});
 	float alpha = 1.0f;
 	wlr_render_pass_add_texture(pass, &(struct wlr_render_texture_options){
 		.texture = tex,
@@ -113,7 +122,7 @@ void hsdwl_wallpaper_load(struct hsdwl_server *server)
 	server->wallpaper_tex_h = h;
 	server->wallpaper_w = 0;
 	server->wallpaper_h = 0;
-	wlr_log(WLR_INFO, "wallpaper: '%s' (%dx%d)", path, w, h);
+	wlr_log(WLR_INFO, "wallpaper: '%s' loaded (%dx%d)", path, w, h);
 }
 
 void hsdwl_wallpaper_update(struct hsdwl_server *server,
