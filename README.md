@@ -7,12 +7,8 @@
 <br>
 
 <div align="center">
-  <img src=".assets/hsdwl.gif" alt="description" width="500">
+  <video src=".assets/demo.mp4" width="500" autoplay loop muted playsinline></video>
 </div>
-<div align="center">
-  <img src=".assets/a.gif" alt="description" width="500">
-</div>
-
 <br>
 
 <div align="center">
