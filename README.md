@@ -6,10 +6,11 @@
 
 <br>
 
-<div align="center">
-  <video src=".assets/demo.mp4" width="500" autoplay loop muted playsinline></video>
-</div>
-<br>
+
+
+https://github.com/user-attachments/assets/c560aef6-e925-4e54-943d-61a0c800eb49
+
+
 
 <div align="center">
   <b><font size="6">dependencies</font></b>
