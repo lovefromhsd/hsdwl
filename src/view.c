@@ -44,6 +44,33 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 {
 	(void)data;
 	struct hsdwl_view *view = wl_container_of(listener, view, map);
+
+	/* Check decoration mode before creating scene nodes. */
+	if (view->xdg_surface->toplevel)
+	{
+		if (view->decoration && !view->decoration_request_mode.notify)
+		{
+			view->decoration_request_mode.notify =
+				decoration_handle_request_mode;
+			wl_signal_add(&view->decoration->events.request_mode,
+				&view->decoration_request_mode);
+		}
+		if (view->decoration)
+		{
+			bool wants_ssd =
+				view->decoration->requested_mode
+					== WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
+				|| view->decoration->current.mode
+					== WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
+			view->using_csd = !wants_ssd;
+		}
+		else
+		{
+			/* No xdg-decoration: assume CSD. */
+			view->using_csd = true;
+		}
+	}
+
 	if (!view->scene_tree)
 	{
 		int bw = view->server->config.border_width;
@@ -58,25 +85,14 @@ static void view_handle_map(struct wl_listener *listener, void *data)
 			view->scene_tree, view->xdg_surface);
 		if (!view->content_tree)
 			return;
-		wlr_scene_node_set_position(
-			&view->content_tree->node, bw, tb > 0 ? tb : bw);
-		view_borders_create(view);
+		if (!view->using_csd)
+		{
+			wlr_scene_node_set_position(
+				&view->content_tree->node, bw, tb > 0 ? tb : bw);
+			view_borders_create(view);
+		}
 		wlr_scene_node_set_enabled(
 			&view->scene_tree->node, true);
-	}
-
-	if (view->xdg_surface->toplevel)
-	{
-		if (view->decoration && !view->decoration_request_mode.notify)
-		{
-			view->decoration_request_mode.notify =
-				decoration_handle_request_mode;
-			wl_signal_add(&view->decoration->events.request_mode,
-				&view->decoration_request_mode);
-			wlr_xdg_toplevel_decoration_v1_set_mode(
-				view->decoration,
-				WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
-		}
 	}
 
 	titlebar_text_update(view);

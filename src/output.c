@@ -16,6 +16,7 @@
 #include <wlr/backend/session.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_scene.h>
+#include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/util/log.h>
 
 static void output_handle_frame(struct wl_listener *listener, void *data)
@@ -115,6 +116,9 @@ void output_handle_new(struct wl_listener *listener, void *data)
 
 	output_manager_update(server);
 	layer_shell_rearrange(server);
+
+	/* Load xcursor images at this output's scale. */
+	wlr_xcursor_manager_load(server->cursor_mgr, wlr_output->scale);
 
 	/* Test hook: HSDWL_EXPO_TEST opens the strip at startup (FAR
 	 * zoom + tilt from the env) so the renderer can be exercised

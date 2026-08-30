@@ -43,6 +43,8 @@ struct hsdwl_view
 	struct wlr_xdg_toplevel_decoration_v1 *decoration;
 	struct wl_listener decoration_destroy;
 	struct wl_listener decoration_request_mode;
+	bool using_csd;
+	struct wl_listener set_decorations;
 	bool associated;
 	struct wl_listener map;
 	struct wl_listener unmap;

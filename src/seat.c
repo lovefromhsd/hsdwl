@@ -13,6 +13,7 @@
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
+#include <wlr/util/log.h>
 
 static void seat_request_cursor(struct wl_listener *listener, void *data)
 {
@@ -28,6 +29,18 @@ static void seat_request_cursor(struct wl_listener *listener, void *data)
 		{
 			wlr_cursor_set_xcursor(server->cursor,
 				server->cursor_mgr, "default");
+			return;
+		}
+		/* Reject oversized client cursors. */
+		int configured = server->config.cursor_size;
+		int sw = event->surface->current.width;
+		int sh = event->surface->current.height;
+		int max_dim = sw > sh ? sw : sh;
+		if (max_dim > configured + configured / 2)
+		{
+			wlr_log(WLR_DEBUG,
+				"[CURSOR] rejecting oversized cursor "
+				"%dx%d (config=%d)", sw, sh, configured);
 			return;
 		}
 		wlr_cursor_set_surface(server->cursor, event->surface,

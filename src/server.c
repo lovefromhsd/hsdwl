@@ -51,9 +51,8 @@ void decoration_handle_request_mode(
 		struct wl_listener *listener, void *data)
 {
 	(void)listener;
-	struct wlr_xdg_toplevel_decoration_v1 *deco = data;
-	wlr_xdg_toplevel_decoration_v1_set_mode(deco,
-		WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+	(void)data;
+	/* Let the client choose its decoration mode. */
 }
 
 static void decoration_handle_destroy(
@@ -433,6 +432,14 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 	deco_listener.notify = handle_new_toplevel_decoration;
 	wl_signal_add(&deco_mgr->events.new_toplevel_decoration,
 		&deco_listener);
+
+	/* Set XCURSOR_SIZE so X11 clients use our cursor size. */
+	char xcursor_size_str[16];
+	snprintf(xcursor_size_str, sizeof(xcursor_size_str),
+		"%d", server->config.cursor_size);
+	setenv("XCURSOR_SIZE", xcursor_size_str, 1);
+	if (!getenv("XCURSOR_THEME"))
+		setenv("XCURSOR_THEME", "default", 1);
 
 	if (!hsdwl_xwayland_init(server))
 	{

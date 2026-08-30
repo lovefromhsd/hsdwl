@@ -47,6 +47,20 @@ bool xwayland_view_is_popup(struct hsdwl_view *view)
 			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_NOTIFICATION);
 }
 
+static void xwayland_handle_set_decorations(
+		struct wl_listener *listener, void *data)
+{
+	(void)data;
+	struct hsdwl_view *view = wl_container_of(
+		listener, view, set_decorations);
+	struct wlr_xwayland_surface *xsurface = view->xwayland_surface;
+	if (!xsurface)
+		return;
+
+	bool csd = xsurface->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
+	view->using_csd = csd;
+}
+
 static void xwayland_view_handle_surface_map(
 		struct wl_listener *listener, void *data)
 {
@@ -76,9 +90,15 @@ static void xwayland_view_handle_surface_map(
 
 	if (!view->scene_tree)
 	{
+/* _MOTIF_WM_HINTS CSD detection */
+		view->using_csd = !is_popup
+			&& xsurface->decorations
+				!= WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
+
 		int bw = view->server->config.border_width;
 		int tb = view->server->config.titlebar_height;
 		if (tb < 0) tb = 0;
+		if (view->using_csd) { bw = 0; tb = 0; }
 		struct wlr_scene_tree *parent =
 			is_popup
 			? view->server->override_tree
@@ -115,7 +135,7 @@ static void xwayland_view_handle_surface_map(
 			&view->content_tree->node,
 			is_popup ? 0 : bw,
 			is_popup ? 0 : (tb > 0 ? tb : bw));
-		if (!is_popup)
+		if (!is_popup && !view->using_csd)
 			view_borders_create(view);
 	}
 	else
@@ -123,6 +143,7 @@ static void xwayland_view_handle_surface_map(
 		int bw = view->server->config.border_width;
 		int tb = view->server->config.titlebar_height;
 		if (tb < 0) tb = 0;
+		if (view->using_csd) { bw = 0; tb = 0; }
 		wlr_scene_node_destroy(&view->content_tree->node);
 		view->content_tree = wlr_scene_tree_create(
 			view->scene_tree);
@@ -337,6 +358,7 @@ static void xwayland_view_handle_destroy(
 	wl_list_remove(&view->request_configure.link);
 	wl_list_remove(&view->set_geometry.link);
 	wl_list_remove(&view->set_title.link);
+	wl_list_remove(&view->set_decorations.link);
 	wl_list_remove(&view->destroy.link);
 	if (view->decoration_destroy.notify)
 		wl_list_remove(&view->decoration_destroy.link);
@@ -423,6 +445,12 @@ static void xwayland_handle_new_surface(
 	view->set_title.notify = xwayland_view_handle_set_title;
 	wl_signal_add(&xsurface->events.set_title,
 		&view->set_title);
+	view->set_decorations.notify = xwayland_handle_set_decorations;
+	wl_signal_add(&xsurface->events.set_decorations,
+		&view->set_decorations);
+	/* Initialise CSD from the current decoration hint */
+	view->using_csd = xsurface->decorations
+		!= WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
 	if (xsurface->title)
 	{
 		strncpy(view->cached_title, xsurface->title,
