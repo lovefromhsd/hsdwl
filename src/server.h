@@ -18,6 +18,7 @@
 
 struct wlr_backend;
 struct wlr_compositor;
+struct wlr_data_device_manager;
 struct wlr_renderer;
 struct wlr_session;
 struct wlr_allocator;
@@ -32,7 +33,9 @@ struct wlr_cursor;
 struct wlr_xcursor_manager;
 struct wlr_output_manager_v1;
 struct wlr_xdg_output_manager_v1;
+struct wlr_subcompositor;
 struct wlr_xwayland;
+struct wlr_gamma_control_manager_v1;
 struct wlr_layer_shell_v1;
 struct wlr_pointer_constraints_v1;
 struct wlr_relative_pointer_manager_v1;
@@ -57,6 +60,8 @@ struct hsdwl_server
 	struct wlr_backend *backend;
 	struct wlr_session *session;
 	struct wlr_compositor *compositor;
+	struct wlr_subcompositor *subcompositor;
+	struct wlr_data_device_manager *data_device_manager;
 	struct wlr_renderer *renderer;
 	struct wlr_allocator *allocator;
 	struct hsdwl_config config;
@@ -102,6 +107,7 @@ struct hsdwl_server
 	struct hsdwl_view *focused_views[HSDWL_NUM_WORKSPACES];
 	size_t current_workspace;
 	struct wlr_xwayland *xwayland;
+	struct wlr_gamma_control_manager_v1 *gamma_control_manager;
 	struct wlr_output_manager_v1 *output_manager;
 	struct wlr_xdg_output_manager_v1 *xdg_output_manager;
 	struct wlr_layer_shell_v1 *layer_shell;

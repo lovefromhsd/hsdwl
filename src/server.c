@@ -42,6 +42,8 @@
 #include <wlr/types/wlr_ext_image_copy_capture_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_viewporter.h>
+#include <wlr/types/wlr_gamma_control_v1.h>
+#include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/log.h>
@@ -243,8 +245,10 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 
 	server->compositor = wlr_compositor_create(
 		server->display, 6, server->renderer);
-	wlr_subcompositor_create(server->display);
-	wlr_data_device_manager_create(server->display);
+	server->subcompositor =
+		wlr_subcompositor_create(server->display);
+	server->data_device_manager =
+		wlr_data_device_manager_create(server->display);
 
 	server->scene = wlr_scene_create();
 	if (!server->scene)
@@ -269,6 +273,18 @@ bool hsdwl_server_init(struct hsdwl_server *server)
 		wlr_log(WLR_ERROR, "output_manager_init failed");
 		return false;
 	}
+
+	server->gamma_control_manager =
+		wlr_gamma_control_manager_v1_create(server->display);
+	if (!server->gamma_control_manager)
+	{
+		wlr_log(WLR_ERROR,
+			"wlr_gamma_control_manager_v1_create failed");
+		return false;
+	}
+	server->gamma_control_manager->fallback_gamma_size = 256;
+	wlr_scene_set_gamma_control_manager_v1(server->scene,
+		server->gamma_control_manager);
 
 	server->xdg_output_manager =
 		wlr_xdg_output_manager_v1_create(
